@@ -118,17 +118,22 @@ export function injectButton(deps) {
   return btn
 }
 
-// Entry point — only runs when loaded as a content script (chrome present).
-if (typeof chrome !== 'undefined' && chrome.runtime?.sendMessage) {
-  const start = () =>
-    injectButton({
-      document,
-      location: window.location,
-      sendMessage: (msg) => chrome.runtime.sendMessage(msg),
-    })
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', start, { once: true })
-  } else {
-    start()
-  }
+// Entry point — only runs when loaded as a content script. The polyfill is
+// imported lazily (via dynamic import + .then) so test imports of this module
+// don't drag in extension APIs that don't exist in jsdom, and so we avoid
+// top-level await (not available in our build target).
+if (typeof globalThis.chrome !== 'undefined' || typeof globalThis.browser !== 'undefined') {
+  import('webextension-polyfill').then(({ default: browser }) => {
+    const start = () =>
+      injectButton({
+        document,
+        location: window.location,
+        sendMessage: (msg) => browser.runtime.sendMessage(msg),
+      })
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', start, { once: true })
+    } else {
+      start()
+    }
+  })
 }

@@ -6,6 +6,11 @@
   "license": "Unlicense",
   "scripts": {
     "build": "vite build",
+    "build:chrome": "BROWSER=chrome vite build",
+    "build:firefox": "BROWSER=firefox vite build",
+    "build:edge": "BROWSER=edge vite build",
+    "build:safari": "BROWSER=safari vite build",
+    "build:all": "npm run build:chrome && npm run build:firefox && npm run build:edge && npm run build:safari",
     "dev": "vite",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -19,6 +24,7 @@
     "vitest": "^4.1.5"
   },
   "dependencies": {
-    "linkedom": "^0.18.12"
+    "linkedom": "^0.18.12",
+    "webextension-polyfill": "^0.12.0"
   }
 }

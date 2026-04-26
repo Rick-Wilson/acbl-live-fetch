@@ -12,6 +12,12 @@
 
 5. **Resilience over cleverness.** ACBL Live's HTML could change. Parsers should validate their assumptions and throw clear errors when structure doesn't match expectations, rather than silently producing wrong output.
 
+6. **Cross-browser by default.** All extension entry points use the WebExtension `browser.*` namespace via `webextension-polyfill`, never `chrome.*` directly. The same source bundle runs on Chrome, Edge, Firefox, and Safari; the build emits per-browser artifacts that differ only in manifest details.
+
+7. **Event-driven, stateless service worker.** Handlers may run after the SW has been suspended and re-spun by the browser, so we never keep state in module-level variables. Anything that needs to survive between handler invocations lives in `browser.storage.local`. This keeps Firefox's event-page semantics and Safari's SW model honest.
+
+8. **Extension shell is separable from analysis logic.** The code in this repo is the _extension shell_ — extraction adapters, fetchers, content scripts, service worker. Analysis logic (the bridge-classroom analyzer) lives elsewhere and consumes the normalized envelope. A future plugin loader (likely GitHub-Pages-hosted) will let the analyzer side evolve without going through extension-store reviews; today the boundary is enforced by directory layout — see [§ Repo layout](#repo-layout) — so the loader can land cleanly later.
+
 ## Component contracts
 
 ### Adapter interface
@@ -136,8 +142,63 @@ The schema's top-level `tournaments: [...]` array (see [normalized-schema.md](no
 
 The currently implemented extractor only does the v1 single-session case (`extractSession` in `src/adapters/acbl-live/index.js`). Multi-session-per-event, then v2, then v3 are explicit follow-on phases.
 
+## Repo layout
+
+The boundary between **extension shell** and **analysis** is enforced by directory:
+
+```
+src/
+├── background.js              ┐
+├── background/handlers.js     │
+├── ui/                        │  Extension shell — chrome.* / browser.* APIs,
+│   ├── sourceContent.js       │  page injection, message routing. Runs in
+│   └── analyzerContent.js     │  the browser-extension sandbox.
+│
+├── adapters/                  ┐
+│   └── acbl-live/             │  Extraction — source-specific fetchers and
+│       ├── index.js           │  parsers that turn HTML/files into the
+│       ├── fetcher.js         │  normalized envelope. Pure JS; testable
+│       └── parsers/           │  in Node without a browser.
+│
+├── lib/                       ┐  Extraction utilities (rateLimiter,
+│   ├── parseError.js          │  parseError, etc.). Shared across adapters.
+│   └── rateLimiter.js         ┘
+│
+└── analysis/                  ─  Reserved. Analysis logic lives elsewhere
+   (does not exist yet)           today; will be added as a plugin loader.
+```
+
+**Rules:**
+
+- Code under `adapters/` and `lib/` must not import from `background/`, `ui/`, or any browser-extension API. It should run in plain Node tests.
+- Code under `background/` and `ui/` may import from `adapters/` and `lib/`.
+- Nothing imports from `analysis/` yet. When the plugin loader arrives, it will fetch analysis modules at runtime (likely from a GitHub-Pages bucket) and route normalized envelopes into them. The extraction code shouldn't change shape.
+
+## Cross-browser builds
+
+Same source, per-browser artifacts. Vite reads `BROWSER` from the environment (defaults to `chrome`) and emits to `dist/<browser>/`:
+
+```
+npm run build:chrome   → dist/chrome/
+npm run build:firefox  → dist/firefox/
+npm run build:edge     → dist/edge/
+npm run build:safari   → dist/safari/
+npm run build:all      → all four
+```
+
+The base `manifest.json` is Chrome-compatible (Manifest V3, `service_worker`). Per-browser manifest overrides live in `vite.config.js` under `PER_BROWSER_OVERRIDES`. They're empty today — every target uses the Chrome manifest unmodified — but the structure is in place for when Firefox / Safari quirks force divergence (e.g., Firefox MV3's `background.scripts` event-page form, Safari's `browser_specific_settings`).
+
+Source files use `browser.*` via `webextension-polyfill`:
+
+- The polyfill is a runtime dep (`dependencies`, not `devDependencies`).
+- Service worker imports it directly at the top.
+- Content scripts dynamic-import it inside the entry-point branch — keeps test imports of those modules clean (no extension-API dependency surfaces during `vitest run`).
+
+Today only Chrome is published. Firefox / Safari are local-smoke-test targets until they're explicitly QA'd.
+
 ## Future considerations
 
 - **Cross-section results** — board-detail only shows one section. To get all results across sections, need to fetch each section separately. Add when needed.
-- **Caching** — past sessions don't change. Cache parsed data by `(source, sanction, event_id, session_number)` in `chrome.storage.local`.
+- **Caching** — past sessions don't change. Cache parsed data by `(source, sanction, event_id, session_number)` in `browser.storage.local`.
 - **Progress UI** — for long extractions, show progress in the injected button or a popup.
+- **Plugin loader for analysis** — when the analyzer side is ready to ship inside the extension instead of as a separate website, it'll land under `src/analysis/` with a stable `(envelope) → renderable` interface. The shell stays untouched.
