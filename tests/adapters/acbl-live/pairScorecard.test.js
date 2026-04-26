@@ -13,10 +13,13 @@ const FIXTURE = resolve(
 const html = readFileSync(FIXTURE, 'utf8')
 const sc = parsePairScorecard(html)
 
-describe('parsePairScorecard (acbl-live, event 2604321 / session 2 / A-EW-4)', () => {
-  it('extracts event/session identifiers from the board-detail URLs', () => {
-    expect(sc.event_id).toBe('2604321')
-    expect(sc.session_id).toBe('2501-2')
+describe('parsePairScorecard (acbl-live, sanction 2604321 / event 2501 / session 2 / A-EW-4)', () => {
+  it('extracts sanction, event_id, and session_number from the board-detail URLs', () => {
+    // The first '/event/' URL segment is the tournament's sanction (ACBL term),
+    // not the event id — see docs/acbl-live-format.md.
+    expect(sc.sanction).toBe('2604321')
+    expect(sc.event_id).toBe('2501')
+    expect(sc.session_number).toBe(2)
   })
 
   it('extracts event_type and scoring', () => {
@@ -29,10 +32,12 @@ describe('parsePairScorecard (acbl-live, event 2604321 / session 2 / A-EW-4)', (
     expect(sc.time).toBe('14:30')
   })
 
-  it("extracts event_name from the embedded BBO 'Event:' field", () => {
-    // 'Palo Alto Bridge Sectional' lives only in the BBO handviewer URL's
-    // p={...} parameter — not in the visible page text.
-    expect(sc.event_name).toBe('Palo Alto Bridge Sectional')
+  it("extracts tournament_name from the embedded BBO 'Event:' field", () => {
+    // 'Palo Alto Bridge Sectional' is actually the tournament name (BBO's
+    // 'Event:' label here matches ACBL Live's own URL/labeling oddities).
+    // It lives only in the BBO handviewer URL's p={...} parameter, not in
+    // the visible page text.
+    expect(sc.tournament_name).toBe('Palo Alto Bridge Sectional')
   })
 
   describe('user_pair', () => {

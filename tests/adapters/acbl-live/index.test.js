@@ -86,7 +86,7 @@ describe('extractSession', () => {
     ).rejects.toThrow(/pair-scorecard/i)
   })
 
-  it('assembles a NormalizedSession from scorecard + board fixtures', async () => {
+  it('assembles a tournaments-tree envelope from scorecard + board fixtures', async () => {
     const fetchFn = vi.fn(async (url) => {
       if (url === SCORECARD_URL) return ok(scorecardHtml)
       if (url.includes('/board-detail/')) return ok(board1Html)
@@ -99,33 +99,47 @@ describe('extractSession', () => {
       now: () => fixedNow,
     })
 
-    // Top-level wrapper
-    expect(out.schema_version).toBe('1.0')
+    // Top-level wrapper (schema 2.0 — tournaments-tree).
+    expect(out.schema_version).toBe('2.0')
     expect(out.source).toBe('acbl-live')
     expect(out.fetched_at).toBe(fixedNow)
+    expect(out.tournaments).toHaveLength(1)
 
-    // Session metadata
-    expect(out.session.event_id).toBe('2604321')
-    expect(out.session.session_id).toBe('2501-2')
-    expect(out.session.event_type).toBe('open_pairs')
-    expect(out.session.event_name).toBe('Palo Alto Bridge Sectional')
-    expect(out.session.date).toBe('2026-04-25')
-    expect(out.session.time).toBe('14:30')
-    expect(out.session.scoring).toBe('matchpoints')
+    // Tournament
+    const tournament = out.tournaments[0]
+    expect(tournament.sanction).toBe('2604321')
+    expect(tournament.schedule_url).toBe(
+      'https://tournaments.acbl.org/schedule.php?sanction=2604321'
+    )
+    expect(tournament.name).toBe('Palo Alto Bridge Sectional')
+    expect(tournament.events).toHaveLength(1)
+
+    // Event
+    const event = tournament.events[0]
+    expect(event.event_id).toBe('2501')
+    expect(event.event_type).toBe('open_pairs')
+    expect(event.date).toBe('2026-04-25')
+    expect(event.scoring).toBe('matchpoints')
+    expect(event.sessions).toHaveLength(1)
+
+    // Session
+    const session = event.sessions[0]
+    expect(session.session_number).toBe(2)
+    expect(session.time).toBe('14:30')
+    expect(session.partial).toBe(false)
+    expect(session.warnings).toEqual([])
 
     // user_pair carried through from scorecard
-    expect(out.session.user_pair.pair_number).toBe(4)
-    expect(out.session.user_pair.direction).toBe('EW')
-    expect(out.session.user_pair.section).toBe('A')
-    expect(out.session.user_pair.session_score).toBeCloseTo(411.5, 5)
+    expect(session.user_pair.pair_number).toBe(4)
+    expect(session.user_pair.direction).toBe('EW')
+    expect(session.user_pair.section).toBe('A')
+    expect(session.user_pair.session_score).toBeCloseTo(411.5, 5)
 
     // 26 boards (every board parsed into the same shape since we mock with board-1 html)
-    expect(out.session.boards).toHaveLength(26)
-    expect(out.session.partial).toBe(false)
-    expect(out.session.warnings).toEqual([])
+    expect(session.boards).toHaveLength(26)
 
     // First board has the real board-1 data
-    const b1 = out.session.boards[0]
+    const b1 = session.boards[0]
     expect(b1.number).toBe(1)
     expect(b1.section).toBe('A')
     expect(b1.dealer).toBe('N')
@@ -148,10 +162,11 @@ describe('extractSession', () => {
     })
 
     const out = await extractSession(SCORECARD_URL, { fetch: fetchFn, maxRetries: 0 })
+    const session = out.tournaments[0].events[0].sessions[0]
 
-    expect(out.session.partial).toBe(true)
-    expect(out.session.boards).toHaveLength(25) // 26 - 1
-    expect(out.session.warnings.some((w) => /board 13/.test(w))).toBe(true)
+    expect(session.partial).toBe(true)
+    expect(session.boards).toHaveLength(25) // 26 - 1
+    expect(session.warnings.some((w) => /board 13/.test(w))).toBe(true)
   })
 
   it('marks partial=true when a board parse fails', async () => {
@@ -162,9 +177,10 @@ describe('extractSession', () => {
     })
 
     const out = await extractSession(SCORECARD_URL, { fetch: fetchFn })
+    const session = out.tournaments[0].events[0].sessions[0]
 
-    expect(out.session.partial).toBe(true)
-    expect(out.session.boards).toHaveLength(25)
-    expect(out.session.warnings.some((w) => /board 5.*parse failed/.test(w))).toBe(true)
+    expect(session.partial).toBe(true)
+    expect(session.boards).toHaveLength(25)
+    expect(session.warnings.some((w) => /board 5.*parse failed/.test(w))).toBe(true)
   })
 })

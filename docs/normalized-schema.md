@@ -6,38 +6,74 @@ Every adapter emits this JSON schema regardless of source. The downstream analyz
 
 ```jsonc
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "source": "acbl-live",          // "acbl-live" | "club-game-bws" | "bbo" | ...
   "fetched_at": "2026-04-26T18:30:00Z",
-  "session": Session
+  "tournaments": [Tournament, ...]
 }
 ```
+
+The `tournaments` array is a top-level container designed to accommodate three kinds of extractions without further schema changes:
+
+- **v1 — single event with all its sessions** (today). The user clicks "Analyze" on a pair scorecard. We emit one tournament containing one event containing one or more sessions.
+- **v2 — whole tournament** (future). Multiple events under one sanction, fetched from the tournament's schedule page.
+- **v3 — player history** (future). Multiple tournaments fetched from a player's history page.
+
+In every case the structure is the same nested tree; the only difference is the count of children at each level.
+
+## Tournament
+
+```jsonc
+{
+  "sanction": "2604321",          // ACBL sanction number — the canonical tournament identifier
+  "schedule_url": "https://tournaments.acbl.org/schedule.php?sanction=2604321",
+  "name": "Palo Alto Bridge Sectional",   // human-readable tournament name; null if not extractable
+  "events": [Event, ...]
+}
+```
+
+`sanction` is ACBL's official term for a sanctioned tournament (a unique number assigned by ACBL). The `schedule_url` is the canonical page listing all events held under that sanction.
+
+## Event
+
+```jsonc
+{
+  "event_id": "2501",             // identifier of one event within the tournament
+  "event_type": "open_pairs",     // "open_pairs" | "swiss_teams" | "knockout" | ...
+  "date": "2026-04-25",           // event date (ISO YYYY-MM-DD)
+  "scoring": "matchpoints",       // "matchpoints" | "imps" | "btw" | ...
+  "sessions": [Session, ...]
+}
+```
+
+`event_id` is unique within the tournament (sanction). One event has one or more sessions.
 
 ## Session
 
 ```jsonc
 {
-  "event_id": "2604321",          // source-specific event identifier
-  "session_id": "2501-2",         // source-specific session identifier
-  "event_name": "Palo Alto Bridge Sectional",
-  "event_type": "open_pairs",     // "open_pairs" | "swiss_teams" | "knockout" | ...
-  "date": "2026-04-25",
-  "time": "14:30",                // 24-hour local time
-  "scoring": "matchpoints",       // "matchpoints" | "imps" | "btw" | ...
-
-  "user_pair": {                  // present only if a pair scorecard initiated extraction
-    "section": "A",
-    "direction": "EW",            // "NS" | "EW"
-    "pair_number": 4,
-    "players": [Player, Player],
-    "session_score": 411.50,
-    "session_percentage": 60.30,
-    "carryover": 192.00
-  },
-
+  "session_number": 2,            // 1-based; unique within the event
+  "time": "14:30",                // 24-hour local start time
+  "user_pair": UserPair,          // present only if a pair scorecard initiated this session's extraction
   "boards": [Board, ...],
-  "partial": false,               // true if some boards failed to fetch
+  "partial": false,               // true if some boards failed to fetch or parse
   "warnings": []                  // human-readable issues encountered during extraction
+}
+```
+
+`session_number` alone identifies a session — no separate composite ID is needed because uniqueness is scoped under the event.
+
+## UserPair
+
+```jsonc
+{
+  "section": "A",
+  "direction": "EW",              // "NS" | "EW"
+  "pair_number": 4,
+  "players": [Player, Player],
+  "session_score": 411.50,
+  "session_percentage": 60.30,
+  "carryover": 192.00
 }
 ```
 
@@ -150,111 +186,132 @@ Always from N-S perspective. `+980` = N-S won 980. `-100` = N-S lost 100 (E-W ga
 
 `schema_version` follows semver-ish:
 
-- Patch (`1.0.1`): bugfixes, no field changes
-- Minor (`1.1`): new optional fields added
-- Major (`2.0`): breaking changes (renames, removals, type changes)
+- Patch (`2.0.1`): bugfixes, no field changes
+- Minor (`2.1`): new optional fields added
+- Major (`3.0`): breaking changes (renames, removals, type changes)
 
 The analyzer should validate `schema_version` and refuse data from unknown major versions.
+
+### What changed in 2.0
+
+- Top-level wrapper is now `tournaments: [Tournament, ...]` (an array of trees) rather than a single `session: Session`. This unifies "single session", "whole tournament", and "player history" extractions under one shape.
+- Renamed `event_id → sanction` at the top of the tree (it was always the tournament-level identifier; the URL-segment naming was misleading).
+- Added `tournament.schedule_url` (canonical link to the tournament's schedule page).
+- Added `tournament.name` for the human-readable tournament name (previously emitted as `event_name`).
+- Removed the composite `session_id` (e.g., `"2501-2"`); replaced with `session_number` (integer, unique under each event).
+- New intermediate `Event` node between tournament and session, holding `event_id`, `event_type`, `date`, and `scoring`.
 
 ## Worked example (truncated)
 
 ```json
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "source": "acbl-live",
   "fetched_at": "2026-04-26T18:30:00Z",
-  "session": {
-    "event_id": "2604321",
-    "session_id": "2501-2",
-    "event_name": "Palo Alto Bridge Sectional",
-    "event_type": "open_pairs",
-    "date": "2026-04-25",
-    "time": "14:30",
-    "scoring": "matchpoints",
-    "user_pair": {
-      "section": "A",
-      "direction": "EW",
-      "pair_number": 4,
-      "players": [
-        { "name": "Rick Wilson", "acbl_id": "3506177", "external_ids": {} },
-        { "name": "Andrew Rowberg", "acbl_id": null, "external_ids": {} }
-      ],
-      "session_score": 411.5,
-      "session_percentage": 60.3,
-      "carryover": 192.0
-    },
-    "boards": [
-      {
-        "number": 1,
-        "section": "A",
-        "dealer": "N",
-        "vulnerability": "None",
-        "deal": {
-          "N": {
-            "S": ["10", "9", "8", "7", "5"],
-            "H": ["9", "2"],
-            "D": ["A", "K", "Q"],
-            "C": ["Q", "10", "4"]
-          },
-          "E": {
-            "S": ["J", "4"],
-            "H": ["J", "7", "5"],
-            "D": ["10", "8", "6", "5", "2"],
-            "C": ["J", "7", "6"]
-          },
-          "S": {
-            "S": ["K", "Q", "6", "3", "2"],
-            "H": ["A", "Q", "10", "4"],
-            "D": [],
-            "C": ["A", "8", "3", "2"]
-          },
-          "W": {
-            "S": ["A"],
-            "H": ["K", "8", "6", "3"],
-            "D": ["J", "9", "7", "4", "3"],
-            "C": ["K", "9", "5"]
-          }
-        },
-        "double_dummy": {
-          "NS": { "C": 4, "D": 1, "H": 3, "S": 5, "NT": 5 },
-          "EW": { "C": 2, "D": 6, "H": 3, "S": 2, "NT": 2 }
-        },
-        "par": { "score": 460, "contract": "5NT", "declarer": "N" },
-        "results": [
-          {
-            "contract": "6S",
-            "declarer": "S",
-            "tricks": null,
-            "score": 980,
-            "matchpoints": 14,
-            "percentage": 100.0,
-            "imps": null,
-            "ns_pair": {
-              "number": 10,
-              "section": "A",
-              "players": [
-                { "name": "Weilong Shen", "acbl_id": "4833511", "external_ids": {} },
-                { "name": "Vasisht Ganesh", "acbl_id": "1880438", "external_ids": {} }
-              ]
-            },
-            "ew_pair": {
-              "number": 6,
-              "section": "A",
-              "players": [
-                { "name": "Arthur Mirin", "acbl_id": "1357719", "external_ids": {} },
-                { "name": "Padmini Sokkappa", "acbl_id": "7844212", "external_ids": {} }
-              ]
-            },
-            "auction": null,
-            "play": null,
-            "handviewer_url": "https://www.bridgebase.com/tools/handviewer.html?n=cq104dakqs109875h92&..."
-          }
-        ],
-        "user_result_index": 5
-      }
-    ],
-    "partial": false,
-    "warnings": []
-  }
+  "tournaments": [
+    {
+      "sanction": "2604321",
+      "schedule_url": "https://tournaments.acbl.org/schedule.php?sanction=2604321",
+      "name": "Palo Alto Bridge Sectional",
+      "events": [
+        {
+          "event_id": "2501",
+          "event_type": "open_pairs",
+          "date": "2026-04-25",
+          "scoring": "matchpoints",
+          "sessions": [
+            {
+              "session_number": 2,
+              "time": "14:30",
+              "user_pair": {
+                "section": "A",
+                "direction": "EW",
+                "pair_number": 4,
+                "players": [
+                  { "name": "Rick Wilson", "acbl_id": "3506177", "external_ids": {} },
+                  { "name": "Andrew Rowberg", "acbl_id": "5550076", "external_ids": {} }
+                ],
+                "session_score": 411.5,
+                "session_percentage": 60.3,
+                "carryover": 192.0
+              },
+              "boards": [
+                {
+                  "number": 1,
+                  "section": "A",
+                  "dealer": "N",
+                  "vulnerability": "None",
+                  "deal": {
+                    "N": {
+                      "S": ["10", "9", "8", "7", "5"],
+                      "H": ["9", "2"],
+                      "D": ["A", "K", "Q"],
+                      "C": ["Q", "10", "4"]
+                    },
+                    "E": {
+                      "S": ["J", "4"],
+                      "H": ["J", "7", "5"],
+                      "D": ["10", "8", "6", "5", "2"],
+                      "C": ["J", "7", "6"]
+                    },
+                    "S": {
+                      "S": ["K", "Q", "6", "3", "2"],
+                      "H": ["A", "Q", "10", "4"],
+                      "D": [],
+                      "C": ["A", "8", "3", "2"]
+                    },
+                    "W": {
+                      "S": ["A"],
+                      "H": ["K", "8", "6", "3"],
+                      "D": ["J", "9", "7", "4", "3"],
+                      "C": ["K", "9", "5"]
+                    }
+                  },
+                  "double_dummy": {
+                    "NS": { "C": 4, "D": 1, "H": 3, "S": 5, "NT": 5 },
+                    "EW": { "C": 2, "D": 6, "H": 3, "S": 2, "NT": 2 }
+                  },
+                  "par": { "score": 460, "contract": "5NT", "declarer": "NS" },
+                  "results": [
+                    {
+                      "contract": "6S",
+                      "declarer": "S",
+                      "tricks": null,
+                      "score": 980,
+                      "matchpoints": 14,
+                      "percentage": 100.0,
+                      "imps": null,
+                      "ns_pair": {
+                        "number": 10,
+                        "section": "A",
+                        "players": [
+                          { "name": "Weilong Shen", "acbl_id": "4833511", "external_ids": {} },
+                          { "name": "Vasisht Ganesh", "acbl_id": "1880438", "external_ids": {} }
+                        ]
+                      },
+                      "ew_pair": {
+                        "number": 6,
+                        "section": "A",
+                        "players": [
+                          { "name": "Arthur Mirin", "acbl_id": "1357719", "external_ids": {} },
+                          { "name": "Padmini Sokkappa", "acbl_id": "7844212", "external_ids": {} }
+                        ]
+                      },
+                      "auction": null,
+                      "play": null,
+                      "handviewer_url": "https://www.bridgebase.com/tools/handviewer.html?n=cq104dakqs109875h92&..."
+                    }
+                  ],
+                  "user_result_index": 5
+                }
+              ],
+              "partial": false,
+              "warnings": []
+            }
+          ]
+        }
+      ]
+    }
+  ]
 }
 ```

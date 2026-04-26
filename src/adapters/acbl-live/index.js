@@ -1,12 +1,13 @@
 // ACBL Live adapter facade. Implements the adapter interface from
-// docs/architecture.md and emits a NormalizedSession per
+// docs/architecture.md and emits the tournaments-tree envelope from
 // docs/normalized-schema.md.
 
 import { fetchSession } from './fetcher.js'
 import { parseBoardDetail } from './parsers/boardDetail.js'
 
-export const SCHEMA_VERSION = '1.0'
+export const SCHEMA_VERSION = '2.0'
 export const SOURCE_NAME = 'acbl-live'
+export const TOURNAMENT_SCHEDULE_BASE = 'https://tournaments.acbl.org/schedule.php'
 
 export function matchesUrl(url) {
   try {
@@ -84,23 +85,36 @@ export async function extractSession(url, options = {}) {
     boards.push(board)
   }
 
+  // v1: one tournament, one event, one session. The schema's tournaments[]
+  // top-level is designed to grow in v2 (whole tournament with multiple
+  // events) and v3 (player history, multiple tournaments) without changing
+  // shape — see docs/architecture.md § Extraction phases.
+  const session = {
+    session_number: scorecard.session_number,
+    time: scorecard.time,
+    user_pair: scorecard.user_pair,
+    boards,
+    partial,
+    warnings,
+  }
+  const event = {
+    event_id: scorecard.event_id,
+    event_type: scorecard.event_type,
+    date: scorecard.date,
+    scoring: scorecard.scoring,
+    sessions: [session],
+  }
+  const tournament = {
+    sanction: scorecard.sanction,
+    schedule_url: `${TOURNAMENT_SCHEDULE_BASE}?sanction=${scorecard.sanction}`,
+    name: scorecard.tournament_name,
+    events: [event],
+  }
   return {
     schema_version: SCHEMA_VERSION,
     source: SOURCE_NAME,
     fetched_at: now(),
-    session: {
-      event_id: scorecard.event_id,
-      session_id: scorecard.session_id,
-      event_name: scorecard.event_name,
-      event_type: scorecard.event_type,
-      date: scorecard.date,
-      time: scorecard.time,
-      scoring: scorecard.scoring,
-      user_pair: scorecard.user_pair,
-      boards,
-      partial,
-      warnings,
-    },
+    tournaments: [tournament],
   }
 }
 

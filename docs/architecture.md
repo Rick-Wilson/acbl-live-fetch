@@ -126,9 +126,18 @@ When ACBL Live changes their HTML, capture a new fixture, update the parser, the
 
 For the orchestrator, mock `fetch` to return canned fixtures.
 
+## Extraction phases (v1 / v2 / v3)
+
+The schema's top-level `tournaments: [...]` array (see [normalized-schema.md](normalized-schema.md)) is the same shape across three extraction modes; only the count of children at each level grows. This lets the analyzer side handle one schema regardless of which mode the user invoked.
+
+- **v1 — single event with all its sessions** (today's scope). Click "Analyze" on a pair scorecard. We emit one tournament containing one event containing one session — and, when the scorecard's session-select dropdown lists more, all sibling sessions for the same pair under that event.
+- **v2 — whole tournament**. Driven from the tournament's schedule page (`https://tournaments.acbl.org/schedule.php?sanction={sanction}`), which lists every event held under that sanction. The adapter discovers each event's pair-scorecard URLs and runs v1's session-fetch per event. Output: one tournament with multiple events.
+- **v3 — player history**. Driven from `live.acbl.org/player-results/{player_id}`. Each entry is a tournament the player attended; we walk to each one and run v2 (or v1 if only one event). Output: many tournaments.
+
+The currently implemented extractor only does the v1 single-session case (`extractSession` in `src/adapters/acbl-live/index.js`). Multi-session-per-event, then v2, then v3 are explicit follow-on phases.
+
 ## Future considerations
 
-- **Player history** (`/player-results/{id}`) — adds longitudinal data. Big in scope, save for Phase 3.
 - **Cross-section results** — board-detail only shows one section. To get all results across sections, need to fetch each section separately. Add when needed.
-- **Caching** — past sessions don't change. Cache parsed data by `(source, event_id, session_id)` in `chrome.storage.local`.
+- **Caching** — past sessions don't change. Cache parsed data by `(source, sanction, event_id, session_number)` in `chrome.storage.local`.
 - **Progress UI** — for long extractions, show progress in the injected button or a popup.

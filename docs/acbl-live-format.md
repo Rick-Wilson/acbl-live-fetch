@@ -16,8 +16,8 @@ The user's session cookie authenticates them automatically when the extension ru
 ## URL patterns
 
 ```
-https://live.acbl.org/event/{event_id}/{session_id}/{view_num}/scores/{section}/{direction}/{pair_num}
-https://live.acbl.org/event/{event_id}/{session_id}/{view_num}/board-detail/{section}?board_num={n}
+https://live.acbl.org/event/{sanction}/{event_id}/{session_number}/scores/{section}/{direction}/{pair_num}
+https://live.acbl.org/event/{sanction}/{event_id}/{session_number}/board-detail/{section}?board_num={n}
 https://live.acbl.org/player-results/{player_id}
 ```
 
@@ -29,7 +29,25 @@ Board detail:    https://live.acbl.org/event/2604321/2501/2/board-detail/A?board
 Player history:  https://live.acbl.org/player-results/3506177
 ```
 
-The `view_num` segment (the `2` in the examples) appears to correspond to the session number within the event (Session 1 vs Session 2). Confirm by experimentation.
+### URL-segment naming caveat
+
+The first segment after `/event/` is named "event" in the path, but it's actually the **tournament identifier** — ACBL's official term is **sanction**. The second segment is the actual event-within-tournament id, and the third is the session number. Annotated:
+
+```
+https://live.acbl.org/event/2604321/2501/2/scores/A/E/4
+                            │       │    │
+                            │       │    └─ session_number (1, 2, ...)
+                            │       └────── event_id (one event within the tournament)
+                            └────────────── sanction (the tournament; ACBL's canonical id)
+```
+
+A tournament's canonical landing page (listing all events under that sanction) lives on a separate ACBL host:
+
+```
+https://tournaments.acbl.org/schedule.php?sanction={sanction}
+```
+
+This naming gets confusing because ACBL Live's URL tree uses `event` for the tournament and elides the word "tournament" entirely. Code in this repo uses `sanction` / `event_id` / `session_number` consistently to match the schema; only the URL strings keep the misleading `event` segment.
 
 `direction` is `N` or `E` (for N-S pair or E-W pair). `section` is a single uppercase letter (`A`, `B`, ...).
 
@@ -217,7 +235,7 @@ Also embedded in the handviewer URL's `p={...}` parameter for redundancy. Either
 - `<h2>` text: `Open Pairs Scores` (or `Swiss Teams Scores`, etc.) — derive `event_type`.
 - `<h4>` carries the user pair: `<h4 title="3506177 | 5550076"><span class="orange-text">4EW</span> - Rick Wilson &amp; Andrew Rowberg</h4>`. The `title` attribute holds both ACBL IDs separated by `|`. The `<span>` text is `{pair_number}{direction}` (e.g., `4EW`, `1NS`).
 - The event _name_ ("Palo Alto Bridge Sectional") does **not** appear in the visible HTML. It's only present URL-encoded inside the BBO handviewer `p={...}` parameter on each row's Play link, in the form `<b>Event:</b> Palo%20Alto%20Bridge%20Sectional%2C ...`.
-- `event_id`, `session_id`, and `section` can be derived from any board-detail URL on the page (`/event/{event_id}/{session_id_a}/{session_id_b}/board-detail/{section}?board_num=N`).
+- `sanction`, `event_id`, `session_number`, and `section` can be derived from any board-detail URL on the page (`/event/{sanction}/{event_id}/{session_number}/board-detail/{section}?board_num=N`).
 
 ### Overall summary table (first `<table>`, not a tablesorter)
 

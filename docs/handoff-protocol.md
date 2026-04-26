@@ -92,16 +92,16 @@ sessionStorage['pending-session'] = JSON.stringify(<Envelope>)
 
 ## JSON envelope
 
-The value of both `chrome.storage.local`'s `envelope` field and `sessionStorage['pending-session']` is the `NormalizedSession` defined in [normalized-schema.md](normalized-schema.md):
+The value of both `chrome.storage.local`'s `envelope` field and `sessionStorage['pending-session']` is the tournaments-tree envelope defined in [normalized-schema.md](normalized-schema.md):
 
 ```jsonc
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "source": "acbl-live", // or "club-game-bws", future sources, etc.
   "fetched_at": "2026-04-26T18:30:00Z",
-  "session": {
-    /* per normalized-schema.md */
-  },
+  "tournaments": [
+    /* one or more Tournament trees, per normalized-schema.md */
+  ],
 }
 ```
 
@@ -188,7 +188,7 @@ function readPendingSession() {
 function isSupportedSchemaVersion(v) {
   if (typeof v !== 'string') return false
   // Accept the same major version. Reject unknown majors.
-  return v.startsWith('1.')
+  return v.startsWith('2.')
 }
 ```
 

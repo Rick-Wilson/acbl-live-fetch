@@ -22,19 +22,26 @@ const MONTHS = {
   dec: '12',
 }
 
-// Output shape (PairScorecard) — partial Session per docs/normalized-schema.md
-// plus a boards index the orchestrator uses to fetch board-detail pages.
+// Output shape (PairScorecard) — flat fields the orchestrator nests into the
+// tournaments/events/sessions tree from docs/normalized-schema.md.
 //
 // {
-//   event_id, session_id,
-//   event_type, event_name (nullable), date, time, scoring,
+//   sanction,                 // tournament identifier (the misleading first
+//                             //   "/event/" URL segment; ACBL's canonical id)
+//   event_id,                 // event-within-tournament identifier
+//   session_number,           // integer; unique within event
+//   event_type,
+//   tournament_name,          // human-readable, nullable
+//   date,
+//   time,
+//   scoring,
 //   user_pair: { section, direction, pair_number, players, session_score, session_percentage, carryover },
 //   boards: [
 //     {
 //       number, board_detail_url,
 //       user_result: {
 //         contract, declarer,
-//         score,           // signed, NS perspective (per schema)
+//         score,               // signed, NS perspective (per schema)
 //         matchpoints, percentage,
 //         opponents: { number, players }
 //       }
@@ -53,14 +60,15 @@ export function parsePairScorecard(htmlString) {
   const userPairHeader = parseUserPairHeader(doc)
   const overall = parseOverallTable(doc)
   const boards = parseBoardsTable(doc, userPairHeader.direction)
-  const { event_id, session_id, section } = deriveIdsFromBoardUrls(boards)
-  const event_name = parseEventNameFromBboUrl(doc)
+  const { sanction, event_id, session_number, section } = deriveIdsFromBoardUrls(boards)
+  const tournament_name = parseTournamentNameFromBboUrl(doc)
 
   return {
+    sanction,
     event_id,
-    session_id,
+    session_number,
     event_type,
-    event_name,
+    tournament_name,
     date,
     time,
     scoring,
@@ -431,30 +439,40 @@ function parseOpponentsCell(cell) {
 }
 
 function deriveIdsFromBoardUrls(boards) {
-  // Board-detail URLs look like: /event/{event_id}/{session_id_part1}/{session_id_part2}/board-detail/{section}?board_num={n}
+  // Board-detail URLs look like:
+  //   /event/{sanction}/{event_id}/{session_number}/board-detail/{section}?board_num={n}
+  // The first URL segment is named "event" but actually identifies the
+  // tournament (ACBL's term: sanction). See docs/acbl-live-format.md.
   const sample = boards.find((b) => b.board_detail_url)?.board_detail_url
   if (!sample) {
-    throw new ParseError('No board-detail URL available to derive event/session/section IDs')
+    throw new ParseError(
+      'No board-detail URL available to derive sanction / event_id / session_number / section'
+    )
   }
   const m = sample.match(/\/event\/(\d+)\/(\d+)\/(\d+)\/board-detail\/([A-Z]+)/)
   if (!m) {
-    throw new ParseError(`Could not parse event/session/section from URL: '${sample}'`)
+    throw new ParseError(
+      `Could not parse sanction/event_id/session_number/section from URL: '${sample}'`
+    )
   }
   return {
-    event_id: m[1],
-    session_id: `${m[2]}-${m[3]}`,
+    sanction: m[1],
+    event_id: m[2],
+    session_number: Number.parseInt(m[3], 10),
     section: m[4],
   }
 }
 
-function parseEventNameFromBboUrl(doc) {
+function parseTournamentNameFromBboUrl(doc) {
   // The BBO handviewer URL on each row embeds 'Event: <Name>, <Type>, <Date>'
-  // (URL-encoded) inside the p={...} parameter. Names like "Palo Alto Bridge
-  // Sectional" don't appear in the visible page text otherwise.
+  // (URL-encoded) inside the p={...} parameter. Despite the 'Event:' label,
+  // <Name> is actually the tournament name (e.g., 'Palo Alto Bridge Sectional')
+  // — same misleading nomenclature as the URL-segment naming. The tournament
+  // name doesn't appear in the visible page text otherwise.
   const link = doc.querySelector('a[href*="bridgebase.com/tools/handviewer.html"]')
   if (!link) return null
   const href = link.getAttribute('href') ?? ''
-  // The event name in the BBO 'p={...}' block is followed by '%2C' (URL-encoded
+  // The tournament name in the BBO 'p={...}' block is followed by '%2C' (URL-encoded
   // comma) before the next field. Capture up to that, the literal ',', or '<'.
   const m = href.match(/<b>Event:<\/b>\s*(.+?)(?:%2C|,|<)/i)
   if (!m) return null
