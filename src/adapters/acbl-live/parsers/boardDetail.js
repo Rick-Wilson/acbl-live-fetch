@@ -257,10 +257,23 @@ function parseResultRow(row, idx, section) {
   const playLink = cells[0].querySelector('a.btn-play')
   const handviewerUrl = playLink?.getAttribute('href') ?? null
 
-  const contract = parseContractCell(cells[1])
+  let contract = parseContractCell(cells[1])
   const declarerText = collapse(cells[2].textContent).toUpperCase()
-  const declarer = declarerText || null
-  const score = parseSignedInt(collapse(cells[3].textContent))
+  let declarer = declarerText || null
+  const scoreText = collapse(cells[3].textContent)
+  let score
+  // Passed-out boards: ACBL Live has been seen rendering 'PASS' in the score
+  // cell (rather than in the contract cell, where you'd expect it). Treat
+  // 'PASS' anywhere in the contract/score columns as a passed-out row, with
+  // contract="PASS", declarer=null, score=0 (the bridge convention for
+  // passed-out boards: nobody gains, nobody loses).
+  if (/^pass$/i.test(scoreText)) {
+    score = 0
+    if (contract === null) contract = 'PASS'
+    declarer = null
+  } else {
+    score = parseSignedInt(scoreText)
+  }
   const matchpoints = parseOptionalNumber(cells[4].textContent)
   const percentage = parseOptionalNumber(cells[5].textContent)
   const { ns_pair, ew_pair } = parsePairsCell(cells[6], section)

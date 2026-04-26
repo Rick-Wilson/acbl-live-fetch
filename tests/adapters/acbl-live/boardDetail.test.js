@@ -184,6 +184,28 @@ describe('parseBoardDetail "no result" rows (empty contract cell)', () => {
   })
 })
 
+describe('parseBoardDetail passed-out boards', () => {
+  // Confirmed in event 2604321 board 6. ACBL Live renders a passed-out board
+  // by putting 'PASS' in the score column (and leaving the contract /
+  // declarer cells empty), rather than the more obvious "PASS in contract
+  // column" we initially expected. Parser should normalize to contract="PASS",
+  // declarer=null, score=0 (bridge convention: nobody gains on a pass-out).
+  it("recognizes 'PASS' in the score cell as a passed-out row", () => {
+    const patched = html.replace(
+      '<td> 6<span class="spades symbol contract"></span></td>\n\t                            <!--<td>6S</td>-->\n\t                            <td>S</td>\n\t                            <!-- <td></td>  -->\n\t                            <td>980</td>',
+      '<td></td>\n\t                            <!--<td></td>-->\n\t                            <td></td>\n\t                            <!-- <td></td>  -->\n\t                            <td>PASS</td>'
+    )
+    expect(patched).not.toBe(html)
+    const result = parseBoardDetail(patched, { boardNumber: 1, section: 'A' })
+    const row = result.results[0]
+    expect(row.contract).toBe('PASS')
+    expect(row.declarer).toBeNull()
+    expect(row.score).toBe(0)
+    // Pair labels still parsed.
+    expect(row.ns_pair.number).toBe(10)
+  })
+})
+
 describe('parseBoardDetail error handling', () => {
   it('throws ParseError on empty input', () => {
     expect(() => parseBoardDetail('')).toThrow(ParseError)
