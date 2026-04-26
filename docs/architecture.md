@@ -81,21 +81,22 @@ Background responds:
 
 ## Handoff to bridge-classroom.com
 
-Two options to evaluate:
+The session payload is handed to the analyzer SPA via the user's own `window.sessionStorage`, bridged by a second content script. No server round-trip; data is ephemeral and per-tab.
 
-**Option A — POST + redirect:**
+Sketch of the flow:
 
-1. Background POSTs JSON to `https://bridge-classroom.com/api/import-session`
-2. Server stores it, returns an ID
-3. Background opens `https://bridge-classroom.com/analyze/{id}` in a new tab
+1. Service worker finishes extraction → generates a UUID → writes `{ <uuid>: NormalizedSession }` to `chrome.storage.local` under a `pending-sessions:` namespace.
+2. Service worker opens `https://bridge-classroom.com/analyze#sid=<uuid>` via `chrome.tabs.create`.
+3. The analyzer content script (`src/ui/analyzerContent.js`, `run_at: "document_start"`) reads the fragment, requests the session from the service worker via `chrome.runtime.sendMessage`, writes the JSON envelope to `window.sessionStorage` under the key `pending-session`, and the service worker deletes the `chrome.storage.local` entry.
+4. The SPA reads `sessionStorage.getItem('pending-session')` on mount, removes the key, and renders.
 
-**Option B — chrome.storage + externally_connectable:**
+Why this shape:
 
-1. Background writes data to `chrome.storage.local` under a known key
-2. Background opens `https://bridge-classroom.com/analyze` in a new tab
-3. The site's JS reads from extension storage via `chrome.runtime.sendMessage`
+- **No server endpoint required** — the analyzer is a static SPA today, and we don't want to provision storage/auth for ephemeral data.
+- **Same-origin** — `sessionStorage` is partitioned per origin and per tab, so the payload never crosses tabs and dies when the tab closes.
+- **Per-tab navigation works** — opening the same URL in a new tab triggers a fresh handoff via the new fragment.
 
-Option A is simpler. Option B avoids server-side storage if the user only wants ephemeral analysis. Start with A; add B later if needed.
+Full protocol — message types, JSON envelope shape, SPA contract, error states, and timing notes — in [docs/handoff-protocol.md](handoff-protocol.md).
 
 ## Rate limiting policy
 

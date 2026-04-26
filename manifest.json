@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "ACBL Live Fetch",
+  "version": "0.1.0",
+  "description": "One-click extraction of bridge results from supported sites for analysis at bridge-classroom.com.",
+  "minimum_chrome_version": "124",
+  "background": {
+    "service_worker": "src/background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://live.acbl.org/*"],
+      "js": ["src/ui/sourceContent.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://bridge-classroom.com/analyze*"],
+      "js": ["src/ui/analyzerContent.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "permissions": ["storage", "tabs"],
+  "host_permissions": ["https://live.acbl.org/*", "https://bridge-classroom.com/*"]
+}
