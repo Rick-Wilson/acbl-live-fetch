@@ -26,17 +26,18 @@ export function buildButton(doc) {
   btn.textContent = buttonStates().idle.label
   // Inline minimal styling so the button is recognizable without depending on
   // the host page's CSS. Kept small on purpose — a future polish pass can do
-  // proper theming.
+  // proper theming. No vertical margin so the button sits flush within the
+  // h1 row when wrapped in a flex container.
   Object.assign(btn.style, {
     display: 'inline-block',
     padding: '8px 14px',
-    margin: '12px 0',
     background: '#1a73e8',
     color: '#fff',
     border: 'none',
     borderRadius: '4px',
     fontSize: '14px',
     cursor: 'pointer',
+    flexShrink: '0',
   })
   return btn
 }
@@ -51,8 +52,10 @@ export function applyState(btn, state, message) {
 }
 
 export function pickAnchor(doc) {
-  // Place the button near the user-pair header; falls back to the document body.
-  return doc.querySelector('h4') ?? doc.body
+  // Prefer placing the button on the same row as the date <h1> (right-justified
+  // via a flex wrapper) so it doesn't add to the page's vertical height.
+  // Fall back to the user-pair <h4>, then the document body.
+  return doc.querySelector('h1') ?? doc.querySelector('h4') ?? doc.body
 }
 
 export async function handleClick(deps) {
@@ -92,6 +95,19 @@ export function injectButton(deps) {
   })
   if (anchor === doc.body) {
     anchor.appendChild(btn)
+  } else if (anchor.tagName === 'H1') {
+    // Wrap the h1 in a flex row and put the button on the right edge —
+    // same vertical row, no added page height.
+    const wrapper = doc.createElement('div')
+    Object.assign(wrapper.style, {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      gap: '12px',
+    })
+    anchor.parentElement.insertBefore(wrapper, anchor)
+    wrapper.appendChild(anchor)
+    wrapper.appendChild(btn)
   } else {
     anchor.insertAdjacentElement('afterend', btn)
   }

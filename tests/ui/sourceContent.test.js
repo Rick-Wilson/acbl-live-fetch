@@ -105,24 +105,41 @@ describe('handleClick', () => {
 })
 
 describe('injectButton', () => {
-  beforeEach(() => {
-    document.body.innerHTML = '<h4>4EW - Rick &amp; Andrew</h4>'
-  })
+  const SCORECARD_URL = 'https://live.acbl.org/event/1/2/3/scores/A/E/4'
 
-  it('injects after the h4 on a scorecard page', () => {
+  it('wraps the h1 in a flex row and right-justifies the button', () => {
+    document.body.innerHTML =
+      '<h1>Apr 25, 2026 - Saturday 2:30 pm</h1><h4>4EW - Rick &amp; Andrew</h4>'
     const btn = injectButton({
       document,
-      location: { href: 'https://live.acbl.org/event/1/2/3/scores/A/E/4' },
+      location: { href: SCORECARD_URL },
       sendMessage: vi.fn(),
     })
     expect(btn).not.toBeNull()
-    expect(document.getElementById('bridge-classroom-analyze-btn')).toBeTruthy()
-    // Inserted after the h4
+    const h1 = document.querySelector('h1')
+    const wrapper = h1.parentElement
+    expect(wrapper.tagName).toBe('DIV')
+    expect(wrapper.style.display).toBe('flex')
+    expect(wrapper.style.justifyContent).toBe('space-between')
+    // h1 still leftmost, button rightmost — no extra row added.
+    expect(wrapper.firstElementChild).toBe(h1)
+    expect(wrapper.lastElementChild).toBe(btn)
+  })
+
+  it('falls back to inserting after h4 when no h1 is present', () => {
+    document.body.innerHTML = '<h4>4EW - Rick &amp; Andrew</h4>'
+    const btn = injectButton({
+      document,
+      location: { href: SCORECARD_URL },
+      sendMessage: vi.fn(),
+    })
+    expect(btn).not.toBeNull()
     const h4 = document.querySelector('h4')
     expect(h4.nextElementSibling).toBe(btn)
   })
 
   it('does nothing on non-scorecard pages', () => {
+    document.body.innerHTML = '<h1>Apr 25</h1><h4>4EW</h4>'
     const btn = injectButton({
       document,
       location: { href: 'https://live.acbl.org/player-results/123' },
@@ -133,9 +150,10 @@ describe('injectButton', () => {
   })
 
   it('is idempotent — does not double-inject', () => {
+    document.body.innerHTML = '<h1>Apr 25</h1>'
     const opts = {
       document,
-      location: { href: 'https://live.acbl.org/event/1/2/3/scores/A/E/4' },
+      location: { href: SCORECARD_URL },
       sendMessage: vi.fn(),
     }
     const a = injectButton(opts)
