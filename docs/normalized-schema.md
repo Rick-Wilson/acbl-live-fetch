@@ -92,10 +92,10 @@ Ranks: `A`, `K`, `Q`, `J`, `10`, `9`, `8`, `7`, `6`, `5`, `4`, `3`, `2`. Always 
 
 ```jsonc
 {
-  "contract": "6S",               // canonical: digit + strain (C/D/H/S/NT) + optional X or XX
-  "declarer": "S",                // "N" | "E" | "S" | "W"
+  "contract": "6S",               // canonical: digit + strain (C/D/H/S/NT) + optional X or XX. "PASS" for passed-out boards. null for "no result" rows (sit-out / averaged / not played).
+  "declarer": "S",                // "N" | "E" | "S" | "W". null when contract is null or "PASS".
   "tricks": null,                 // tricks taken if available; null if only score is known
-  "score": 980,                   // signed integer; positive = NS gain
+  "score": 980,                   // signed integer; positive = NS gain. null when no result was recorded for this row.
 
   "matchpoints": 14,              // null if scoring is not matchpoints
   "percentage": 100.0,            // 0–100; null if not available

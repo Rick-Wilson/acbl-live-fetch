@@ -258,7 +258,8 @@ function parseResultRow(row, idx, section) {
   const handviewerUrl = playLink?.getAttribute('href') ?? null
 
   const contract = parseContractCell(cells[1])
-  const declarer = collapse(cells[2].textContent).toUpperCase()
+  const declarerText = collapse(cells[2].textContent).toUpperCase()
+  const declarer = declarerText || null
   const score = parseSignedInt(collapse(cells[3].textContent))
   const matchpoints = parseOptionalNumber(cells[4].textContent)
   const percentage = parseOptionalNumber(cells[5].textContent)
@@ -282,6 +283,12 @@ function parseResultRow(row, idx, section) {
 
 function parseContractCell(cell) {
   const text = collapse(decorateSuitSymbols(cell))
+  // Empty contract cell = "no result" row (sit-out, averaged score, board not
+  // played by this pair). Confirmed in event 2604321 board 6. The row still
+  // exists with a pair label and possibly matchpoints, but with no contract,
+  // declarer, or score. Return null so downstream callers know to skip it
+  // rather than throwing and losing the rest of the table.
+  if (!text) return null
   if (/^pass/i.test(text)) return 'PASS'
   // ACBL Live renders doubles as lowercase 'x'/'xx' on both board-detail and
   // scorecard pages (the format doc previously claimed board-detail used
@@ -297,6 +304,7 @@ function parseContractCell(cell) {
 
 function parseSignedInt(text) {
   const t = text.trim()
+  if (!t) return null // empty score cell (sit-out / averaged result)
   const n = Number.parseInt(t, 10)
   if (Number.isNaN(n)) {
     throw new ParseError(`Expected integer score, got '${text}'`)

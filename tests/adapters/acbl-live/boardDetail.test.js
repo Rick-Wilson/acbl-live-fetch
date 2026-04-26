@@ -160,6 +160,30 @@ describe('parseBoardDetail doubled contracts (lowercase x)', () => {
   })
 })
 
+describe('parseBoardDetail "no result" rows (empty contract cell)', () => {
+  // Confirmed in event 2604321 board 6 ('Could not parse contract from cell:
+  // ""'). One of the NS pairs sat out / had an averaged score / didn't play
+  // the board normally — the row exists with empty contract / declarer /
+  // score cells. Parser should tolerate this by emitting nulls rather than
+  // throwing, so the rest of the table still parses.
+  it('emits nulls for contract / declarer / score when the cells are empty', () => {
+    const patched = html.replace(
+      '<td> 6<span class="spades symbol contract"></span></td>\n\t                            <!--<td>6S</td>-->\n\t                            <td>S</td>\n\t                            <!-- <td></td>  -->\n\t                            <td>980</td>',
+      '<td></td>\n\t                            <!--<td></td>-->\n\t                            <td></td>\n\t                            <!-- <td></td>  -->\n\t                            <td></td>'
+    )
+    expect(patched).not.toBe(html) // sanity: replacement matched
+    const result = parseBoardDetail(patched, { boardNumber: 1, section: 'A' })
+    expect(result.results).toHaveLength(15)
+    const noResult = result.results[0]
+    expect(noResult.contract).toBeNull()
+    expect(noResult.declarer).toBeNull()
+    expect(noResult.score).toBeNull()
+    // The pair labels are still extracted so the row is identifiable.
+    expect(noResult.ns_pair.number).toBe(10)
+    expect(noResult.ew_pair.number).toBe(6)
+  })
+})
+
 describe('parseBoardDetail error handling', () => {
   it('throws ParseError on empty input', () => {
     expect(() => parseBoardDetail('')).toThrow(ParseError)
