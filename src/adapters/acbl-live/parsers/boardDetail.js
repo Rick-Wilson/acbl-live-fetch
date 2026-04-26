@@ -257,23 +257,37 @@ function pickSeat(tuples, idx) {
   return out
 }
 
+// Parse the ACBL par-score text into the schema's `par` array.
+//
+// Returns:
+//   - []                                  for passed-out / no-par boards
+//   - [{score, contract, declarer}]       for the normal one-contract case
+//
+// The schema's `par.declarer` is a required single seat (N/E/S/W), so we
+// canonicalize 'NS'/'EW' down to the first letter. We never emit a Par
+// object with `declarer: null` — if there's no real declarer (PASS), we
+// emit an empty array instead, since "no par contract" and "par contract
+// with no declarer" mean different things to the analyzer.
 function parsePar(text) {
   // Examples: '+460 5NT-NS', '-100 4SX-EW', '+50 3NT-N'
   const m = collapse(text).match(/([+-]?\d+)\s+(\d+(?:NT|[CDHS])(?:XX|X)?)\s*-?\s*(NS|EW|[NESW])?/)
   if (!m) {
-    if (/pass/i.test(text)) return { score: 0, contract: 'PASS', declarer: null }
+    // PASS / passed-out: no optimal contract → empty par array.
+    if (/pass/i.test(text)) return []
     throw new ParseError(`Could not parse par from: '${text}'`, { html: text })
   }
-  // Schema spec says par.declarer is a single seat (N/E/S/W). When ACBL writes
-  // 'NS' or 'EW' in the source (because either seat on that side can declare
-  // the par contract for the same result), pick the first letter as canonical.
   const rawDeclarer = m[3] ?? null
-  const declarer = rawDeclarer == null ? null : rawDeclarer[0]
-  return {
-    score: Number.parseInt(m[1], 10),
-    contract: m[2],
-    declarer,
+  if (rawDeclarer == null) {
+    // No declarer — treat the same as PASS, since the schema requires one.
+    return []
   }
+  return [
+    {
+      score: Number.parseInt(m[1], 10),
+      contract: m[2],
+      declarer: rawDeclarer[0],
+    },
+  ]
 }
 
 function parseResults(doc, section) {

@@ -63,12 +63,13 @@ describe('parseBoardDetail (acbl-live, event 2604321 / board 1)', () => {
   })
 
   it('extracts par: 460 for 5NT, declarer collapsed to a single seat', () => {
-    expect(board.par.score).toBe(460)
-    expect(board.par.contract).toBe('5NT')
+    expect(board.par).toHaveLength(1)
+    expect(board.par[0].score).toBe(460)
+    expect(board.par[0].contract).toBe('5NT')
     // ACBL renders par with a side suffix ('5NT-NS') because either seat on
     // that side can declare the par contract. The parser canonicalizes to the
     // first seat to match the schema's single-seat declarer field.
-    expect(board.par.declarer).toBe('N')
+    expect(board.par[0].declarer).toBe('N')
   })
 
   it('extracts per-declarer double-dummy makes as raw tricks', () => {
@@ -85,9 +86,9 @@ describe('parseBoardDetail (acbl-live, event 2604321 / board 1)', () => {
     expect(board.double_dummy.W).toEqual({ C: 8, D: 12, H: 9, S: 8, NT: 8 })
 
     // Self-consistency: par 5NT-NS = 11 tricks, and N.NT == S.NT == 11.
-    expect(board.par.score).toBe(460)
-    expect(board.par.contract).toBe('5NT')
-    expect(board.double_dummy[board.par.declarer].NT).toBeGreaterThanOrEqual(11)
+    expect(board.par[0].score).toBe(460)
+    expect(board.par[0].contract).toBe('5NT')
+    expect(board.double_dummy[board.par[0].declarer].NT).toBeGreaterThanOrEqual(11)
   })
 
   it("includes the user's row (Rick Wilson & Andrew Rowberg, EW pair 4)", () => {

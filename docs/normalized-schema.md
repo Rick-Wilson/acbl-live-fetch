@@ -114,11 +114,19 @@ In every case the structure is the same nested tree; the only difference is the 
     "W": { "C": 8, "D": 12, "H": 9, "S": 8, "NT": 8 }
   },
 
-  "par": {
-    "score": 460,                 // signed integer; positive = NS gain
-    "contract": "5NT",            // canonical contract string
-    "declarer": "N"               // best declarer for par
-  },
+  "par": [
+    // Array of par contracts (typically one entry, more when ties exist).
+    // Empty `[]` when there is no par data (e.g. passed-out boards).
+    // All entries share the same `score` by definition.
+    {
+      "score": 460,               // signed integer; positive = NS gain
+      "contract": "5NT",          // canonical contract string
+      "declarer": "N"             // best declarer for par ("N"/"E"/"S"/"W")
+    }
+    // Tied example:
+    //   { "score": 420, "contract": "4H", "declarer": "N" },
+    //   { "score": 420, "contract": "4S", "declarer": "S" }
+  ],
 
   "results": [Result, ...],       // every table that played this board
   "user_result_index": 5          // index into `results` for the user's row (or null)
@@ -279,7 +287,7 @@ The analyzer should validate `schema_version` and refuse data from unknown major
                     "E": { "C": 8, "D": 12, "H": 9, "S": 8, "NT": 8 },
                     "W": { "C": 8, "D": 12, "H": 9, "S": 8, "NT": 8 }
                   },
-                  "par": { "score": 460, "contract": "5NT", "declarer": "N" },
+                  "par": [{ "score": 460, "contract": "5NT", "declarer": "N" }],
                   "results": [
                     {
                       "contract": "6S",
