@@ -137,6 +137,29 @@ describe('parseBoardDetail (acbl-live, event 2604321 / board 1)', () => {
   })
 })
 
+describe('parseBoardDetail doubled contracts (lowercase x)', () => {
+  // ACBL Live renders doubles in lowercase on board-detail pages too —
+  // confirmed in the wild on event 2604321 board 3, which had a '2Dx' result
+  // row. We don't have a fixture for that board, so monkey-patch the
+  // existing fixture to inject a doubled contract into the first row.
+  it("normalizes 'x' / 'xx' to uppercase X / XX", () => {
+    const patched = html.replace(
+      '<td> 6<span class="spades symbol contract"></span></td>',
+      '<td> 2<span class="diams symbol contract"></span>x</td>'
+    )
+    expect(patched).not.toBe(html) // sanity: replacement matched
+    const result = parseBoardDetail(patched, { boardNumber: 1, section: 'A' })
+    expect(result.results[0].contract).toBe('2DX')
+
+    const patchedXX = html.replace(
+      '<td> 6<span class="spades symbol contract"></span></td>',
+      '<td> 4<span class="hearts symbol contract"></span>xx</td>'
+    )
+    const result2 = parseBoardDetail(patchedXX, { boardNumber: 1, section: 'A' })
+    expect(result2.results[0].contract).toBe('4HXX')
+  })
+})
+
 describe('parseBoardDetail error handling', () => {
   it('throws ParseError on empty input', () => {
     expect(() => parseBoardDetail('')).toThrow(ParseError)

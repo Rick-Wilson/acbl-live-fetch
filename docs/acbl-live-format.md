@@ -147,11 +147,14 @@ Header columns (in order):
 
 #### Contract field parsing
 
-Three forms encountered:
+Forms encountered:
 
 - `6<span class="spades symbol contract"></span>` → `6S`
 - `3NT` → `3NT`
-- `4<span class="hearts symbol contract"></span>X` → `4HX` (doubled — confirm format when first encountered)
+- `2<span class="diams symbol contract"></span>x` → `2DX` (doubled — **lowercase `x`**, confirmed in event 2604321 board 3)
+- Redoubled would be `xx` (not yet observed in the wild but handled symmetrically).
+
+Note: both board-detail and scorecard pages render doubles in lowercase, despite the column header capitalization; parsers normalize to uppercase `X`/`XX`.
 
 Strategy: for each cell, replace suit `<span>`s with their letter equivalent (`spades` → `S`, `hearts` → `H`, `diams` → `D`, `clubs` → `C`), then collapse whitespace. Result is a normalized contract string.
 

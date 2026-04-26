@@ -283,11 +283,16 @@ function parseResultRow(row, idx, section) {
 function parseContractCell(cell) {
   const text = collapse(decorateSuitSymbols(cell))
   if (/^pass/i.test(text)) return 'PASS'
-  const m = text.match(/^(\d)\s*(NT|[CDHS])\s*(XX|X)?$/)
+  // ACBL Live renders doubles as lowercase 'x'/'xx' on both board-detail and
+  // scorecard pages (the format doc previously claimed board-detail used
+  // uppercase — that was wrong, confirmed against board-3 of event 2604321).
+  // Match either case and normalize the output to uppercase X/XX.
+  const m = text.match(/^(\d)\s*(NT|[CDHS])\s*(XX|X|xx|x)?$/)
   if (!m) {
     throw new ParseError(`Could not parse contract from cell: '${text}'`, { html: cell.outerHTML })
   }
-  return `${m[1]}${m[2]}${m[3] ?? ''}`
+  const dbl = m[3] ? m[3].toUpperCase() : ''
+  return `${m[1]}${m[2]}${dbl}`
 }
 
 function parseSignedInt(text) {
