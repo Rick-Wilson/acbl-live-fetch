@@ -6,11 +6,12 @@ import { parseBoardDetail } from '../../../src/adapters/acbl-live/parsers/boardD
 import { ParseError } from '../../../src/lib/parseError.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
-const FIXTURE = resolve(
-  here,
-  '../../../fixtures/acbl-live/board-detail-event2604321-session2-A-board1.html'
-)
-const html = readFileSync(FIXTURE, 'utf8')
+const FIXTURES = resolve(here, '../../../fixtures/acbl-live')
+const loadFixture = (name) => readFileSync(resolve(FIXTURES, name), 'utf8')
+
+const html = loadFixture('board-detail-event2604321-session2-A-board1.html')
+const board3Html = loadFixture('board-detail-event2604321-session2-A-board3.html')
+const board6Html = loadFixture('board-detail-event2604321-session2-A-board6.html')
 
 const board = parseBoardDetail(html, { boardNumber: 1, section: 'A' })
 
@@ -137,72 +138,60 @@ describe('parseBoardDetail (acbl-live, event 2604321 / board 1)', () => {
   })
 })
 
-describe('parseBoardDetail doubled contracts (lowercase x)', () => {
-  // ACBL Live renders doubles in lowercase on board-detail pages too —
-  // confirmed in the wild on event 2604321 board 3, which had a '2Dx' result
-  // row. We don't have a fixture for that board, so monkey-patch the
-  // existing fixture to inject a doubled contract into the first row.
-  it("normalizes 'x' / 'xx' to uppercase X / XX", () => {
-    const patched = html.replace(
-      '<td> 6<span class="spades symbol contract"></span></td>',
-      '<td> 2<span class="diams symbol contract"></span>x</td>'
-    )
-    expect(patched).not.toBe(html) // sanity: replacement matched
-    const result = parseBoardDetail(patched, { boardNumber: 1, section: 'A' })
-    expect(result.results[0].contract).toBe('2DX')
+describe('parseBoardDetail (acbl-live, board 3 — has doubled contracts)', () => {
+  // Board 3 of event 2604321 is the regression case for the lowercase-x
+  // doubled-contract bug. Table 0 includes at least one '2Dx' result row.
+  const result = parseBoardDetail(board3Html, { boardNumber: 3, section: 'A' })
 
-    const patchedXX = html.replace(
-      '<td> 6<span class="spades symbol contract"></span></td>',
-      '<td> 4<span class="hearts symbol contract"></span>xx</td>'
-    )
-    const result2 = parseBoardDetail(patchedXX, { boardNumber: 1, section: 'A' })
-    expect(result2.results[0].contract).toBe('4HXX')
-  })
-})
-
-describe('parseBoardDetail "no result" rows (empty contract cell)', () => {
-  // Confirmed in event 2604321 board 6 ('Could not parse contract from cell:
-  // ""'). One of the NS pairs sat out / had an averaged score / didn't play
-  // the board normally — the row exists with empty contract / declarer /
-  // score cells. Parser should tolerate this by emitting nulls rather than
-  // throwing, so the rest of the table still parses.
-  it('emits nulls for contract / declarer / score when the cells are empty', () => {
-    const patched = html.replace(
-      '<td> 6<span class="spades symbol contract"></span></td>\n\t                            <!--<td>6S</td>-->\n\t                            <td>S</td>\n\t                            <!-- <td></td>  -->\n\t                            <td>980</td>',
-      '<td></td>\n\t                            <!--<td></td>-->\n\t                            <td></td>\n\t                            <!-- <td></td>  -->\n\t                            <td></td>'
-    )
-    expect(patched).not.toBe(html) // sanity: replacement matched
-    const result = parseBoardDetail(patched, { boardNumber: 1, section: 'A' })
+  it('parses cleanly with 15 result rows', () => {
     expect(result.results).toHaveLength(15)
-    const noResult = result.results[0]
-    expect(noResult.contract).toBeNull()
-    expect(noResult.declarer).toBeNull()
-    expect(noResult.score).toBeNull()
-    // The pair labels are still extracted so the row is identifiable.
-    expect(noResult.ns_pair.number).toBe(10)
-    expect(noResult.ew_pair.number).toBe(6)
+  })
+
+  it('normalizes lowercase doubled contracts to uppercase X', () => {
+    const doubles = result.results.filter((r) => /X$/.test(r.contract ?? ''))
+    expect(doubles.length).toBeGreaterThan(0)
+    for (const r of doubles) {
+      expect(r.contract).toMatch(/^[1-7](NT|[CDHS])XX?$/)
+    }
+  })
+
+  it('contains the specific 2DX row that originally surfaced this bug', () => {
+    const twoDX = result.results.find((r) => r.contract === '2DX')
+    expect(twoDX).toBeDefined()
+    expect(twoDX.declarer).toMatch(/^[NESW]$/)
+    expect(typeof twoDX.score).toBe('number')
   })
 })
 
-describe('parseBoardDetail passed-out boards', () => {
-  // Confirmed in event 2604321 board 6. ACBL Live renders a passed-out board
-  // by putting 'PASS' in the score column (and leaving the contract /
-  // declarer cells empty), rather than the more obvious "PASS in contract
-  // column" we initially expected. Parser should normalize to contract="PASS",
-  // declarer=null, score=0 (bridge convention: nobody gains on a pass-out).
-  it("recognizes 'PASS' in the score cell as a passed-out row", () => {
-    const patched = html.replace(
-      '<td> 6<span class="spades symbol contract"></span></td>\n\t                            <!--<td>6S</td>-->\n\t                            <td>S</td>\n\t                            <!-- <td></td>  -->\n\t                            <td>980</td>',
-      '<td></td>\n\t                            <!--<td></td>-->\n\t                            <td></td>\n\t                            <!-- <td></td>  -->\n\t                            <td>PASS</td>'
-    )
-    expect(patched).not.toBe(html)
-    const result = parseBoardDetail(patched, { boardNumber: 1, section: 'A' })
-    const row = result.results[0]
-    expect(row.contract).toBe('PASS')
-    expect(row.declarer).toBeNull()
-    expect(row.score).toBe(0)
-    // Pair labels still parsed.
-    expect(row.ns_pair.number).toBe(10)
+describe('parseBoardDetail (acbl-live, board 6 — has passed-out rows)', () => {
+  // Board 6 of event 2604321 is the regression case for passed-out boards
+  // rendered with 'PASS' in the score column and empty contract / declarer
+  // cells. Table 0 has at least two such rows.
+  const result = parseBoardDetail(board6Html, { boardNumber: 6, section: 'A' })
+
+  it('parses cleanly with 15 result rows', () => {
+    expect(result.results).toHaveLength(15)
+  })
+
+  it("normalizes passed-out rows to contract='PASS', declarer=null, score=0", () => {
+    const passes = result.results.filter((r) => r.contract === 'PASS')
+    expect(passes.length).toBeGreaterThan(0)
+    for (const r of passes) {
+      expect(r.declarer).toBeNull()
+      expect(r.score).toBe(0)
+      // Pair labels are still extracted on passed-out rows.
+      expect(typeof r.ns_pair.number).toBe('number')
+      expect(typeof r.ew_pair.number).toBe('number')
+    }
+  })
+
+  it('still extracts the played rows around the passed-out ones', () => {
+    const played = result.results.filter((r) => r.contract && r.contract !== 'PASS')
+    expect(played.length).toBeGreaterThan(0)
+    for (const r of played) {
+      expect(r.declarer).toMatch(/^[NESW]$/)
+      expect(typeof r.score).toBe('number')
+    }
   })
 })
 

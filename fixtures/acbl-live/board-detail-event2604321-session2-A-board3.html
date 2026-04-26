@@ -1,0 +1,692 @@
+<html lang="en"><head>
+	<title>ACBL Live</title>
+	<meta charset="utf-8">
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="viewport" content="width=device-width, maximum-scale=1.0, initial-scale=1.0">
+	<!-- Le styles -->
+        <style type="text/css">@font-face {font-family:Quicksand;font-style:normal;font-weight:400;src:url(/cf-fonts/s/quicksand/5.0.16/vietnamese/400/normal.woff2);unicode-range:U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB;font-display:swap;}@font-face {font-family:Quicksand;font-style:normal;font-weight:400;src:url(/cf-fonts/s/quicksand/5.0.16/latin-ext/400/normal.woff2);unicode-range:U+0100-02AF,U+0304,U+0308,U+0329,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20CF,U+2113,U+2C60-2C7F,U+A720-A7FF;font-display:swap;}@font-face {font-family:Quicksand;font-style:normal;font-weight:400;src:url(/cf-fonts/s/quicksand/5.0.16/latin/400/normal.woff2);unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;font-display:swap;}@font-face {font-family:Quicksand;font-style:normal;font-weight:300;src:url(/cf-fonts/s/quicksand/5.0.16/vietnamese/300/normal.woff2);unicode-range:U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB;font-display:swap;}@font-face {font-family:Quicksand;font-style:normal;font-weight:300;src:url(/cf-fonts/s/quicksand/5.0.16/latin-ext/300/normal.woff2);unicode-range:U+0100-02AF,U+0304,U+0308,U+0329,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20CF,U+2113,U+2C60-2C7F,U+A720-A7FF;font-display:swap;}@font-face {font-family:Quicksand;font-style:normal;font-weight:300;src:url(/cf-fonts/s/quicksand/5.0.16/latin/300/normal.woff2);unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;font-display:swap;}@font-face {font-family:Quicksand;font-style:normal;font-weight:700;src:url(/cf-fonts/s/quicksand/5.0.16/latin/700/normal.woff2);unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;font-display:swap;}@font-face {font-family:Quicksand;font-style:normal;font-weight:700;src:url(/cf-fonts/s/quicksand/5.0.16/latin-ext/700/normal.woff2);unicode-range:U+0100-02AF,U+0304,U+0308,U+0329,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20CF,U+2113,U+2C60-2C7F,U+A720-A7FF;font-display:swap;}@font-face {font-family:Quicksand;font-style:normal;font-weight:700;src:url(/cf-fonts/s/quicksand/5.0.16/vietnamese/700/normal.woff2);unicode-range:U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB;font-display:swap;}</style>
+		<link href="//fonts.googleapis.com/css?family=Lato:400,300,500,600,700,800" rel="stylesheet" type="text/css">
+
+        <link href="/sb-admin-2/bower_components/bootstrap/dist/css/bootstrap.min.css" media="screen" rel="stylesheet" type="text/css">
+<link href="/favicon.ico" rel="shortcut icon" type="favicon.ico">
+<link href="/css/custom.style.css" media="screen" rel="stylesheet" type="text/css">
+<link href="/css/style-live.css?v=1" media="screen" rel="stylesheet" type="text/css">
+<link href="/sb-admin-2/bower_components/datatables-responsive/css/dataTables.responsive.css" media="screen" rel="stylesheet" type="text/css">
+<link href="/sb-admin-2/bower_components/datatables-plugins/integration/bootstrap/3/dataTables.bootstrap.css" media="screen" rel="stylesheet" type="text/css">
+<link href="/css/game-results.new.css?v=11" media="screen" rel="stylesheet" type="text/css">
+<link href="/css/bootstrap-datetimepicker.css" media="screen" rel="stylesheet" type="text/css">
+<link href="/css/jquery.tablesorter.css" media="screen" rel="stylesheet" type="text/css">        
+        <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+	    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+	    <!--[if lt IE 9]>
+	      <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+	      <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
+	      <style>
+			  input[type="password"] {
+			    font-family: Arial;
+			  }
+		  </style>
+	    <![endif]-->
+
+	<!-- Scripts -->
+        <script type="text/javascript" async="" src="https://www.google-analytics.com/analytics.js"></script><script type="text/javascript" async="" src="https://www.googletagmanager.com/gtag/js?id=G-4Y0YX27SQ2&amp;cx=c&amp;gtm=4e64m2h1"></script><script type="text/javascript" src="/js/jquery.min.js"></script>
+<script type="text/javascript" src="/js/handlebars.js"></script>
+<script type="text/javascript" src="/js/typeahead-0.10.5.js"></script>
+<script type="text/javascript" src="/js/bootstrap.min.js"></script>
+<script type="text/javascript" src="/js/bootstrap-filestyle.js"></script>
+<script type="text/javascript" src="/sb-admin-2/bower_components/datatables/media/js/jquery.dataTables.min.js"></script>
+<script type="text/javascript" src="/sb-admin-2/bower_components/datatables-plugins/integration/bootstrap/3/dataTables.bootstrap.min.js"></script>
+<script type="text/javascript" src="/sb-admin-2/bower_components/datatables-responsive/js/dataTables.responsive.js"></script>
+<script type="text/javascript" src="/js/jquery.dataTables-natural.js"></script>
+<script type="text/javascript" src="/js/jquery.form.js"></script>
+<script type="text/javascript" src="/js/jquery.inputmask.js"></script>
+<!--[if lt IE 9]><script type="text/javascript" src="/js/html5.js"></script><![endif]-->
+<script type="text/javascript" src="/js/game-results/board-detail.js?v=1"></script>
+<script type="text/javascript" src="/js/game-results/component/session-select.js"></script>
+<script type="text/javascript" src="/js/moment.js"></script>
+<script type="text/javascript" src="/js/bootstrap-datetimepicker.js"></script>
+<script type="text/javascript" src="/js/jquery.tablesorter.min.js"></script>
+<script type="text/javascript" src="/js/game-results/module.js?v=2"></script>
+<!-- Global site tag (gtag.js) - Google Analytics -->
+<script async="" src="https://www.googletagmanager.com/gtag/js?id=UA-48980214-2" type="text/javascript"></script>
+<script type="text/javascript">
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'UA-48980214-2');
+</script>
+
+	<style>
+	<!-- 
+	body {
+		background: none;
+	}
+	.site-header {
+		background-color: #fff;
+		border-bottom: none;
+	}
+	.main-content {
+		background: none;
+		margin-top: 0;
+		margin-bottom: 50px;
+	}
+	.main-content-inner {
+		padding: 0;
+		background: none;
+		border: 0;
+		width: 100%;
+	}
+	#sidebar-img, #view-content {
+		min-height: 500px;
+	}
+	#view-content {
+		padding: 10px;
+	}
+	
+	@media(max-width: 970px)
+	{
+		#sidebar-img {
+			display: none;
+		}
+		.container {
+			width: 100% !important;
+		}
+	}
+	@media(max-width: 770px)
+	{
+		#results-logo {
+			text-align: center;
+		}
+		#results-logo img {
+			display: inherit;
+		}
+		#logo {
+			display: none;
+		}
+	}
+	-->
+	</style>
+</head>
+
+<body class="page">
+
+<div id="masthead" class="site-header" role="banner">
+	<div class="container-fullwidth acbl">
+		<div class="row">
+			<div class="site-header-inner col-sm-12">
+				<div class="row" style="box-shadow: 2px 5px 4px;">
+					<div id="results-logo" class="col-sm-6">
+                       <a href="https://live.acbl.org" rel="results-home"><img src="/images/ACBL_Live_Logo_orange.png" alt="ACBL Results"></a>
+					</div><!-- end #logo -->
+					<div id="logo" class="col-sm-6">
+						<div class="text-right">
+                       		<a href="https://www.acbl.org" rel="home"><img src="/images/logox2-rebranded.png" alt="American Contract Bridge Leage" height="60" width="175"></a>
+                       </div>
+					</div><!-- end #logo -->
+			 	</div><!-- end row -->
+			</div>
+		</div>
+	</div><!-- .container -->
+
+</div>
+
+<div class="main-content" id="main-content">
+	<div class="content_inner">
+		<div class="container acbl">
+			<div class="row">
+				<div class="main-content-inner">
+					<div id="view-content" class="col-sm-12">
+					<!--<div class="alert alert-warning alert-dismissible" role="alert">
+  <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+  <strong>Notice:</strong> ACBL LIVE and MyACBL were temporarily unavailable this morning due to an outage with our hosting provider, Amazon Web Services. We apologize for any inconvenience this may have caused.
+</div>-->
+
+												<input type="hidden" id="primaryPlayerACBL" value="3506177">
+						<input type="hidden" id="primaryPlayerFirst" value="">
+						<input type="hidden" id="primaryPlayerLast" value="">
+	            		<div id="results-menu">
+<nav class="navbar navbar-default">
+  <div class="container-fluid">
+    <!-- Brand and toggle get grouped for better mobile display -->
+    <div class="navbar-header">
+      <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#results-menu-items" aria-expanded="false">
+        <span class="sr-only">Toggle navigation</span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+    </div>
+    <!-- Collect the nav links, forms, and other content for toggling -->
+    <div class="collapse navbar-collapse" id="results-menu-items">
+      <ul class="nav navbar-nav">
+        <li><a href="/" class="home"><span class="glyphicon glyphicon-home"></span></a></li>
+        <li><a class="" href="/my-results">My<br>Results</a></li>
+                        	<li><a target="_blank" href="https://tournaments.acbl.org/schedule.php?sanction=2604321">Tournament<br>Schedule</a></li>
+                        	<li><a class="" href="/bulletins/2604321">Daily<br>Bulletins</a></li>
+                            <li><a class="" href="/fr-bulletins/2604321">Fast Results<br>Bulletins</a></li>
+                            <li><a class="" href="/tournament-overalls/2604321">Tournament<br>Overalls</a></li>
+                            <li><a class="" href="/masterpoint-winners/2604321">Masterpoint<br>Winners</a></li>
+                        	<li><a class="" href="/events/2604321">Tournament<br>Events</a></li>
+                
+                                                         <li><a class="" href="/event/2604321/2501/2/summary">Event<br>Summary</a></li>
+                              <li><a class="" href="/event/2604321/2501/2/results">Event<br>Results</a></li>
+                              <li><a class="" href="/event/2604321/2501/2/recap">Event<br>Recap</a></li>
+                                       <li><a class="" href="/handrecords/2604321/04251430">Hand<br>Records</a></li>
+                                          </ul>
+    </div><!-- /.navbar-collapse -->
+  </div><!-- /.container-fluid -->
+</nav>
+</div>
+
+<h1>Apr 25, 2026 - Saturday 2:30 pm</h1>
+<h2>Board detail for Open Pairs</h2><h3>Session <select id="session-select"><option data-url="/event/2604321/2501/1/board-detail/A">1</option><option selected="" data-url="/event/2604321/2501/2/board-detail/A">2</option></select></h3>
+<h4><span class="orange-text">Section A</span>, Board # 3 Result</h4>
+
+
+<div class="col-sm-4" style="min-width: 280px;">
+	<div class="col-sm-6" style="padding-left: 0">
+    	<div class="section-select">
+    		<span>Sections</span>
+    		<select class="form-control" name="sections" id="section-select">
+    			<option>--Select--</option>
+            	<option data-url="/event/2604321/2501/2/board-detail/A?board_num=3">Section A</option>    		</select>
+    	</div>
+	</div>
+	<div class="col-sm-6" style="padding-left: 0">
+		<div class="board-select">
+		<form action="">
+			<span>Boards</span>
+			<select class="form-control" name="board_num" onchange="if (!window.__cfRLUnblockHandlers) return false; this.form.submit()">
+                    <option>1</option><option>2</option><option selected="">3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option><option>11</option><option>12</option><option>13</option><option>14</option><option>15</option><option>16</option><option>17</option><option>18</option><option>19</option><option>20</option><option>21</option><option>22</option><option>23</option><option>24</option><option>25</option><option>26</option><option>27</option><option>28</option><option>29</option><option>30</option>			</select>
+		</form>
+		</div>
+	</div>
+	<div id="board-3" class="board" data-sticky-num="">
+                    
+				    <div class="board-data">
+					   <span>Dlr: S</span>
+					   <span>Vul: E-W</span>
+				    </div>
+    				<div class="board-num">
+    					<span>3</span>
+    				</div>
+    				<div class="point-count">
+    					<span class="n">7</span>
+    					<span class="w">15</span>
+    					<span class="e">3</span>
+    					<span class="sou">15</span>
+    				</div>
+    				<div class="hand"><!-- north hand -->
+    					<span class=""><span class="spades symbol"></span> 10 9 7 6 4 2</span><span class=""><span class="hearts symbol"></span> K 5</span><span class=""><span class="diams symbol"></span> 10 4 2</span><span class=""><span class="clubs symbol"></span> A 8</span>
+    				</div>
+    				<div class="hand middle">
+    					<div class="inner-slice left"><!-- west hand -->
+    						<span class=""><span class="spades symbol"></span> A K J 8</span><span class=""><span class="hearts symbol"></span> A 7</span><span class=""><span class="diams symbol"></span> Q J 9 6 3</span><span class=""><span class="clubs symbol"></span> 5 2</span>	
+    					</div>
+    					<div class="inner-slice right"><!-- east hand -->
+    						<span class=""><span class="spades symbol"></span> Q 3</span><span class=""><span class="hearts symbol"></span> 10 8 6 3</span><span class=""><span class="diams symbol"></span> 8 5</span><span class=""><span class="clubs symbol"></span> J 10 9 6 3</span>
+    					</div>
+    					<br style="clear:both;">
+    				</div>
+    				<div class="hand"><!-- south hand -->
+    					<span class=""><span class="spades symbol"></span> 5</span><span class=""><span class="hearts symbol"></span> Q J 9 4 2</span><span class=""><span class="diams symbol"></span> A K 7</span><span class=""><span class="clubs symbol"></span> K Q 7 4</span>
+    				</div>
+    				<div class="double-dummy">
+                        <a href="https://lajollabridge.com/Software/ACBLmerge/ACBLmergeReport.htm#ddmakes" target="_blank">Double Dummy Makes</a>
+                        <span>NS:  2<span class="clubs symbol"></span>  3<span class="hearts symbol"></span> 1/ 2<span class="spades symbol"></span> 2NT  <div class="reverse"><span class="diams symbol"></span>6</div></span>
+                        <span>EW:  <div class="reverse"><span class="clubs symbol"></span>4</div>  <div class="reverse"><span class="diams symbol"></span>6</div>  <div class="reverse"><span class="hearts symbol"></span>4</div>  <div class="reverse"><span class="spades symbol"></span>5</div> <div class="reverse">NT5</div></span>
+                    </div>
+                    <div class="par-score">
+                        <a href="https://lajollabridge.com/Software/ACBLmerge/ACBLmergeReport.htm#par" target="_blank">Par Score</a>
+                        <span>+140  3<span class="hearts symbol"></span>-NS</span>
+                    </div>
+    				<div class="bid-section">
+    					
+    					<br style="clear:both">
+    				</div>
+    			</div>	<div style="clear:both"></div>
+</div>
+<div class="col-sm-12" id="score-tables">
+        <div class="scores">
+        	<h4>N-S</h4>
+        	<div class="table-responsive">
+	            <table class="tablesorter table tablesorter-default">
+	                <thead>
+	                    <tr class="tablesorter-headerRow">
+	                    	<th data-column="0" class="tablesorter-header header" tabindex="0" unselectable="on" style="user-select: none;"><div class="tablesorter-header-inner"></div></th>
+	                        <th data-column="1" class="tablesorter-header header" tabindex="0" unselectable="on" style="user-select: none;"><div class="tablesorter-header-inner">Contract</div></th>
+	                        <th data-column="2" class="tablesorter-header header" tabindex="0" unselectable="on" style="user-select: none;"><div class="tablesorter-header-inner">By</div></th>
+	                        <!-- <th>Results</th>  -->
+	                        <th data-column="3" class="tablesorter-header header" tabindex="0" unselectable="on" style="user-select: none;"><div class="tablesorter-header-inner">Score</div></th>
+	                        <th data-column="4" class="tablesorter-header header tablesorter-headerDesc headerSortDown" tabindex="0" unselectable="on" style="user-select: none;"><div class="tablesorter-header-inner">Matchpoints</div></th><th data-column="5" class="tablesorter-header header" tabindex="0" unselectable="on" style="user-select: none;"><div class="tablesorter-header-inner">%</div></th>	                        <th data-column="6" class="tablesorter-header header" tabindex="0" unselectable="on" style="user-select: none;"><div class="tablesorter-header-inner">Pairs</div></th>
+	                    </tr>
+	                </thead>
+	                <tbody>
+	                    	                        
+	                    	                        
+	                    	                        
+	                    	                        
+	                    	                        
+	                    	                        
+	                    	                        
+	                    	                        
+	                    	                        
+	                    	                        
+	                    	                        
+	                    	                        
+	                    	                        
+	                    	                        
+	                    	                        
+	                    		                <tr class="odd">
+	                        	  <td><a class="btn btn-sm btn-play" href="https://www.bridgebase.com/tools/handviewer.html?n=ca8d1042s1097642hk5&amp;s=ckq74dak7s5hqj942&amp;e=cj10963d85sq3h10863&amp;w=c52dqj963sakj8ha7&amp;d=s&amp;v=e&amp;b=3&amp;a=p2dxppp&amp;nn=Stephen Castellino&amp;sn=Floyd McWilliams&amp;en=Matthew Haag&amp;wn=Aravind Alwan&amp;tbt=y&amp;p={&lt;p&gt;&lt;a href=&quot;https://live.acbl.org&quot;&gt;ACBL Live&lt;/a&gt;&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Event:&lt;/b&gt; Palo%20Alto%20Bridge%20Sectional%2C%20Open%20Pairs%2C%20Apr%2025%2C%202026&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Final Contract:&lt;/b&gt; 2%21Dx = Score: 500 &lt;b&gt;Optimal Contract:&lt;/b&gt; %20%2B140%203%21H-NS&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Double Dummy N/S:&lt;/b&gt; %202%21C%203%21H%201%2F2%21S%202NT%20%21D6 &lt;b&gt;Double Dummy E/W:&lt;/b&gt; %20%21C4%20%21D6%20%21H4%20%21S5%20NT5&lt;/p&gt;
+	    		}">Play&nbsp;</a></td>	                            <td> 2<span class="diams symbol contract"></span>x</td>
+	                            <!--<td>2Dx</td>-->
+	                            <td>W</td>
+	                            <!-- <td></td>  -->
+	                            <td>500</td>
+	                            <td>14</td><td>100</td>	                            <td>
+	                            6-<span class="name" data-acbl="6362400"><a href="/set-player/6362400">Stephen Castellino</a></span>-<span class="name" data-acbl="1632639"><a href="/set-player/1632639">Floyd McWilliams</a></span> <i>vs.</i><br> 12-<span class="name" data-acbl="8927839"><a href="/set-player/8927839">Matthew Haag</a></span>-<span class="name" data-acbl="5419379"><a href="/set-player/5419379">Aravind Alwan</a></span></td>
+	                        </tr><tr class="even">
+	                        	  <td><a class="btn btn-sm btn-play" href="https://www.bridgebase.com/tools/handviewer.html?n=ca8d1042s1097642hk5&amp;s=ckq74dak7s5hqj942&amp;e=cj10963d85sq3h10863&amp;w=c52dqj963sakj8ha7&amp;d=s&amp;v=e&amp;b=3&amp;a=p2sppp&amp;nn=Xiaoyu Cheng&amp;sn=Peng Cheng&amp;en=Bruce Luttrell&amp;wn=Frank Xie&amp;tbt=y&amp;p={&lt;p&gt;&lt;a href=&quot;https://live.acbl.org&quot;&gt;ACBL Live&lt;/a&gt;&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Event:&lt;/b&gt; Palo%20Alto%20Bridge%20Sectional%2C%20Open%20Pairs%2C%20Apr%2025%2C%202026&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Final Contract:&lt;/b&gt; 2%21S = Score: 300 &lt;b&gt;Optimal Contract:&lt;/b&gt; %20%2B140%203%21H-NS&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Double Dummy N/S:&lt;/b&gt; %202%21C%203%21H%201%2F2%21S%202NT%20%21D6 &lt;b&gt;Double Dummy E/W:&lt;/b&gt; %20%21C4%20%21D6%20%21H4%20%21S5%20NT5&lt;/p&gt;
+	    		}">Play&nbsp;</a></td>	                            <td> 2<span class="spades symbol contract"></span></td>
+	                            <!--<td>2S</td>-->
+	                            <td>W</td>
+	                            <!-- <td></td>  -->
+	                            <td>300</td>
+	                            <td>13</td><td>93</td>	                            <td>
+	                            12-<span class="name" data-acbl="7424221"><a href="/set-player/7424221">Xiaoyu Cheng</a></span>-<span class="name" data-acbl="9990429"><a href="/set-player/9990429">Peng Cheng</a></span> <i>vs.</i><br> 9-<span class="name" data-acbl="7164327"><a href="/set-player/7164327">Bruce Luttrell</a></span>-<span class="name" data-acbl="5222435"><a href="/set-player/5222435">Frank Xie</a></span></td>
+	                        </tr><tr class="odd">
+	                        	  <td><a class="btn btn-sm btn-play" href="https://www.bridgebase.com/tools/handviewer.html?n=ca8d1042s1097642hk5&amp;s=ckq74dak7s5hqj942&amp;e=cj10963d85sq3h10863&amp;w=c52dqj963sakj8ha7&amp;d=s&amp;v=e&amp;b=3&amp;a=p2dppp&amp;nn=Tom McKelvey&amp;sn=John Santibanes&amp;en=Robert Thomson&amp;wn=Crispin Barrere&amp;tbt=y&amp;p={&lt;p&gt;&lt;a href=&quot;https://live.acbl.org&quot;&gt;ACBL Live&lt;/a&gt;&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Event:&lt;/b&gt; Palo%20Alto%20Bridge%20Sectional%2C%20Open%20Pairs%2C%20Apr%2025%2C%202026&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Final Contract:&lt;/b&gt; 2%21D = Score: 200 &lt;b&gt;Optimal Contract:&lt;/b&gt; %20%2B140%203%21H-NS&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Double Dummy N/S:&lt;/b&gt; %202%21C%203%21H%201%2F2%21S%202NT%20%21D6 &lt;b&gt;Double Dummy E/W:&lt;/b&gt; %20%21C4%20%21D6%20%21H4%20%21S5%20NT5&lt;/p&gt;
+	    		}">Play&nbsp;</a></td>	                            <td> 2<span class="diams symbol contract"></span></td>
+	                            <!--<td>2D</td>-->
+	                            <td>W</td>
+	                            <!-- <td></td>  -->
+	                            <td>200</td>
+	                            <td>12</td><td>86</td>	                            <td>
+	                            11-<span class="name" data-acbl="8073740"><a href="/set-player/8073740">Tom McKelvey</a></span>-<span class="name" data-acbl="6284191"><a href="/set-player/6284191">John Santibanes</a></span> <i>vs.</i><br> 7-<span class="name" data-acbl="3764583"><a href="/set-player/3764583">Robert Thomson</a></span>-<span class="name" data-acbl="8922497"><a href="/set-player/8922497">Crispin Barrere</a></span></td>
+	                        </tr><tr class="even">
+	                        	  <td><a class="btn btn-sm btn-play" href="https://www.bridgebase.com/tools/handviewer.html?n=ca8d1042s1097642hk5&amp;s=ckq74dak7s5hqj942&amp;e=cj10963d85sq3h10863&amp;w=c52dqj963sakj8ha7&amp;d=s&amp;v=e&amp;b=3&amp;a=2hppp&amp;nn=Martha Keller&amp;sn=Jeanette Shinsako&amp;en=Ilya Sherman&amp;wn=Michael Callahan&amp;tbt=y&amp;p={&lt;p&gt;&lt;a href=&quot;https://live.acbl.org&quot;&gt;ACBL Live&lt;/a&gt;&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Event:&lt;/b&gt; Palo%20Alto%20Bridge%20Sectional%2C%20Open%20Pairs%2C%20Apr%2025%2C%202026&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Final Contract:&lt;/b&gt; 2%21H = Score: 140 &lt;b&gt;Optimal Contract:&lt;/b&gt; %20%2B140%203%21H-NS&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Double Dummy N/S:&lt;/b&gt; %202%21C%203%21H%201%2F2%21S%202NT%20%21D6 &lt;b&gt;Double Dummy E/W:&lt;/b&gt; %20%21C4%20%21D6%20%21H4%20%21S5%20NT5&lt;/p&gt;
+	    		}">Play&nbsp;</a></td>	                            <td> 2<span class="hearts symbol contract"></span></td>
+	                            <!--<td>2H</td>-->
+	                            <td>S</td>
+	                            <!-- <td></td>  -->
+	                            <td>140</td>
+	                            <td>10</td><td>71</td>	                            <td>
+	                            2-<span class="name" data-acbl="2103710"><a href="/set-player/2103710">Martha Keller</a></span>-<span class="name" data-acbl="9766812"><a href="/set-player/9766812">Jeanette Shinsako</a></span> <i>vs.</i><br> 2-<span class="name" data-acbl="2475316"><a href="/set-player/2475316">Ilya Sherman</a></span>-<span class="name" data-acbl="5537177"><a href="/set-player/5537177">Michael Callahan</a></span></td>
+	                        </tr><tr class="odd">
+	                        	  <td><a class="btn btn-sm btn-play" href="https://www.bridgebase.com/tools/handviewer.html?n=ca8d1042s1097642hk5&amp;s=ckq74dak7s5hqj942&amp;e=cj10963d85sq3h10863&amp;w=c52dqj963sakj8ha7&amp;d=s&amp;v=e&amp;b=3&amp;a=2hppp&amp;nn=William Watson&amp;sn=Bonnie Macbride&amp;en=Eugene Sor&amp;wn=Marcus Ballinger&amp;tbt=y&amp;p={&lt;p&gt;&lt;a href=&quot;https://live.acbl.org&quot;&gt;ACBL Live&lt;/a&gt;&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Event:&lt;/b&gt; Palo%20Alto%20Bridge%20Sectional%2C%20Open%20Pairs%2C%20Apr%2025%2C%202026&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Final Contract:&lt;/b&gt; 2%21H = Score: 140 &lt;b&gt;Optimal Contract:&lt;/b&gt; %20%2B140%203%21H-NS&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Double Dummy N/S:&lt;/b&gt; %202%21C%203%21H%201%2F2%21S%202NT%20%21D6 &lt;b&gt;Double Dummy E/W:&lt;/b&gt; %20%21C4%20%21D6%20%21H4%20%21S5%20NT5&lt;/p&gt;
+	    		}">Play&nbsp;</a></td>	                            <td> 2<span class="hearts symbol contract"></span></td>
+	                            <!--<td>2H</td>-->
+	                            <td>S</td>
+	                            <!-- <td></td>  -->
+	                            <td>140</td>
+	                            <td>10</td><td>71</td>	                            <td>
+	                            9-<span class="name" data-acbl="8099464"><a href="/set-player/8099464">William Watson</a></span>-<span class="name" data-acbl="7714424"><a href="/set-player/7714424">Bonnie Macbride</a></span> <i>vs.</i><br> 3-<span class="name" data-acbl="8797617"><a href="/set-player/8797617">Eugene Sor</a></span>-<span class="name" data-acbl="9214097"><a href="/set-player/9214097">Marcus Ballinger</a></span></td>
+	                        </tr><tr class="even">
+	                        	  <td><a class="btn btn-sm btn-play" href="https://www.bridgebase.com/tools/handviewer.html?n=ca8d1042s1097642hk5&amp;s=ckq74dak7s5hqj942&amp;e=cj10963d85sq3h10863&amp;w=c52dqj963sakj8ha7&amp;d=s&amp;v=e&amp;b=3&amp;a=2hppp&amp;nn=Weilong Shen&amp;sn=Vasisht Ganesh&amp;en=Kenneth Titow&amp;wn=Thomas Stern&amp;tbt=y&amp;p={&lt;p&gt;&lt;a href=&quot;https://live.acbl.org&quot;&gt;ACBL Live&lt;/a&gt;&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Event:&lt;/b&gt; Palo%20Alto%20Bridge%20Sectional%2C%20Open%20Pairs%2C%20Apr%2025%2C%202026&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Final Contract:&lt;/b&gt; 2%21H = Score: 140 &lt;b&gt;Optimal Contract:&lt;/b&gt; %20%2B140%203%21H-NS&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Double Dummy N/S:&lt;/b&gt; %202%21C%203%21H%201%2F2%21S%202NT%20%21D6 &lt;b&gt;Double Dummy E/W:&lt;/b&gt; %20%21C4%20%21D6%20%21H4%20%21S5%20NT5&lt;/p&gt;
+	    		}">Play&nbsp;</a></td>	                            <td> 2<span class="hearts symbol contract"></span></td>
+	                            <!--<td>2H</td>-->
+	                            <td>S</td>
+	                            <!-- <td></td>  -->
+	                            <td>140</td>
+	                            <td>10</td><td>71</td>	                            <td>
+	                            10-<span class="name" data-acbl="4833511"><a href="/set-player/4833511">Weilong Shen</a></span>-<span class="name" data-acbl="1880438"><a href="/set-player/1880438">Vasisht Ganesh</a></span> <i>vs.</i><br> 5-<span class="name" data-acbl="1485520"><a href="/set-player/1485520">Kenneth Titow</a></span>-<span class="name" data-acbl="1704125"><a href="/set-player/1704125">Thomas Stern</a></span></td>
+	                        </tr><tr class="odd">
+	                        	  <td><a class="btn btn-sm btn-play" href="https://www.bridgebase.com/tools/handviewer.html?n=ca8d1042s1097642hk5&amp;s=ckq74dak7s5hqj942&amp;e=cj10963d85sq3h10863&amp;w=c52dqj963sakj8ha7&amp;d=s&amp;v=e&amp;b=3&amp;a=2hppp&amp;nn=Andrew Sinclair&amp;sn=Peter Bonfanti&amp;en=Qiang Zhang&amp;wn=Wanwan Ren&amp;tbt=y&amp;p={&lt;p&gt;&lt;a href=&quot;https://live.acbl.org&quot;&gt;ACBL Live&lt;/a&gt;&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Event:&lt;/b&gt; Palo%20Alto%20Bridge%20Sectional%2C%20Open%20Pairs%2C%20Apr%2025%2C%202026&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Final Contract:&lt;/b&gt; 2%21H = Score: 110 &lt;b&gt;Optimal Contract:&lt;/b&gt; %20%2B140%203%21H-NS&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Double Dummy N/S:&lt;/b&gt; %202%21C%203%21H%201%2F2%21S%202NT%20%21D6 &lt;b&gt;Double Dummy E/W:&lt;/b&gt; %20%21C4%20%21D6%20%21H4%20%21S5%20NT5&lt;/p&gt;
+	    		}">Play&nbsp;</a></td>	                            <td> 2<span class="hearts symbol contract"></span></td>
+	                            <!--<td>2H</td>-->
+	                            <td>S</td>
+	                            <!-- <td></td>  -->
+	                            <td>110</td>
+	                            <td>6</td><td>43</td>	                            <td>
+	                            4-<span class="name" data-acbl="6650724"><a href="/set-player/6650724">Andrew Sinclair</a></span>-<span class="name" data-acbl="8512310"><a href="/set-player/8512310">Peter Bonfanti</a></span> <i>vs.</i><br> 8-<span class="name" data-acbl="1985876"><a href="/set-player/1985876">Qiang Zhang</a></span>-<span class="name" data-acbl="9358315"><a href="/set-player/9358315">Wanwan Ren</a></span></td>
+	                        </tr><tr class="even">
+	                        	  <td><a class="btn btn-sm btn-play" href="https://www.bridgebase.com/tools/handviewer.html?n=ca8d1042s1097642hk5&amp;s=ckq74dak7s5hqj942&amp;e=cj10963d85sq3h10863&amp;w=c52dqj963sakj8ha7&amp;d=s&amp;v=e&amp;b=3&amp;a=2hppp&amp;nn=Alan Malloy&amp;sn=Michael Bodell&amp;en=Aster Wu&amp;wn=Bob Gleason&amp;tbt=y&amp;p={&lt;p&gt;&lt;a href=&quot;https://live.acbl.org&quot;&gt;ACBL Live&lt;/a&gt;&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Event:&lt;/b&gt; Palo%20Alto%20Bridge%20Sectional%2C%20Open%20Pairs%2C%20Apr%2025%2C%202026&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Final Contract:&lt;/b&gt; 2%21H = Score: 110 &lt;b&gt;Optimal Contract:&lt;/b&gt; %20%2B140%203%21H-NS&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Double Dummy N/S:&lt;/b&gt; %202%21C%203%21H%201%2F2%21S%202NT%20%21D6 &lt;b&gt;Double Dummy E/W:&lt;/b&gt; %20%21C4%20%21D6%20%21H4%20%21S5%20NT5&lt;/p&gt;
+	    		}">Play&nbsp;</a></td>	                            <td> 2<span class="hearts symbol contract"></span></td>
+	                            <!--<td>2H</td>-->
+	                            <td>S</td>
+	                            <!-- <td></td>  -->
+	                            <td>110</td>
+	                            <td>6</td><td>43</td>	                            <td>
+	                            5-<span class="name" data-acbl="9538089"><a href="/set-player/9538089">Alan Malloy</a></span>-<span class="name" data-acbl="8949042"><a href="/set-player/8949042">Michael Bodell</a></span> <i>vs.</i><br> 10-<span class="name" data-acbl="3617998"><a href="/set-player/3617998">Aster Wu</a></span>-<span class="name" data-acbl="9071091"><a href="/set-player/9071091">Bob Gleason</a></span></td>
+	                        </tr><tr class="odd">
+	                        	  <td><a class="btn btn-sm btn-play" href="https://www.bridgebase.com/tools/handviewer.html?n=ca8d1042s1097642hk5&amp;s=ckq74dak7s5hqj942&amp;e=cj10963d85sq3h10863&amp;w=c52dqj963sakj8ha7&amp;d=s&amp;v=e&amp;b=3&amp;a=2hppp&amp;nn=Diane Vaughan&amp;sn=Steven Weisbart&amp;en=Norman Marks&amp;wn=Jung Hu&amp;tbt=y&amp;p={&lt;p&gt;&lt;a href=&quot;https://live.acbl.org&quot;&gt;ACBL Live&lt;/a&gt;&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Event:&lt;/b&gt; Palo%20Alto%20Bridge%20Sectional%2C%20Open%20Pairs%2C%20Apr%2025%2C%202026&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Final Contract:&lt;/b&gt; 2%21H = Score: 110 &lt;b&gt;Optimal Contract:&lt;/b&gt; %20%2B140%203%21H-NS&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Double Dummy N/S:&lt;/b&gt; %202%21C%203%21H%201%2F2%21S%202NT%20%21D6 &lt;b&gt;Double Dummy E/W:&lt;/b&gt; %20%21C4%20%21D6%20%21H4%20%21S5%20NT5&lt;/p&gt;
+	    		}">Play&nbsp;</a></td>	                            <td> 2<span class="hearts symbol contract"></span></td>
+	                            <!--<td>2H</td>-->
+	                            <td>S</td>
+	                            <!-- <td></td>  -->
+	                            <td>110</td>
+	                            <td>6</td><td>43</td>	                            <td>
+	                            7-<span class="name" data-acbl="2414406"><a href="/set-player/2414406">Diane Vaughan</a></span>-<span class="name" data-acbl="2683490"><a href="/set-player/2683490">Steven Weisbart</a></span> <i>vs.</i><br> 14-<span class="name" data-acbl="1235745"><a href="/set-player/1235745">Norman Marks</a></span>-<span class="name" data-acbl="9239456"><a href="/set-player/9239456">Jung Hu</a></span></td>
+	                        </tr><tr class="even">
+	                        	  <td><a class="btn btn-sm btn-play" href="https://www.bridgebase.com/tools/handviewer.html?n=ca8d1042s1097642hk5&amp;s=ckq74dak7s5hqj942&amp;e=cj10963d85sq3h10863&amp;w=c52dqj963sakj8ha7&amp;d=s&amp;v=e&amp;b=3&amp;a=pp2sppp&amp;nn=Luen-Jyh Luo&amp;sn=Songtao Zhang&amp;en=Denise Pitsch&amp;wn=Clara Chang&amp;tbt=y&amp;p={&lt;p&gt;&lt;a href=&quot;https://live.acbl.org&quot;&gt;ACBL Live&lt;/a&gt;&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Event:&lt;/b&gt; Palo%20Alto%20Bridge%20Sectional%2C%20Open%20Pairs%2C%20Apr%2025%2C%202026&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Final Contract:&lt;/b&gt; 2%21S = Score: 110 &lt;b&gt;Optimal Contract:&lt;/b&gt; %20%2B140%203%21H-NS&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Double Dummy N/S:&lt;/b&gt; %202%21C%203%21H%201%2F2%21S%202NT%20%21D6 &lt;b&gt;Double Dummy E/W:&lt;/b&gt; %20%21C4%20%21D6%20%21H4%20%21S5%20NT5&lt;/p&gt;
+	    		}">Play&nbsp;</a></td>	                            <td> 2<span class="spades symbol contract"></span></td>
+	                            <!--<td>2S</td>-->
+	                            <td>N</td>
+	                            <!-- <td></td>  -->
+	                            <td>110</td>
+	                            <td>6</td><td>43</td>	                            <td>
+	                            14-<span class="name" data-acbl="9990925"><a href="/set-player/9990925">Luen-Jyh Luo</a></span>-<span class="name" data-acbl="2690756"><a href="/set-player/2690756">Songtao Zhang</a></span> <i>vs.</i><br> 13-<span class="name" data-acbl="1298593"><a href="/set-player/1298593">Denise Pitsch</a></span>-<span class="name" data-acbl="9772421"><a href="/set-player/9772421">Clara Chang</a></span></td>
+	                        </tr><tr class="odd row-selected">
+	                        	  <td><a class="btn btn-sm btn-play" href="https://www.bridgebase.com/tools/handviewer.html?n=ca8d1042s1097642hk5&amp;s=ckq74dak7s5hqj942&amp;e=cj10963d85sq3h10863&amp;w=c52dqj963sakj8ha7&amp;d=s&amp;v=e&amp;b=3&amp;a=pp2sppp&amp;nn=Rory Xiao&amp;sn=Bo Xiao&amp;en=Rick Wilson&amp;wn=Andrew Rowberg&amp;tbt=y&amp;p={&lt;p&gt;&lt;a href=&quot;https://live.acbl.org&quot;&gt;ACBL Live&lt;/a&gt;&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Event:&lt;/b&gt; Palo%20Alto%20Bridge%20Sectional%2C%20Open%20Pairs%2C%20Apr%2025%2C%202026&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Final Contract:&lt;/b&gt; 2%21S = Score: 110 &lt;b&gt;Optimal Contract:&lt;/b&gt; %20%2B140%203%21H-NS&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Double Dummy N/S:&lt;/b&gt; %202%21C%203%21H%201%2F2%21S%202NT%20%21D6 &lt;b&gt;Double Dummy E/W:&lt;/b&gt; %20%21C4%20%21D6%20%21H4%20%21S5%20NT5&lt;/p&gt;
+	    		}">Play&nbsp;</a></td>	                            <td> 2<span class="spades symbol contract"></span></td>
+	                            <!--<td>2S</td>-->
+	                            <td>N</td>
+	                            <!-- <td></td>  -->
+	                            <td>110</td>
+	                            <td>6</td><td>43</td>	                            <td>
+	                            15-<span class="name" data-acbl="1353217"><a href="/set-player/1353217">Rory Xiao</a></span>-<span class="name" data-acbl="8165505"><a href="/set-player/8165505">Bo Xiao</a></span> <i>vs.</i><br> 4-<span class="name" data-acbl="3506177"><a href="/set-player/3506177">Rick Wilson</a></span>-<span class="name" data-acbl="5550076"><a href="/set-player/5550076">Andrew Rowberg</a></span></td>
+	                        </tr><tr class="even">
+	                        	  <td><a class="btn btn-sm btn-play" href="https://www.bridgebase.com/tools/handviewer.html?n=ca8d1042s1097642hk5&amp;s=ckq74dak7s5hqj942&amp;e=cj10963d85sq3h10863&amp;w=c52dqj963sakj8ha7&amp;d=s&amp;v=e&amp;b=3&amp;a=4hppp&amp;nn=Tim Benoit&amp;sn=Michael Fleisher&amp;en=Jennifer Kuhn&amp;wn=Philip Kuhn&amp;tbt=y&amp;p={&lt;p&gt;&lt;a href=&quot;https://live.acbl.org&quot;&gt;ACBL Live&lt;/a&gt;&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Event:&lt;/b&gt; Palo%20Alto%20Bridge%20Sectional%2C%20Open%20Pairs%2C%20Apr%2025%2C%202026&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Final Contract:&lt;/b&gt; 4%21H = Score: -50 &lt;b&gt;Optimal Contract:&lt;/b&gt; %20%2B140%203%21H-NS&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Double Dummy N/S:&lt;/b&gt; %202%21C%203%21H%201%2F2%21S%202NT%20%21D6 &lt;b&gt;Double Dummy E/W:&lt;/b&gt; %20%21C4%20%21D6%20%21H4%20%21S5%20NT5&lt;/p&gt;
+	    		}">Play&nbsp;</a></td>	                            <td> 4<span class="hearts symbol contract"></span></td>
+	                            <!--<td>4H</td>-->
+	                            <td>S</td>
+	                            <!-- <td></td>  -->
+	                            <td>-50</td>
+	                            <td>2</td><td>14</td>	                            <td>
+	                            1-<span class="name" data-acbl="7453485"><a href="/set-player/7453485">Tim Benoit</a></span>-<span class="name" data-acbl="4242971"><a href="/set-player/4242971">Michael Fleisher</a></span> <i>vs.</i><br> 15-<span class="name" data-acbl="8408882"><a href="/set-player/8408882">Jennifer Kuhn</a></span>-<span class="name" data-acbl="8408890"><a href="/set-player/8408890">Philip Kuhn</a></span></td>
+	                        </tr><tr class="odd">
+	                        	  <td><a class="btn btn-sm btn-play" href="https://www.bridgebase.com/tools/handviewer.html?n=ca8d1042s1097642hk5&amp;s=ckq74dak7s5hqj942&amp;e=cj10963d85sq3h10863&amp;w=c52dqj963sakj8ha7&amp;d=s&amp;v=e&amp;b=3&amp;a=4hppp&amp;nn=Brian Gilbert&amp;sn=Mark Itabashi&amp;en=Arthur Mirin&amp;wn=Padmini Sokkappa&amp;tbt=y&amp;p={&lt;p&gt;&lt;a href=&quot;https://live.acbl.org&quot;&gt;ACBL Live&lt;/a&gt;&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Event:&lt;/b&gt; Palo%20Alto%20Bridge%20Sectional%2C%20Open%20Pairs%2C%20Apr%2025%2C%202026&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Final Contract:&lt;/b&gt; 4%21H = Score: -50 &lt;b&gt;Optimal Contract:&lt;/b&gt; %20%2B140%203%21H-NS&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Double Dummy N/S:&lt;/b&gt; %202%21C%203%21H%201%2F2%21S%202NT%20%21D6 &lt;b&gt;Double Dummy E/W:&lt;/b&gt; %20%21C4%20%21D6%20%21H4%20%21S5%20NT5&lt;/p&gt;
+	    		}">Play&nbsp;</a></td>	                            <td> 4<span class="hearts symbol contract"></span></td>
+	                            <!--<td>4H</td>-->
+	                            <td>S</td>
+	                            <!-- <td></td>  -->
+	                            <td>-50</td>
+	                            <td>2</td><td>14</td>	                            <td>
+	                            3-<span class="name" data-acbl="6224016"><a href="/set-player/6224016">Brian Gilbert</a></span>-<span class="name" data-acbl="6811434"><a href="/set-player/6811434">Mark Itabashi</a></span> <i>vs.</i><br> 6-<span class="name" data-acbl="1357719"><a href="/set-player/1357719">Arthur Mirin</a></span>-<span class="name" data-acbl="7844212"><a href="/set-player/7844212">Padmini Sokkappa</a></span></td>
+	                        </tr><tr class="even">
+	                        	  <td><a class="btn btn-sm btn-play" href="https://www.bridgebase.com/tools/handviewer.html?n=ca8d1042s1097642hk5&amp;s=ckq74dak7s5hqj942&amp;e=cj10963d85sq3h10863&amp;w=c52dqj963sakj8ha7&amp;d=s&amp;v=e&amp;b=3&amp;a=3hppp&amp;nn=Ken Llacera&amp;sn=Peter Gelfand&amp;en=Andrew Gumperz&amp;wn=David desJardins&amp;tbt=y&amp;p={&lt;p&gt;&lt;a href=&quot;https://live.acbl.org&quot;&gt;ACBL Live&lt;/a&gt;&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Event:&lt;/b&gt; Palo%20Alto%20Bridge%20Sectional%2C%20Open%20Pairs%2C%20Apr%2025%2C%202026&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Final Contract:&lt;/b&gt; 3%21H = Score: -50 &lt;b&gt;Optimal Contract:&lt;/b&gt; %20%2B140%203%21H-NS&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Double Dummy N/S:&lt;/b&gt; %202%21C%203%21H%201%2F2%21S%202NT%20%21D6 &lt;b&gt;Double Dummy E/W:&lt;/b&gt; %20%21C4%20%21D6%20%21H4%20%21S5%20NT5&lt;/p&gt;
+	    		}">Play&nbsp;</a></td>	                            <td> 3<span class="hearts symbol contract"></span></td>
+	                            <!--<td>3H</td>-->
+	                            <td>S</td>
+	                            <!-- <td></td>  -->
+	                            <td>-50</td>
+	                            <td>2</td><td>14</td>	                            <td>
+	                            13-<span class="name" data-acbl="9107029"><a href="/set-player/9107029">Ken Llacera</a></span>-<span class="name" data-acbl="2024381"><a href="/set-player/2024381">Peter Gelfand</a></span> <i>vs.</i><br> 11-<span class="name" data-acbl="6270212"><a href="/set-player/6270212">Andrew Gumperz</a></span>-<span class="name" data-acbl="4352807"><a href="/set-player/4352807">David desJardins</a></span></td>
+	                        </tr><tr class="odd">
+	                        	  <td><a class="btn btn-sm btn-play" href="https://www.bridgebase.com/tools/handviewer.html?n=ca8d1042s1097642hk5&amp;s=ckq74dak7s5hqj942&amp;e=cj10963d85sq3h10863&amp;w=c52dqj963sakj8ha7&amp;d=s&amp;v=e&amp;b=3&amp;a=pp4sxppp&amp;nn=Yongkang Huang&amp;sn=Ying Liu&amp;en=Thuy Tran&amp;wn=Ari Greenberg&amp;tbt=y&amp;p={&lt;p&gt;&lt;a href=&quot;https://live.acbl.org&quot;&gt;ACBL Live&lt;/a&gt;&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Event:&lt;/b&gt; Palo%20Alto%20Bridge%20Sectional%2C%20Open%20Pairs%2C%20Apr%2025%2C%202026&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Final Contract:&lt;/b&gt; 4%21Sx = Score: -500 &lt;b&gt;Optimal Contract:&lt;/b&gt; %20%2B140%203%21H-NS&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Double Dummy N/S:&lt;/b&gt; %202%21C%203%21H%201%2F2%21S%202NT%20%21D6 &lt;b&gt;Double Dummy E/W:&lt;/b&gt; %20%21C4%20%21D6%20%21H4%20%21S5%20NT5&lt;/p&gt;
+	    		}">Play&nbsp;</a></td>	                            <td> 4<span class="spades symbol contract"></span>x</td>
+	                            <!--<td>4Sx</td>-->
+	                            <td>N</td>
+	                            <!-- <td></td>  -->
+	                            <td>-500</td>
+	                            <td>0</td><td>0</td>	                            <td>
+	                            8-<span class="name" data-acbl="5992419"><a href="/set-player/5992419">Yongkang Huang</a></span>-<span class="name" data-acbl="5231752"><a href="/set-player/5231752">Ying Liu</a></span> <i>vs.</i><br> 1-<span class="name" data-acbl="3931544"><a href="/set-player/3931544">Thuy Tran</a></span>-<span class="name" data-acbl="8229325"><a href="/set-player/8229325">Ari Greenberg</a></span></td>
+	                        </tr></tbody>
+		            </table>
+		      </div>
+	    </div>
+            <div class="scores">
+        	<h4>E-W</h4>
+        	<div class="table-responsive">
+	            <table class="tablesorter table tablesorter-default">
+	                <thead>
+	                    <tr class="tablesorter-headerRow">
+	                    	<th data-column="0" class="tablesorter-header header" tabindex="0" unselectable="on" style="user-select: none;"><div class="tablesorter-header-inner"></div></th>
+	                        <th data-column="1" class="tablesorter-header header" tabindex="0" unselectable="on" style="user-select: none;"><div class="tablesorter-header-inner">Contract</div></th>
+	                        <th data-column="2" class="tablesorter-header header" tabindex="0" unselectable="on" style="user-select: none;"><div class="tablesorter-header-inner">By</div></th>
+	                        <!-- <th>Results</th>  -->
+	                        <th data-column="3" class="tablesorter-header header" tabindex="0" unselectable="on" style="user-select: none;"><div class="tablesorter-header-inner">Score</div></th>
+	                        <th data-column="4" class="tablesorter-header header tablesorter-headerDesc headerSortDown" tabindex="0" unselectable="on" style="user-select: none;"><div class="tablesorter-header-inner">Matchpoints</div></th><th data-column="5" class="tablesorter-header header" tabindex="0" unselectable="on" style="user-select: none;"><div class="tablesorter-header-inner">%</div></th>	                        <th data-column="6" class="tablesorter-header header" tabindex="0" unselectable="on" style="user-select: none;"><div class="tablesorter-header-inner">Pairs</div></th>
+	                    </tr>
+	                </thead>
+	                <tbody>
+	                    	                        
+	                    	                        
+	                    	                        
+	                    	                        
+	                    	                        
+	                    	                        
+	                    	                        
+	                    	                        
+	                    	                        
+	                    	                        
+	                    	                        
+	                    	                        
+	                    	                        
+	                    	                        
+	                    	                        
+	                    		                <tr class="odd">
+	                        	  <td><a class="btn btn-sm btn-play" href="https://www.bridgebase.com/tools/handviewer.html?n=ca8d1042s1097642hk5&amp;s=ckq74dak7s5hqj942&amp;e=cj10963d85sq3h10863&amp;w=c52dqj963sakj8ha7&amp;d=s&amp;v=e&amp;b=3&amp;a=pp4sxppp&amp;nn=Yongkang Huang&amp;sn=Ying Liu&amp;en=Thuy Tran&amp;wn=Ari Greenberg&amp;tbt=y&amp;p={&lt;p&gt;&lt;a href=&quot;https://live.acbl.org&quot;&gt;ACBL Live&lt;/a&gt;&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Event:&lt;/b&gt; Palo%20Alto%20Bridge%20Sectional%2C%20Open%20Pairs%2C%20Apr%2025%2C%202026&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Final Contract:&lt;/b&gt; 4%21Sx = Score: 500 &lt;b&gt;Optimal Contract:&lt;/b&gt; %20%2B140%203%21H-NS&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Double Dummy N/S:&lt;/b&gt; %202%21C%203%21H%201%2F2%21S%202NT%20%21D6 &lt;b&gt;Double Dummy E/W:&lt;/b&gt; %20%21C4%20%21D6%20%21H4%20%21S5%20NT5&lt;/p&gt;
+	    		}">Play&nbsp;</a></td>	                            <td> 4<span class="spades symbol contract"></span>x</td>
+	                            <!--<td>4Sx</td>-->
+	                            <td>N</td>
+	                            <!-- <td></td>  -->
+	                            <td>500</td>
+	                            <td>14</td><td>100</td>	                            <td>
+	                            1-<span class="name" data-acbl="3931544"><a href="/set-player/3931544">Thuy Tran</a></span>-<span class="name" data-acbl="8229325"><a href="/set-player/8229325">Ari Greenberg</a></span> <i>vs.</i><br> 8-<span class="name" data-acbl="5992419"><a href="/set-player/5992419">Yongkang Huang</a></span>-<span class="name" data-acbl="5231752"><a href="/set-player/5231752">Ying Liu</a></span></td>
+	                        </tr><tr class="even">
+	                        	  <td><a class="btn btn-sm btn-play" href="https://www.bridgebase.com/tools/handviewer.html?n=ca8d1042s1097642hk5&amp;s=ckq74dak7s5hqj942&amp;e=cj10963d85sq3h10863&amp;w=c52dqj963sakj8ha7&amp;d=s&amp;v=e&amp;b=3&amp;a=4hppp&amp;nn=Brian Gilbert&amp;sn=Mark Itabashi&amp;en=Arthur Mirin&amp;wn=Padmini Sokkappa&amp;tbt=y&amp;p={&lt;p&gt;&lt;a href=&quot;https://live.acbl.org&quot;&gt;ACBL Live&lt;/a&gt;&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Event:&lt;/b&gt; Palo%20Alto%20Bridge%20Sectional%2C%20Open%20Pairs%2C%20Apr%2025%2C%202026&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Final Contract:&lt;/b&gt; 4%21H = Score: 50 &lt;b&gt;Optimal Contract:&lt;/b&gt; %20%2B140%203%21H-NS&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Double Dummy N/S:&lt;/b&gt; %202%21C%203%21H%201%2F2%21S%202NT%20%21D6 &lt;b&gt;Double Dummy E/W:&lt;/b&gt; %20%21C4%20%21D6%20%21H4%20%21S5%20NT5&lt;/p&gt;
+	    		}">Play&nbsp;</a></td>	                            <td> 4<span class="hearts symbol contract"></span></td>
+	                            <!--<td>4H</td>-->
+	                            <td>S</td>
+	                            <!-- <td></td>  -->
+	                            <td>50</td>
+	                            <td>12</td><td>86</td>	                            <td>
+	                            6-<span class="name" data-acbl="1357719"><a href="/set-player/1357719">Arthur Mirin</a></span>-<span class="name" data-acbl="7844212"><a href="/set-player/7844212">Padmini Sokkappa</a></span> <i>vs.</i><br> 3-<span class="name" data-acbl="6224016"><a href="/set-player/6224016">Brian Gilbert</a></span>-<span class="name" data-acbl="6811434"><a href="/set-player/6811434">Mark Itabashi</a></span></td>
+	                        </tr><tr class="odd">
+	                        	  <td><a class="btn btn-sm btn-play" href="https://www.bridgebase.com/tools/handviewer.html?n=ca8d1042s1097642hk5&amp;s=ckq74dak7s5hqj942&amp;e=cj10963d85sq3h10863&amp;w=c52dqj963sakj8ha7&amp;d=s&amp;v=e&amp;b=3&amp;a=3hppp&amp;nn=Ken Llacera&amp;sn=Peter Gelfand&amp;en=Andrew Gumperz&amp;wn=David desJardins&amp;tbt=y&amp;p={&lt;p&gt;&lt;a href=&quot;https://live.acbl.org&quot;&gt;ACBL Live&lt;/a&gt;&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Event:&lt;/b&gt; Palo%20Alto%20Bridge%20Sectional%2C%20Open%20Pairs%2C%20Apr%2025%2C%202026&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Final Contract:&lt;/b&gt; 3%21H = Score: 50 &lt;b&gt;Optimal Contract:&lt;/b&gt; %20%2B140%203%21H-NS&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Double Dummy N/S:&lt;/b&gt; %202%21C%203%21H%201%2F2%21S%202NT%20%21D6 &lt;b&gt;Double Dummy E/W:&lt;/b&gt; %20%21C4%20%21D6%20%21H4%20%21S5%20NT5&lt;/p&gt;
+	    		}">Play&nbsp;</a></td>	                            <td> 3<span class="hearts symbol contract"></span></td>
+	                            <!--<td>3H</td>-->
+	                            <td>S</td>
+	                            <!-- <td></td>  -->
+	                            <td>50</td>
+	                            <td>12</td><td>86</td>	                            <td>
+	                            11-<span class="name" data-acbl="6270212"><a href="/set-player/6270212">Andrew Gumperz</a></span>-<span class="name" data-acbl="4352807"><a href="/set-player/4352807">David desJardins</a></span> <i>vs.</i><br> 13-<span class="name" data-acbl="9107029"><a href="/set-player/9107029">Ken Llacera</a></span>-<span class="name" data-acbl="2024381"><a href="/set-player/2024381">Peter Gelfand</a></span></td>
+	                        </tr><tr class="even">
+	                        	  <td><a class="btn btn-sm btn-play" href="https://www.bridgebase.com/tools/handviewer.html?n=ca8d1042s1097642hk5&amp;s=ckq74dak7s5hqj942&amp;e=cj10963d85sq3h10863&amp;w=c52dqj963sakj8ha7&amp;d=s&amp;v=e&amp;b=3&amp;a=4hppp&amp;nn=Tim Benoit&amp;sn=Michael Fleisher&amp;en=Jennifer Kuhn&amp;wn=Philip Kuhn&amp;tbt=y&amp;p={&lt;p&gt;&lt;a href=&quot;https://live.acbl.org&quot;&gt;ACBL Live&lt;/a&gt;&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Event:&lt;/b&gt; Palo%20Alto%20Bridge%20Sectional%2C%20Open%20Pairs%2C%20Apr%2025%2C%202026&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Final Contract:&lt;/b&gt; 4%21H = Score: 50 &lt;b&gt;Optimal Contract:&lt;/b&gt; %20%2B140%203%21H-NS&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Double Dummy N/S:&lt;/b&gt; %202%21C%203%21H%201%2F2%21S%202NT%20%21D6 &lt;b&gt;Double Dummy E/W:&lt;/b&gt; %20%21C4%20%21D6%20%21H4%20%21S5%20NT5&lt;/p&gt;
+	    		}">Play&nbsp;</a></td>	                            <td> 4<span class="hearts symbol contract"></span></td>
+	                            <!--<td>4H</td>-->
+	                            <td>S</td>
+	                            <!-- <td></td>  -->
+	                            <td>50</td>
+	                            <td>12</td><td>86</td>	                            <td>
+	                            15-<span class="name" data-acbl="8408882"><a href="/set-player/8408882">Jennifer Kuhn</a></span>-<span class="name" data-acbl="8408890"><a href="/set-player/8408890">Philip Kuhn</a></span> <i>vs.</i><br> 1-<span class="name" data-acbl="7453485"><a href="/set-player/7453485">Tim Benoit</a></span>-<span class="name" data-acbl="4242971"><a href="/set-player/4242971">Michael Fleisher</a></span></td>
+	                        </tr><tr class="odd row-selected">
+	                        	  <td><a class="btn btn-sm btn-play" href="https://www.bridgebase.com/tools/handviewer.html?n=ca8d1042s1097642hk5&amp;s=ckq74dak7s5hqj942&amp;e=cj10963d85sq3h10863&amp;w=c52dqj963sakj8ha7&amp;d=s&amp;v=e&amp;b=3&amp;a=pp2sppp&amp;nn=Rory Xiao&amp;sn=Bo Xiao&amp;en=Rick Wilson&amp;wn=Andrew Rowberg&amp;tbt=y&amp;p={&lt;p&gt;&lt;a href=&quot;https://live.acbl.org&quot;&gt;ACBL Live&lt;/a&gt;&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Event:&lt;/b&gt; Palo%20Alto%20Bridge%20Sectional%2C%20Open%20Pairs%2C%20Apr%2025%2C%202026&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Final Contract:&lt;/b&gt; 2%21S = Score: -110 &lt;b&gt;Optimal Contract:&lt;/b&gt; %20%2B140%203%21H-NS&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Double Dummy N/S:&lt;/b&gt; %202%21C%203%21H%201%2F2%21S%202NT%20%21D6 &lt;b&gt;Double Dummy E/W:&lt;/b&gt; %20%21C4%20%21D6%20%21H4%20%21S5%20NT5&lt;/p&gt;
+	    		}">Play&nbsp;</a></td>	                            <td> 2<span class="spades symbol contract"></span></td>
+	                            <!--<td>2S</td>-->
+	                            <td>N</td>
+	                            <!-- <td></td>  -->
+	                            <td>-110</td>
+	                            <td>8</td><td>57</td>	                            <td>
+	                            4-<span class="name" data-acbl="3506177"><a href="/set-player/3506177">Rick Wilson</a></span>-<span class="name" data-acbl="5550076"><a href="/set-player/5550076">Andrew Rowberg</a></span> <i>vs.</i><br> 15-<span class="name" data-acbl="1353217"><a href="/set-player/1353217">Rory Xiao</a></span>-<span class="name" data-acbl="8165505"><a href="/set-player/8165505">Bo Xiao</a></span></td>
+	                        </tr><tr class="even">
+	                        	  <td><a class="btn btn-sm btn-play" href="https://www.bridgebase.com/tools/handviewer.html?n=ca8d1042s1097642hk5&amp;s=ckq74dak7s5hqj942&amp;e=cj10963d85sq3h10863&amp;w=c52dqj963sakj8ha7&amp;d=s&amp;v=e&amp;b=3&amp;a=2hppp&amp;nn=Andrew Sinclair&amp;sn=Peter Bonfanti&amp;en=Qiang Zhang&amp;wn=Wanwan Ren&amp;tbt=y&amp;p={&lt;p&gt;&lt;a href=&quot;https://live.acbl.org&quot;&gt;ACBL Live&lt;/a&gt;&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Event:&lt;/b&gt; Palo%20Alto%20Bridge%20Sectional%2C%20Open%20Pairs%2C%20Apr%2025%2C%202026&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Final Contract:&lt;/b&gt; 2%21H = Score: -110 &lt;b&gt;Optimal Contract:&lt;/b&gt; %20%2B140%203%21H-NS&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Double Dummy N/S:&lt;/b&gt; %202%21C%203%21H%201%2F2%21S%202NT%20%21D6 &lt;b&gt;Double Dummy E/W:&lt;/b&gt; %20%21C4%20%21D6%20%21H4%20%21S5%20NT5&lt;/p&gt;
+	    		}">Play&nbsp;</a></td>	                            <td> 2<span class="hearts symbol contract"></span></td>
+	                            <!--<td>2H</td>-->
+	                            <td>S</td>
+	                            <!-- <td></td>  -->
+	                            <td>-110</td>
+	                            <td>8</td><td>57</td>	                            <td>
+	                            8-<span class="name" data-acbl="1985876"><a href="/set-player/1985876">Qiang Zhang</a></span>-<span class="name" data-acbl="9358315"><a href="/set-player/9358315">Wanwan Ren</a></span> <i>vs.</i><br> 4-<span class="name" data-acbl="6650724"><a href="/set-player/6650724">Andrew Sinclair</a></span>-<span class="name" data-acbl="8512310"><a href="/set-player/8512310">Peter Bonfanti</a></span></td>
+	                        </tr><tr class="odd">
+	                        	  <td><a class="btn btn-sm btn-play" href="https://www.bridgebase.com/tools/handviewer.html?n=ca8d1042s1097642hk5&amp;s=ckq74dak7s5hqj942&amp;e=cj10963d85sq3h10863&amp;w=c52dqj963sakj8ha7&amp;d=s&amp;v=e&amp;b=3&amp;a=2hppp&amp;nn=Alan Malloy&amp;sn=Michael Bodell&amp;en=Aster Wu&amp;wn=Bob Gleason&amp;tbt=y&amp;p={&lt;p&gt;&lt;a href=&quot;https://live.acbl.org&quot;&gt;ACBL Live&lt;/a&gt;&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Event:&lt;/b&gt; Palo%20Alto%20Bridge%20Sectional%2C%20Open%20Pairs%2C%20Apr%2025%2C%202026&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Final Contract:&lt;/b&gt; 2%21H = Score: -110 &lt;b&gt;Optimal Contract:&lt;/b&gt; %20%2B140%203%21H-NS&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Double Dummy N/S:&lt;/b&gt; %202%21C%203%21H%201%2F2%21S%202NT%20%21D6 &lt;b&gt;Double Dummy E/W:&lt;/b&gt; %20%21C4%20%21D6%20%21H4%20%21S5%20NT5&lt;/p&gt;
+	    		}">Play&nbsp;</a></td>	                            <td> 2<span class="hearts symbol contract"></span></td>
+	                            <!--<td>2H</td>-->
+	                            <td>S</td>
+	                            <!-- <td></td>  -->
+	                            <td>-110</td>
+	                            <td>8</td><td>57</td>	                            <td>
+	                            10-<span class="name" data-acbl="3617998"><a href="/set-player/3617998">Aster Wu</a></span>-<span class="name" data-acbl="9071091"><a href="/set-player/9071091">Bob Gleason</a></span> <i>vs.</i><br> 5-<span class="name" data-acbl="9538089"><a href="/set-player/9538089">Alan Malloy</a></span>-<span class="name" data-acbl="8949042"><a href="/set-player/8949042">Michael Bodell</a></span></td>
+	                        </tr><tr class="even">
+	                        	  <td><a class="btn btn-sm btn-play" href="https://www.bridgebase.com/tools/handviewer.html?n=ca8d1042s1097642hk5&amp;s=ckq74dak7s5hqj942&amp;e=cj10963d85sq3h10863&amp;w=c52dqj963sakj8ha7&amp;d=s&amp;v=e&amp;b=3&amp;a=pp2sppp&amp;nn=Luen&amp;sn=Jyh Luo&amp;en=Denise Pitsch&amp;wn=Clara Chang&amp;tbt=y&amp;p={&lt;p&gt;&lt;a href=&quot;https://live.acbl.org&quot;&gt;ACBL Live&lt;/a&gt;&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Event:&lt;/b&gt; Palo%20Alto%20Bridge%20Sectional%2C%20Open%20Pairs%2C%20Apr%2025%2C%202026&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Final Contract:&lt;/b&gt; 2%21S = Score: -110 &lt;b&gt;Optimal Contract:&lt;/b&gt; %20%2B140%203%21H-NS&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Double Dummy N/S:&lt;/b&gt; %202%21C%203%21H%201%2F2%21S%202NT%20%21D6 &lt;b&gt;Double Dummy E/W:&lt;/b&gt; %20%21C4%20%21D6%20%21H4%20%21S5%20NT5&lt;/p&gt;
+	    		}">Play&nbsp;</a></td>	                            <td> 2<span class="spades symbol contract"></span></td>
+	                            <!--<td>2S</td>-->
+	                            <td>N</td>
+	                            <!-- <td></td>  -->
+	                            <td>-110</td>
+	                            <td>8</td><td>57</td>	                            <td>
+	                            13-<span class="name" data-acbl="1298593"><a href="/set-player/1298593">Denise Pitsch</a></span>-<span class="name" data-acbl="9772421"><a href="/set-player/9772421">Clara Chang</a></span> <i>vs.</i><br> 14-<span class="name" data-acbl="9990925"><a href="/set-player/9990925">Luen-Jyh Luo</a></span>-<span class="name" data-acbl="2690756"><a href="/set-player/2690756">Songtao Zhang</a></span></td>
+	                        </tr><tr class="odd">
+	                        	  <td><a class="btn btn-sm btn-play" href="https://www.bridgebase.com/tools/handviewer.html?n=ca8d1042s1097642hk5&amp;s=ckq74dak7s5hqj942&amp;e=cj10963d85sq3h10863&amp;w=c52dqj963sakj8ha7&amp;d=s&amp;v=e&amp;b=3&amp;a=2hppp&amp;nn=Diane Vaughan&amp;sn=Steven Weisbart&amp;en=Norman Marks&amp;wn=Jung Hu&amp;tbt=y&amp;p={&lt;p&gt;&lt;a href=&quot;https://live.acbl.org&quot;&gt;ACBL Live&lt;/a&gt;&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Event:&lt;/b&gt; Palo%20Alto%20Bridge%20Sectional%2C%20Open%20Pairs%2C%20Apr%2025%2C%202026&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Final Contract:&lt;/b&gt; 2%21H = Score: -110 &lt;b&gt;Optimal Contract:&lt;/b&gt; %20%2B140%203%21H-NS&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Double Dummy N/S:&lt;/b&gt; %202%21C%203%21H%201%2F2%21S%202NT%20%21D6 &lt;b&gt;Double Dummy E/W:&lt;/b&gt; %20%21C4%20%21D6%20%21H4%20%21S5%20NT5&lt;/p&gt;
+	    		}">Play&nbsp;</a></td>	                            <td> 2<span class="hearts symbol contract"></span></td>
+	                            <!--<td>2H</td>-->
+	                            <td>S</td>
+	                            <!-- <td></td>  -->
+	                            <td>-110</td>
+	                            <td>8</td><td>57</td>	                            <td>
+	                            14-<span class="name" data-acbl="1235745"><a href="/set-player/1235745">Norman Marks</a></span>-<span class="name" data-acbl="9239456"><a href="/set-player/9239456">Jung Hu</a></span> <i>vs.</i><br> 7-<span class="name" data-acbl="2414406"><a href="/set-player/2414406">Diane Vaughan</a></span>-<span class="name" data-acbl="2683490"><a href="/set-player/2683490">Steven Weisbart</a></span></td>
+	                        </tr><tr class="even">
+	                        	  <td><a class="btn btn-sm btn-play" href="https://www.bridgebase.com/tools/handviewer.html?n=ca8d1042s1097642hk5&amp;s=ckq74dak7s5hqj942&amp;e=cj10963d85sq3h10863&amp;w=c52dqj963sakj8ha7&amp;d=s&amp;v=e&amp;b=3&amp;a=2hppp&amp;nn=Martha Keller&amp;sn=Jeanette Shinsako&amp;en=Ilya Sherman&amp;wn=Michael Callahan&amp;tbt=y&amp;p={&lt;p&gt;&lt;a href=&quot;https://live.acbl.org&quot;&gt;ACBL Live&lt;/a&gt;&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Event:&lt;/b&gt; Palo%20Alto%20Bridge%20Sectional%2C%20Open%20Pairs%2C%20Apr%2025%2C%202026&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Final Contract:&lt;/b&gt; 2%21H = Score: -140 &lt;b&gt;Optimal Contract:&lt;/b&gt; %20%2B140%203%21H-NS&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Double Dummy N/S:&lt;/b&gt; %202%21C%203%21H%201%2F2%21S%202NT%20%21D6 &lt;b&gt;Double Dummy E/W:&lt;/b&gt; %20%21C4%20%21D6%20%21H4%20%21S5%20NT5&lt;/p&gt;
+	    		}">Play&nbsp;</a></td>	                            <td> 2<span class="hearts symbol contract"></span></td>
+	                            <!--<td>2H</td>-->
+	                            <td>S</td>
+	                            <!-- <td></td>  -->
+	                            <td>-140</td>
+	                            <td>4</td><td>29</td>	                            <td>
+	                            2-<span class="name" data-acbl="2475316"><a href="/set-player/2475316">Ilya Sherman</a></span>-<span class="name" data-acbl="5537177"><a href="/set-player/5537177">Michael Callahan</a></span> <i>vs.</i><br> 2-<span class="name" data-acbl="2103710"><a href="/set-player/2103710">Martha Keller</a></span>-<span class="name" data-acbl="9766812"><a href="/set-player/9766812">Jeanette Shinsako</a></span></td>
+	                        </tr><tr class="odd">
+	                        	  <td><a class="btn btn-sm btn-play" href="https://www.bridgebase.com/tools/handviewer.html?n=ca8d1042s1097642hk5&amp;s=ckq74dak7s5hqj942&amp;e=cj10963d85sq3h10863&amp;w=c52dqj963sakj8ha7&amp;d=s&amp;v=e&amp;b=3&amp;a=2hppp&amp;nn=William Watson&amp;sn=Bonnie Macbride&amp;en=Eugene Sor&amp;wn=Marcus Ballinger&amp;tbt=y&amp;p={&lt;p&gt;&lt;a href=&quot;https://live.acbl.org&quot;&gt;ACBL Live&lt;/a&gt;&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Event:&lt;/b&gt; Palo%20Alto%20Bridge%20Sectional%2C%20Open%20Pairs%2C%20Apr%2025%2C%202026&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Final Contract:&lt;/b&gt; 2%21H = Score: -140 &lt;b&gt;Optimal Contract:&lt;/b&gt; %20%2B140%203%21H-NS&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Double Dummy N/S:&lt;/b&gt; %202%21C%203%21H%201%2F2%21S%202NT%20%21D6 &lt;b&gt;Double Dummy E/W:&lt;/b&gt; %20%21C4%20%21D6%20%21H4%20%21S5%20NT5&lt;/p&gt;
+	    		}">Play&nbsp;</a></td>	                            <td> 2<span class="hearts symbol contract"></span></td>
+	                            <!--<td>2H</td>-->
+	                            <td>S</td>
+	                            <!-- <td></td>  -->
+	                            <td>-140</td>
+	                            <td>4</td><td>29</td>	                            <td>
+	                            3-<span class="name" data-acbl="8797617"><a href="/set-player/8797617">Eugene Sor</a></span>-<span class="name" data-acbl="9214097"><a href="/set-player/9214097">Marcus Ballinger</a></span> <i>vs.</i><br> 9-<span class="name" data-acbl="8099464"><a href="/set-player/8099464">William Watson</a></span>-<span class="name" data-acbl="7714424"><a href="/set-player/7714424">Bonnie Macbride</a></span></td>
+	                        </tr><tr class="even">
+	                        	  <td><a class="btn btn-sm btn-play" href="https://www.bridgebase.com/tools/handviewer.html?n=ca8d1042s1097642hk5&amp;s=ckq74dak7s5hqj942&amp;e=cj10963d85sq3h10863&amp;w=c52dqj963sakj8ha7&amp;d=s&amp;v=e&amp;b=3&amp;a=2hppp&amp;nn=Weilong Shen&amp;sn=Vasisht Ganesh&amp;en=Kenneth Titow&amp;wn=Thomas Stern&amp;tbt=y&amp;p={&lt;p&gt;&lt;a href=&quot;https://live.acbl.org&quot;&gt;ACBL Live&lt;/a&gt;&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Event:&lt;/b&gt; Palo%20Alto%20Bridge%20Sectional%2C%20Open%20Pairs%2C%20Apr%2025%2C%202026&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Final Contract:&lt;/b&gt; 2%21H = Score: -140 &lt;b&gt;Optimal Contract:&lt;/b&gt; %20%2B140%203%21H-NS&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Double Dummy N/S:&lt;/b&gt; %202%21C%203%21H%201%2F2%21S%202NT%20%21D6 &lt;b&gt;Double Dummy E/W:&lt;/b&gt; %20%21C4%20%21D6%20%21H4%20%21S5%20NT5&lt;/p&gt;
+	    		}">Play&nbsp;</a></td>	                            <td> 2<span class="hearts symbol contract"></span></td>
+	                            <!--<td>2H</td>-->
+	                            <td>S</td>
+	                            <!-- <td></td>  -->
+	                            <td>-140</td>
+	                            <td>4</td><td>29</td>	                            <td>
+	                            5-<span class="name" data-acbl="1485520"><a href="/set-player/1485520">Kenneth Titow</a></span>-<span class="name" data-acbl="1704125"><a href="/set-player/1704125">Thomas Stern</a></span> <i>vs.</i><br> 10-<span class="name" data-acbl="4833511"><a href="/set-player/4833511">Weilong Shen</a></span>-<span class="name" data-acbl="1880438"><a href="/set-player/1880438">Vasisht Ganesh</a></span></td>
+	                        </tr><tr class="odd">
+	                        	  <td><a class="btn btn-sm btn-play" href="https://www.bridgebase.com/tools/handviewer.html?n=ca8d1042s1097642hk5&amp;s=ckq74dak7s5hqj942&amp;e=cj10963d85sq3h10863&amp;w=c52dqj963sakj8ha7&amp;d=s&amp;v=e&amp;b=3&amp;a=p2dppp&amp;nn=Tom McKelvey&amp;sn=John Santibanes&amp;en=Robert Thomson&amp;wn=Crispin Barrere&amp;tbt=y&amp;p={&lt;p&gt;&lt;a href=&quot;https://live.acbl.org&quot;&gt;ACBL Live&lt;/a&gt;&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Event:&lt;/b&gt; Palo%20Alto%20Bridge%20Sectional%2C%20Open%20Pairs%2C%20Apr%2025%2C%202026&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Final Contract:&lt;/b&gt; 2%21D = Score: -200 &lt;b&gt;Optimal Contract:&lt;/b&gt; %20%2B140%203%21H-NS&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Double Dummy N/S:&lt;/b&gt; %202%21C%203%21H%201%2F2%21S%202NT%20%21D6 &lt;b&gt;Double Dummy E/W:&lt;/b&gt; %20%21C4%20%21D6%20%21H4%20%21S5%20NT5&lt;/p&gt;
+	    		}">Play&nbsp;</a></td>	                            <td> 2<span class="diams symbol contract"></span></td>
+	                            <!--<td>2D</td>-->
+	                            <td>W</td>
+	                            <!-- <td></td>  -->
+	                            <td>-200</td>
+	                            <td>2</td><td>14</td>	                            <td>
+	                            7-<span class="name" data-acbl="3764583"><a href="/set-player/3764583">Robert Thomson</a></span>-<span class="name" data-acbl="8922497"><a href="/set-player/8922497">Crispin Barrere</a></span> <i>vs.</i><br> 11-<span class="name" data-acbl="8073740"><a href="/set-player/8073740">Tom McKelvey</a></span>-<span class="name" data-acbl="6284191"><a href="/set-player/6284191">John Santibanes</a></span></td>
+	                        </tr><tr class="even">
+	                        	  <td><a class="btn btn-sm btn-play" href="https://www.bridgebase.com/tools/handviewer.html?n=ca8d1042s1097642hk5&amp;s=ckq74dak7s5hqj942&amp;e=cj10963d85sq3h10863&amp;w=c52dqj963sakj8ha7&amp;d=s&amp;v=e&amp;b=3&amp;a=p2sppp&amp;nn=Xiaoyu Cheng&amp;sn=Peng Cheng&amp;en=Bruce Luttrell&amp;wn=Frank Xie&amp;tbt=y&amp;p={&lt;p&gt;&lt;a href=&quot;https://live.acbl.org&quot;&gt;ACBL Live&lt;/a&gt;&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Event:&lt;/b&gt; Palo%20Alto%20Bridge%20Sectional%2C%20Open%20Pairs%2C%20Apr%2025%2C%202026&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Final Contract:&lt;/b&gt; 2%21S = Score: -300 &lt;b&gt;Optimal Contract:&lt;/b&gt; %20%2B140%203%21H-NS&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Double Dummy N/S:&lt;/b&gt; %202%21C%203%21H%201%2F2%21S%202NT%20%21D6 &lt;b&gt;Double Dummy E/W:&lt;/b&gt; %20%21C4%20%21D6%20%21H4%20%21S5%20NT5&lt;/p&gt;
+	    		}">Play&nbsp;</a></td>	                            <td> 2<span class="spades symbol contract"></span></td>
+	                            <!--<td>2S</td>-->
+	                            <td>W</td>
+	                            <!-- <td></td>  -->
+	                            <td>-300</td>
+	                            <td>1</td><td>7</td>	                            <td>
+	                            9-<span class="name" data-acbl="7164327"><a href="/set-player/7164327">Bruce Luttrell</a></span>-<span class="name" data-acbl="5222435"><a href="/set-player/5222435">Frank Xie</a></span> <i>vs.</i><br> 12-<span class="name" data-acbl="7424221"><a href="/set-player/7424221">Xiaoyu Cheng</a></span>-<span class="name" data-acbl="9990429"><a href="/set-player/9990429">Peng Cheng</a></span></td>
+	                        </tr><tr class="odd">
+	                        	  <td><a class="btn btn-sm btn-play" href="https://www.bridgebase.com/tools/handviewer.html?n=ca8d1042s1097642hk5&amp;s=ckq74dak7s5hqj942&amp;e=cj10963d85sq3h10863&amp;w=c52dqj963sakj8ha7&amp;d=s&amp;v=e&amp;b=3&amp;a=p2dxppp&amp;nn=Stephen Castellino&amp;sn=Floyd McWilliams&amp;en=Matthew Haag&amp;wn=Aravind Alwan&amp;tbt=y&amp;p={&lt;p&gt;&lt;a href=&quot;https://live.acbl.org&quot;&gt;ACBL Live&lt;/a&gt;&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Event:&lt;/b&gt; Palo%20Alto%20Bridge%20Sectional%2C%20Open%20Pairs%2C%20Apr%2025%2C%202026&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Final Contract:&lt;/b&gt; 2%21Dx = Score: -500 &lt;b&gt;Optimal Contract:&lt;/b&gt; %20%2B140%203%21H-NS&lt;/p&gt;
+	    		  &lt;p&gt;&lt;b&gt;Double Dummy N/S:&lt;/b&gt; %202%21C%203%21H%201%2F2%21S%202NT%20%21D6 &lt;b&gt;Double Dummy E/W:&lt;/b&gt; %20%21C4%20%21D6%20%21H4%20%21S5%20NT5&lt;/p&gt;
+	    		}">Play&nbsp;</a></td>	                            <td> 2<span class="diams symbol contract"></span>x</td>
+	                            <!--<td>2Dx</td>-->
+	                            <td>W</td>
+	                            <!-- <td></td>  -->
+	                            <td>-500</td>
+	                            <td>0</td><td>0</td>	                            <td>
+	                            12-<span class="name" data-acbl="8927839"><a href="/set-player/8927839">Matthew Haag</a></span>-<span class="name" data-acbl="5419379"><a href="/set-player/5419379">Aravind Alwan</a></span> <i>vs.</i><br> 6-<span class="name" data-acbl="6362400"><a href="/set-player/6362400">Stephen Castellino</a></span>-<span class="name" data-acbl="1632639"><a href="/set-player/1632639">Floyd McWilliams</a></span></td>
+	                        </tr></tbody>
+		            </table>
+		      </div>
+	    </div>
+    </div>	            	</div>
+            	</div>
+            	<div style="clear:both"></div>
+       		</div>
+        </div> <!-- /container -->
+	</div>
+</div>
+<div class="over-lay"></div>
+<script defer="" src="https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" integrity="sha512-8DS7rgIrAmghBFwoOTujcf6D9rXvH8xm8JQ1Ja01h9QX8EzXldiszufYa4IFfKdLUKTTrnSFXLDkUEOTrZQ8Qg==" data-cf-beacon="{&quot;version&quot;:&quot;2024.11.0&quot;,&quot;token&quot;:&quot;2c3aed94ca1243d7be26eb9531769a43&quot;,&quot;server_timing&quot;:{&quot;name&quot;:{&quot;cfCacheStatus&quot;:true,&quot;cfEdge&quot;:true,&quot;cfExtPri&quot;:true,&quot;cfL4&quot;:true,&quot;cfOrigin&quot;:true,&quot;cfSpeedBrain&quot;:true},&quot;location_startswith&quot;:null}}" crossorigin="anonymous"></script>
+
+
+
+<div id="syno-notification-is-installed"></div></body><!-- Scripts --></html>
