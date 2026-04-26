@@ -36,6 +36,9 @@ const MONTHS = {
 //   time,
 //   scoring,
 //   user_pair: { section, direction, pair_number, players, session_score, session_percentage, carryover },
+//   available_sessions: [     // every session listed in the page's session-select
+//     { number, url }         //   dropdown — orchestrator uses this to fetch all
+//   ],                        //   sessions of the same event for the same pair
 //   boards: [
 //     {
 //       number, board_detail_url,
@@ -62,6 +65,7 @@ export function parsePairScorecard(htmlString) {
   const boards = parseBoardsTable(doc, userPairHeader.direction)
   const { sanction, event_id, session_number, section } = deriveIdsFromBoardUrls(boards)
   const tournament_name = parseTournamentNameFromBboUrl(doc)
+  const available_sessions = parseAvailableSessions(doc, session_number)
 
   return {
     sanction,
@@ -81,8 +85,39 @@ export function parsePairScorecard(htmlString) {
       session_percentage: overall.session_percentage,
       carryover: overall.carryover,
     },
+    available_sessions,
     boards,
   }
+}
+
+function parseAvailableSessions(doc, currentSessionNumber) {
+  // <select id="session-select"><option data-url="/event/.../1/scores/...">1</option> ...</select>
+  // Each option is a different session of the same event for the same pair.
+  // If the dropdown isn't present (e.g., a single-session event), return
+  // just the current session so the caller can treat the result uniformly.
+  const select = doc.querySelector('select#session-select')
+  if (!select) {
+    return Number.isInteger(currentSessionNumber)
+      ? [{ number: currentSessionNumber, url: null }]
+      : []
+  }
+  const options = [...select.querySelectorAll('option')]
+  const out = []
+  for (const opt of options) {
+    const text = collapse(opt.textContent)
+    const number = Number.parseInt(text, 10)
+    const url = opt.getAttribute('data-url')
+    if (!Number.isInteger(number) || !url) continue
+    if (out.some((s) => s.number === number)) continue
+    out.push({ number, url })
+  }
+  // Defensive: if the dropdown was empty / unparseable but we know the current
+  // session number, surface at least that one.
+  if (out.length === 0 && Number.isInteger(currentSessionNumber)) {
+    return [{ number: currentSessionNumber, url: null }]
+  }
+  out.sort((a, b) => a.number - b.number)
+  return out
 }
 
 function parseDateTimeFromHeader(doc) {

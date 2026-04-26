@@ -50,9 +50,61 @@ export async function extractSession(url, options = {}) {
     )
   }
 
-  const fetched = await fetchSession(url, { fetch, signal, concurrency, delayMs })
-  const { scorecard, boardHtmls } = fetched
+  // 1. Fetch the URL the user clicked from. We need its parsed scorecard to
+  //    discover all sibling sessions for the same event/pair.
+  const initial = await fetchSession(url, { fetch, signal, concurrency, delayMs })
+  const initialSc = initial.scorecard
 
+  // 2. For every other session listed in the page's session-select dropdown,
+  //    fetch its scorecard + boards. Resolve relative URLs against the URL
+  //    the user clicked from. Skip the entry that matches the initial fetch.
+  const baseUrl = new URL(url)
+  const otherSessionUrls = (initialSc.available_sessions ?? [])
+    .filter((s) => s.number !== initialSc.session_number && s.url)
+    .map((s) => new URL(s.url, baseUrl).toString())
+
+  const otherFetches = await Promise.all(
+    otherSessionUrls.map(async (sessionUrl) => {
+      try {
+        return await fetchSession(sessionUrl, { fetch, signal, concurrency, delayMs })
+      } catch {
+        // Couldn't fetch this sibling session's scorecard. Skip it; the
+        // sessions we did fetch still ship cleanly.
+        return null
+      }
+    })
+  )
+
+  // 3. Build a Session for every successful fetch (initial + others).
+  const allFetched = [initial, ...otherFetches.filter((f) => f !== null)]
+  const sessions = allFetched
+    .map(({ scorecard, boardHtmls }) => buildSession(scorecard, boardHtmls))
+    .sort((a, b) => a.session_number - b.session_number)
+
+  // 4. Tournament/event metadata comes from the initial scorecard. All
+  //    sibling sessions are under the same tournament + event by construction.
+  const event = {
+    event_id: initialSc.event_id,
+    event_type: initialSc.event_type,
+    date: initialSc.date,
+    scoring: initialSc.scoring,
+    sessions,
+  }
+  const tournament = {
+    sanction: initialSc.sanction,
+    schedule_url: `${TOURNAMENT_SCHEDULE_BASE}?sanction=${initialSc.sanction}`,
+    name: initialSc.tournament_name,
+    events: [event],
+  }
+  return {
+    schema_version: SCHEMA_VERSION,
+    source: SOURCE_NAME,
+    fetched_at: now(),
+    tournaments: [tournament],
+  }
+}
+
+function buildSession(scorecard, boardHtmls) {
   const warnings = []
   let partial = false
   const boards = []
@@ -85,36 +137,13 @@ export async function extractSession(url, options = {}) {
     boards.push(board)
   }
 
-  // v1: one tournament, one event, one session. The schema's tournaments[]
-  // top-level is designed to grow in v2 (whole tournament with multiple
-  // events) and v3 (player history, multiple tournaments) without changing
-  // shape — see docs/architecture.md § Extraction phases.
-  const session = {
+  return {
     session_number: scorecard.session_number,
     time: scorecard.time,
     user_pair: scorecard.user_pair,
     boards,
     partial,
     warnings,
-  }
-  const event = {
-    event_id: scorecard.event_id,
-    event_type: scorecard.event_type,
-    date: scorecard.date,
-    scoring: scorecard.scoring,
-    sessions: [session],
-  }
-  const tournament = {
-    sanction: scorecard.sanction,
-    schedule_url: `${TOURNAMENT_SCHEDULE_BASE}?sanction=${scorecard.sanction}`,
-    name: scorecard.tournament_name,
-    events: [event],
-  }
-  return {
-    schema_version: SCHEMA_VERSION,
-    source: SOURCE_NAME,
-    fetched_at: now(),
-    tournaments: [tournament],
   }
 }
 

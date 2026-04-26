@@ -86,9 +86,23 @@ describe('extractSession', () => {
     ).rejects.toThrow(/pair-scorecard/i)
   })
 
-  it('assembles a tournaments-tree envelope from scorecard + board fixtures', async () => {
+  // The fixture's session-select dropdown lists session 1 and session 2. The
+  // orchestrator now fetches both. We make session 1's mock return scorecard
+  // HTML with the board-detail URLs rewritten so it parses as session_number 1
+  // (otherwise both sessions would parse with session_number 2 and we'd miss
+  // a class of bugs in the multi-session merge).
+  const SESSION_1_URL = 'https://live.acbl.org/event/2604321/2501/1/scores/A/E/4'
+  const session1ScorecardHtml = scorecardHtml.replaceAll(
+    '/event/2604321/2501/2/board-detail/',
+    '/event/2604321/2501/1/board-detail/'
+  )
+
+  it('fetches every session listed in the dropdown and merges into one event', async () => {
+    const seenUrls = []
     const fetchFn = vi.fn(async (url) => {
+      seenUrls.push(url)
       if (url === SCORECARD_URL) return ok(scorecardHtml)
+      if (url === SESSION_1_URL) return ok(session1ScorecardHtml)
       if (url.includes('/board-detail/')) return ok(board1Html)
       throw new Error(`unexpected URL: ${url}`)
     })
@@ -99,7 +113,7 @@ describe('extractSession', () => {
       now: () => fixedNow,
     })
 
-    // Top-level wrapper (schema 1.0 — tournaments-tree, per-declarer DD).
+    // Top-level wrapper
     expect(out.schema_version).toBe('1.0')
     expect(out.source).toBe('acbl-live')
     expect(out.fetched_at).toBe(fixedNow)
@@ -114,73 +128,85 @@ describe('extractSession', () => {
     expect(tournament.name).toBe('Palo Alto Bridge Sectional')
     expect(tournament.events).toHaveLength(1)
 
-    // Event
+    // Event with two sessions, sorted ascending by session_number.
     const event = tournament.events[0]
     expect(event.event_id).toBe('2501')
     expect(event.event_type).toBe('open_pairs')
     expect(event.date).toBe('2026-04-25')
     expect(event.scoring).toBe('matchpoints')
-    expect(event.sessions).toHaveLength(1)
+    expect(event.sessions).toHaveLength(2)
+    expect(event.sessions.map((s) => s.session_number)).toEqual([1, 2])
 
-    // Session
-    const session = event.sessions[0]
-    expect(session.session_number).toBe(2)
-    expect(session.time).toBe('14:30')
-    expect(session.partial).toBe(false)
-    expect(session.warnings).toEqual([])
+    // Both sessions populated correctly. user_pair carries through both.
+    for (const session of event.sessions) {
+      expect(session.partial).toBe(false)
+      expect(session.warnings).toEqual([])
+      expect(session.boards).toHaveLength(26)
+      expect(session.user_pair.pair_number).toBe(4)
+      expect(session.user_pair.direction).toBe('EW')
+    }
 
-    // user_pair carried through from scorecard
-    expect(session.user_pair.pair_number).toBe(4)
-    expect(session.user_pair.direction).toBe('EW')
-    expect(session.user_pair.section).toBe('A')
-    expect(session.user_pair.session_score).toBeCloseTo(411.5, 5)
-
-    // 26 boards (every board parsed into the same shape since we mock with board-1 html)
-    expect(session.boards).toHaveLength(26)
-
-    // First board has the real board-1 data
-    const b1 = session.boards[0]
-    expect(b1.number).toBe(1)
-    expect(b1.section).toBe('A')
-    expect(b1.dealer).toBe('N')
-    expect(b1.vulnerability).toBe('None')
-    expect(b1.results).toHaveLength(15)
-    expect(b1.par.contract).toBe('5NT')
-
-    // user_result_index points at Rick's row in the results table.
-    expect(b1.user_result_index).not.toBeNull()
-    const userResult = b1.results[b1.user_result_index]
-    expect(userResult.ew_pair.number).toBe(4)
-    expect(userResult.ew_pair.players.map((p) => p.name)).toEqual(['Rick Wilson', 'Andrew Rowberg'])
+    // Both session URLs were fetched (initial + sibling).
+    expect(seenUrls).toContain(SCORECARD_URL)
+    expect(seenUrls).toContain(SESSION_1_URL)
+    // 2 scorecards + 2 × 26 board-detail = 54 fetches.
+    expect(fetchFn).toHaveBeenCalledTimes(54)
   })
 
-  it('marks partial=true and pushes a warning when a board fetch fails', async () => {
+  it("marks partial=true on the affected session when a board fetch fails", async () => {
     const fetchFn = vi.fn(async (url) => {
       if (url === SCORECARD_URL) return ok(scorecardHtml)
-      if (url.includes('board_num=13')) return status(404)
-      return ok(board1Html)
+      if (url === SESSION_1_URL) return ok(session1ScorecardHtml)
+      // Fail board 13 only on session 2's URLs.
+      if (url.includes('/2/board-detail/') && url.includes('board_num=13')) return status(404)
+      if (url.includes('/board-detail/')) return ok(board1Html)
+      throw new Error(`unexpected URL: ${url}`)
     })
 
     const out = await extractSession(SCORECARD_URL, { fetch: fetchFn, maxRetries: 0 })
-    const session = out.tournaments[0].events[0].sessions[0]
+    const session2 = out.tournaments[0].events[0].sessions.find((s) => s.session_number === 2)
+    const session1 = out.tournaments[0].events[0].sessions.find((s) => s.session_number === 1)
 
-    expect(session.partial).toBe(true)
-    expect(session.boards).toHaveLength(25) // 26 - 1
-    expect(session.warnings.some((w) => /board 13/.test(w))).toBe(true)
+    expect(session2.partial).toBe(true)
+    expect(session2.boards).toHaveLength(25) // 26 - 1
+    expect(session2.warnings.some((w) => /board 13/.test(w))).toBe(true)
+
+    // Session 1 unaffected.
+    expect(session1.partial).toBe(false)
+    expect(session1.boards).toHaveLength(26)
   })
 
-  it('marks partial=true when a board parse fails', async () => {
+  it('marks partial=true on the affected session when a board parse fails', async () => {
     const fetchFn = vi.fn(async (url) => {
       if (url === SCORECARD_URL) return ok(scorecardHtml)
-      if (url.includes('board_num=5')) return ok('<html><body>nope</body></html>')
+      if (url === SESSION_1_URL) return ok(session1ScorecardHtml)
+      if (url.includes('/2/board-detail/') && url.includes('board_num=5'))
+        return ok('<html><body>nope</body></html>')
       return ok(board1Html)
     })
 
     const out = await extractSession(SCORECARD_URL, { fetch: fetchFn })
-    const session = out.tournaments[0].events[0].sessions[0]
+    const session2 = out.tournaments[0].events[0].sessions.find((s) => s.session_number === 2)
 
-    expect(session.partial).toBe(true)
-    expect(session.boards).toHaveLength(25)
-    expect(session.warnings.some((w) => /board 5.*parse failed/.test(w))).toBe(true)
+    expect(session2.partial).toBe(true)
+    expect(session2.boards).toHaveLength(25)
+    expect(session2.warnings.some((w) => /board 5.*parse failed/.test(w))).toBe(true)
+  })
+
+  it("ships the sessions it could fetch when a sibling session's scorecard fails", async () => {
+    const fetchFn = vi.fn(async (url) => {
+      if (url === SCORECARD_URL) return ok(scorecardHtml)
+      if (url === SESSION_1_URL) return status(500) // sibling scorecard down
+      if (url.includes('/board-detail/')) return ok(board1Html)
+      throw new Error(`unexpected URL: ${url}`)
+    })
+
+    const out = await extractSession(SCORECARD_URL, { fetch: fetchFn, maxRetries: 0 })
+    const event = out.tournaments[0].events[0]
+
+    // Only session 2 made it; the failed sibling is silently dropped.
+    expect(event.sessions.map((s) => s.session_number)).toEqual([2])
+    expect(event.sessions[0].partial).toBe(false)
+    expect(event.sessions[0].boards).toHaveLength(26)
   })
 })

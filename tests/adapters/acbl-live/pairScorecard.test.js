@@ -40,6 +40,16 @@ describe('parsePairScorecard (acbl-live, sanction 2604321 / event 2501 / session
     expect(sc.tournament_name).toBe('Palo Alto Bridge Sectional')
   })
 
+  it('extracts available_sessions from the session-select dropdown', () => {
+    // The fixture's <select id="session-select"> lists sessions 1 and 2 of
+    // this event for the same pair. The orchestrator uses these URLs to
+    // fetch every session for the event, not just the one the user clicked.
+    expect(sc.available_sessions).toEqual([
+      { number: 1, url: '/event/2604321/2501/1/scores/A/E/4' },
+      { number: 2, url: '/event/2604321/2501/2/scores/A/E/4' },
+    ])
+  })
+
   describe('user_pair', () => {
     it('extracts pair number, direction, and section', () => {
       expect(sc.user_pair.pair_number).toBe(4)
