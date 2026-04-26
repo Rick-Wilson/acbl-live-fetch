@@ -74,6 +74,10 @@ export async function handleClick(deps) {
   }
   if (response.type === 'extraction-complete') {
     setState('success')
+    // The analyzer tab has opened; restore the button to idle so this page
+    // is ready for another click (e.g., to extract a different scorecard)
+    // without leaving stale "Opening analyzer…" state behind.
+    setTimeout(() => setState('idle'), 2000)
     return
   }
   setState('error', response.error?.message ?? 'extraction failed')

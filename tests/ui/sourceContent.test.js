@@ -66,14 +66,23 @@ describe('button helpers', () => {
 })
 
 describe('handleClick', () => {
-  it('transitions idle → extracting → success on extraction-complete', async () => {
-    const states = []
-    await handleClick({
-      url: 'https://live.acbl.org/x',
-      sendMessage: vi.fn(async () => ({ type: 'extraction-complete', sid: 'abc' })),
-      setState: (s, m) => states.push([s, m]),
-    })
-    expect(states.map((s) => s[0])).toEqual(['extracting', 'success'])
+  it('transitions idle → extracting → success → idle on extraction-complete', async () => {
+    vi.useFakeTimers()
+    try {
+      const states = []
+      await handleClick({
+        url: 'https://live.acbl.org/x',
+        sendMessage: vi.fn(async () => ({ type: 'extraction-complete', sid: 'abc' })),
+        setState: (s, m) => states.push([s, m]),
+      })
+      // Immediately after the click resolves, we've shown success.
+      expect(states.map((s) => s[0])).toEqual(['extracting', 'success'])
+      // After the reset delay, the button returns to idle.
+      await vi.advanceTimersByTimeAsync(2000)
+      expect(states.map((s) => s[0])).toEqual(['extracting', 'success', 'idle'])
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('transitions to error on extraction-error', async () => {
