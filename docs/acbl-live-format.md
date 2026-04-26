@@ -208,9 +208,43 @@ Also embedded in the handviewer URL's `p={...}` parameter for redundancy. Either
 
 ## Pair-scorecard page structure
 
-(To be documented when fixture is captured. Visible columns from screenshot: Board, Contract, By, Plus, Minus, Matchpoints, %, Vs.)
+### Page-level metadata
 
-Each row's Board cell is a link to that board's detail page. Use those `href`s as the authoritative list of boards-to-fetch rather than guessing board numbers.
+- `<h1>` text format: `Apr 25, 2026 - Saturday 2:30 pm` — date and start time.
+- `<h2>` text: `Open Pairs Scores` (or `Swiss Teams Scores`, etc.) — derive `event_type`.
+- `<h4>` carries the user pair: `<h4 title="3506177 | 5550076"><span class="orange-text">4EW</span> - Rick Wilson &amp; Andrew Rowberg</h4>`. The `title` attribute holds both ACBL IDs separated by `|`. The `<span>` text is `{pair_number}{direction}` (e.g., `4EW`, `1NS`).
+- The event _name_ ("Palo Alto Bridge Sectional") does **not** appear in the visible HTML. It's only present URL-encoded inside the BBO handviewer `p={...}` parameter on each row's Play link, in the form `<b>Event:</b> Palo%20Alto%20Bridge%20Sectional%2C ...`.
+- `event_id`, `session_id`, and `section` can be derived from any board-detail URL on the page (`/event/{event_id}/{session_id_a}/{session_id_b}/board-detail/{section}?board_num=N`).
+
+### Overall summary table (first `<table>`, not a tablesorter)
+
+Two-row thead with `rowspan="2"`/`colspan="3"` headers. Important: the "Carry Over" header is rendered as `Carry<br>Over` and `textContent` collapses to `CarryOver` (no space) — strip whitespace when matching headers. Single-row tbody contains the user's session totals. Useful columns:
+
+| Header          | Meaning                                    |
+| --------------- | ------------------------------------------ |
+| `Score`         | session_score (matchpoints, e.g. `411.50`) |
+| `%`             | session_percentage (e.g. `60.30`)          |
+| `Carry<br>Over` | carryover (e.g. `192.00`)                  |
+
+### Boards-played table (`table.tablesorter.scorecard`)
+
+| Col | Header      | Notes                                                                                                                  |
+| --- | ----------- | ---------------------------------------------------------------------------------------------------------------------- |
+| 0   | (empty)     | Dropdown menu with "Correct score" + Play links                                                                        |
+| 1   | Board       | Anchor: `<a href="/event/.../board-detail/A?board_num=N">01</a>`                                                       |
+| 2   | Contract    | Same suit-symbol form as board-detail. **Doubles use lowercase `x`/`xx` here** (board-detail uses uppercase `X`/`XX`). |
+| 3   | By          | Declarer letter (`N` / `E` / `S` / `W`)                                                                                |
+| 4   | Plus        | User's positive score, blank if none                                                                                   |
+| 5   | Minus       | User's negative score (already signed, e.g. `-420`), blank if none                                                     |
+| 6   | Matchpoints | Integer                                                                                                                |
+| 7   | %           | Percentage                                                                                                             |
+| 8   | Vs          | `{opponent_pair_number} - {Player1} - {Player2}` with `title="ID1 \| ID2"`                                             |
+
+Sign convention: Plus/Minus are from the **user's** perspective. To convert to NS perspective: invert the sign if the user is EW.
+
+The "Correct score" link in the dropdown also has full data (`membersNS`, `membersEW`, `recordedContract`, `score`, `event`, `session`, `boardNumber`, `date`) — useful as a cross-check, not currently parsed.
+
+Each row's Board anchor is the authoritative list of boards-to-fetch rather than guessing board numbers.
 
 ## Player-history page structure
 
