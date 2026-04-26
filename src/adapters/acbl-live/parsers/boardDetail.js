@@ -225,9 +225,27 @@ function parseDoubleDummyLine(line) {
 }
 
 function pairFromMatch(firstRaw, secondRaw) {
-  const first = Number.parseInt(firstRaw, 10)
-  const second = secondRaw == null ? first : Number.parseInt(secondRaw, 10)
+  const first = levelToTricks(Number.parseInt(firstRaw, 10))
+  const second = secondRaw == null ? first : levelToTricks(Number.parseInt(secondRaw, 10))
   return [first, second]
+}
+
+function levelToTricks(level) {
+  // ACBL Live's source uses "highest makeable contract level" (0–7), where the
+  // digit means "the highest contract this declarer can make in this strain":
+  //   0 = fewer than 7 tricks (ACBL collapses 0-6 into a single bucket)
+  //   1 = makes 1-level (7 tricks), ..., 7 = makes 7-level (13 tricks).
+  // The schema field is raw tricks (0–13), matching DDS solver output for
+  // cross-source consistency. Level 0 maps to null because we know it's ≤ 6
+  // tricks but not which specific value.
+  if (!Number.isInteger(level)) return null
+  if (level === 0) return null
+  if (level >= 1 && level <= 7) return level + 6
+  // Defensively pass through any unexpected value (e.g., a future ACBL change
+  // that emits raw tricks 0-13) — but emit null for >13 since that can't be a
+  // real trick count.
+  if (level >= 8 && level <= 13) return level
+  return null
 }
 
 function pickSeat(tuples, idx) {
@@ -246,10 +264,15 @@ function parsePar(text) {
     if (/pass/i.test(text)) return { score: 0, contract: 'PASS', declarer: null }
     throw new ParseError(`Could not parse par from: '${text}'`, { html: text })
   }
+  // Schema spec says par.declarer is a single seat (N/E/S/W). When ACBL writes
+  // 'NS' or 'EW' in the source (because either seat on that side can declare
+  // the par contract for the same result), pick the first letter as canonical.
+  const rawDeclarer = m[3] ?? null
+  const declarer = rawDeclarer == null ? null : rawDeclarer[0]
   return {
     score: Number.parseInt(m[1], 10),
     contract: m[2],
-    declarer: m[3] ?? null,
+    declarer,
   }
 }
 

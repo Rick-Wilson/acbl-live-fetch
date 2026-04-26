@@ -225,9 +225,23 @@ Par Score
 +460 5NT-NS
 ```
 
-The slash form `4/5♣` on the NS line means **N makes 4 clubs, S makes 5 clubs** (first seat / second seat order). On the EW line a slash form would similarly mean E / W. A bare number means both seats of that side make the same number — e.g. `1♦` on the NS line is "N makes 1 diamond, S makes 1 diamond". Strain rendering flips orientation between the lines: NS shows number-then-suit, EW shows suit-then-number (with the suit symbols inside `<div class="reverse">`). Parsers detect orientation by whether a strain letter is immediately followed by a digit.
+The slash form `4/5♣` on the NS line means **N can make 4-level clubs, S can make 5-level clubs** (first seat / second seat order). On the EW line a slash form would similarly mean E / W. A bare number means both seats of that side make the same level — e.g. `1♦` on the NS line is "N can make 1-diamond, S can make 1-diamond". Strain rendering flips orientation between the lines: NS shows number-then-suit, EW shows suit-then-number (with the suit symbols inside `<div class="reverse">`). Parsers detect orientation by whether a strain letter is immediately followed by a digit.
 
-The schema's `Board.double_dummy` is per-declarer (`{ N, S, E, W }`), so each slash splits cleanly into the two seat objects for that side.
+### Level form, not raw tricks
+
+ACBL Live's number is the **highest makeable contract level** (0–7), not raw trick counts:
+
+| ACBL value | Meaning             | Tricks |
+| ---------- | ------------------- | ------ |
+| `0`        | Can't make 1-level  | ≤ 6 (exact count not given) |
+| `1`        | Makes 1-level       | 7      |
+| `2`        | Makes 2-level       | 8      |
+| `…`        | …                   | …      |
+| `7`        | Makes grand slam    | 13     |
+
+So `5NT` in the source (whether on the DD line or in the Par line) means "the 5-level NT contract makes" = 11 tricks.
+
+The schema's `Board.double_dummy` field is **raw tricks** (0–13) for cross-source consistency with PBN and DDS solver output. The parser converts: `level + 6` for levels 1–7, and `null` for level 0 (since ACBL doesn't distinguish 0–6 tricks). So source `4/5♣` becomes `N.C = 10, S.C = 11` in the emitted schema.
 
 Also embedded in the handviewer URL's `p={...}` parameter for redundancy. Either source works.
 

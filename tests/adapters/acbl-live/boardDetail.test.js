@@ -62,23 +62,32 @@ describe('parseBoardDetail (acbl-live, event 2604321 / board 1)', () => {
     expect(board.results).toHaveLength(15)
   })
 
-  it('extracts par: 460 for 5NT by NS', () => {
+  it('extracts par: 460 for 5NT, declarer collapsed to a single seat', () => {
     expect(board.par.score).toBe(460)
     expect(board.par.contract).toBe('5NT')
-    // ACBL Live renders par with a side suffix ('NS' / 'EW') rather than a single
-    // direction. Accept either form so the schema's example ('N') stays valid.
-    expect(['NS', 'N', 'S']).toContain(board.par.declarer)
+    // ACBL renders par with a side suffix ('5NT-NS') because either seat on
+    // that side can declare the par contract. The parser canonicalizes to the
+    // first seat to match the schema's single-seat declarer field.
+    expect(board.par.declarer).toBe('N')
   })
 
-  it('extracts per-declarer double-dummy makes (schema 2.1)', () => {
+  it('extracts per-declarer double-dummy makes as raw tricks', () => {
+    // ACBL Live's source line is in *level* form (highest-makeable-contract
+    // level, 0–7); the parser converts to raw tricks (level + 6).
     // Source line: 'NS: 4/5C 1D 3H 5S 5NT' — the '4/5C' slash means
-    // N makes 4 clubs and S makes 5 clubs. Other strains share a single value.
-    expect(board.double_dummy.N).toEqual({ C: 4, D: 1, H: 3, S: 5, NT: 5 })
-    expect(board.double_dummy.S).toEqual({ C: 5, D: 1, H: 3, S: 5, NT: 5 })
+    // N makes 4-level clubs (10 tricks) and S makes 5-level clubs (11 tricks).
+    // Other strains share a single value: 1D = 7, 3H = 9, 5S = 11, 5NT = 11.
+    expect(board.double_dummy.N).toEqual({ C: 10, D: 7, H: 9, S: 11, NT: 11 })
+    expect(board.double_dummy.S).toEqual({ C: 11, D: 7, H: 9, S: 11, NT: 11 })
     // Source line: 'EW: C2 D6 H3 S2 NT2' — no slash form, both E and W
-    // make the same number for every strain.
-    expect(board.double_dummy.E).toEqual({ C: 2, D: 6, H: 3, S: 2, NT: 2 })
-    expect(board.double_dummy.W).toEqual({ C: 2, D: 6, H: 3, S: 2, NT: 2 })
+    // make the same level for every strain. Convert: 2→8, 6→12, 3→9, 2→8, 2→8.
+    expect(board.double_dummy.E).toEqual({ C: 8, D: 12, H: 9, S: 8, NT: 8 })
+    expect(board.double_dummy.W).toEqual({ C: 8, D: 12, H: 9, S: 8, NT: 8 })
+
+    // Self-consistency: par 5NT-NS = 11 tricks, and N.NT == S.NT == 11.
+    expect(board.par.score).toBe(460)
+    expect(board.par.contract).toBe('5NT')
+    expect(board.double_dummy[board.par.declarer].NT).toBeGreaterThanOrEqual(11)
   })
 
   it("includes the user's row (Rick Wilson & Andrew Rowberg, EW pair 4)", () => {

@@ -104,11 +104,14 @@ In every case the structure is the same nested tree; the only difference is the 
     // Tricks each declarer can make in each strain, optimal play by both sides.
     // Per-declarer (4 seats × 5 strains = 20 values), because opening-lead
     // direction can change DD tricks for some layouts and the analyzer matches
-    // tricks against the actual declarer.
-    "N": { "C": 4, "D": 1, "H": 3, "S": 5, "NT": 5 },
-    "S": { "C": 5, "D": 1, "H": 3, "S": 5, "NT": 5 },
-    "E": { "C": 2, "D": 6, "H": 3, "S": 2, "NT": 2 },
-    "W": { "C": 2, "D": 6, "H": 3, "S": 2, "NT": 2 }
+    // tricks against the actual declarer. Values are raw trick counts (0–13);
+    // null when the source can't disambiguate (e.g., ACBL Live collapses
+    // 0–6 tricks into a single "can't make 1-level" bucket, which we emit as
+    // null rather than guessing an exact count).
+    "N": { "C": 10, "D": 7, "H": 9, "S": 11, "NT": 11 },
+    "S": { "C": 11, "D": 7, "H": 9, "S": 11, "NT": 11 },
+    "E": { "C": 8, "D": 12, "H": 9, "S": 8, "NT": 8 },
+    "W": { "C": 8, "D": 12, "H": 9, "S": 8, "NT": 8 }
   },
 
   "par": {
@@ -271,12 +274,12 @@ The analyzer should validate `schema_version` and refuse data from unknown major
                     }
                   },
                   "double_dummy": {
-                    "N": { "C": 4, "D": 1, "H": 3, "S": 5, "NT": 5 },
-                    "S": { "C": 5, "D": 1, "H": 3, "S": 5, "NT": 5 },
-                    "E": { "C": 2, "D": 6, "H": 3, "S": 2, "NT": 2 },
-                    "W": { "C": 2, "D": 6, "H": 3, "S": 2, "NT": 2 }
+                    "N": { "C": 10, "D": 7, "H": 9, "S": 11, "NT": 11 },
+                    "S": { "C": 11, "D": 7, "H": 9, "S": 11, "NT": 11 },
+                    "E": { "C": 8, "D": 12, "H": 9, "S": 8, "NT": 8 },
+                    "W": { "C": 8, "D": 12, "H": 9, "S": 8, "NT": 8 }
                   },
-                  "par": { "score": 460, "contract": "5NT", "declarer": "NS" },
+                  "par": { "score": 460, "contract": "5NT", "declarer": "N" },
                   "results": [
                     {
                       "contract": "6S",
