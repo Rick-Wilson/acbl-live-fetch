@@ -154,9 +154,18 @@ function parseDoubleDummyAndPar(doc) {
     })
   }
 
+  // Per docs/normalized-schema.md (2.1+), double_dummy is per-declarer.
+  // The NS line carries N's and S's tricks; the EW line carries E's and W's.
+  // ACBL writes the slash form 'X/Y' as {first seat / second seat} — N/S on
+  // the NS line, E/W on the EW line. A single value means both seats of that
+  // side make the same number.
+  const nsTuples = parseDoubleDummyLine(nsLine.replace(/^NS:\s*/i, ''))
+  const ewTuples = parseDoubleDummyLine(ewLine.replace(/^EW:\s*/i, ''))
   const doubleDummy = {
-    NS: parseDoubleDummyLine(nsLine.replace(/^NS:\s*/i, '')),
-    EW: parseDoubleDummyLine(ewLine.replace(/^EW:\s*/i, '')),
+    N: pickSeat(nsTuples, 0),
+    S: pickSeat(nsTuples, 1),
+    E: pickSeat(ewTuples, 0),
+    W: pickSeat(ewTuples, 1),
   }
 
   const parEl = doc.querySelector('div.par-score')
@@ -188,23 +197,24 @@ function decorateSuitSymbols(el) {
 
 function parseDoubleDummyLine(line) {
   // ACBL Live shows double-dummy makes per side in two source orientations:
-  //   NS: '4/5C 1D 3H 5S 5NT'  — number-then-strain; '4/5' = N makes 4, S makes 5
+  //   NS: '4/5C 1D 3H 5S 5NT'  — number-then-strain; '4/5' = first seat / second seat
   //   EW: 'C2 D6 H3 S2 NT2'    — strain-then-number (rendered "reversed" on the page)
   // Detect orientation by whether a strain letter is immediately followed by a
   // digit anywhere in the line; otherwise treat as number-then-strain.
-  // The schema collapses N/S splits to one number per strain — we keep the first
-  // value (N's count) to match the example in docs/normalized-schema.md.
+  // Output is a per-strain pair [firstSeat, secondSeat]. The caller (the NS or
+  // EW line) decides what those seats mean (N/S for the NS line, E/W for EW).
+  // A single value 'C2' or '5NT' means both seats make the same number.
   const collapsed = collapse(line)
   const out = { C: null, D: null, H: null, S: null, NT: null }
   const strainFirst = /(?:NT|[CDHS])\d/.test(collapsed)
 
   if (strainFirst) {
-    for (const m of collapsed.matchAll(/(NT|[CDHS])(\d+(?:\s*\/\s*\d+)?)/g)) {
-      out[m[1]] = pickTricks(m[2])
+    for (const m of collapsed.matchAll(/(NT|[CDHS])(\d+)(?:\s*\/\s*(\d+))?/g)) {
+      out[m[1]] = pairFromMatch(m[2], m[3])
     }
   } else {
-    for (const m of collapsed.matchAll(/(\d+(?:\s*\/\s*\d+)?)\s*(NT|[CDHS])/g)) {
-      out[m[2]] = pickTricks(m[1])
+    for (const m of collapsed.matchAll(/(\d+)(?:\s*\/\s*(\d+))?\s*(NT|[CDHS])/g)) {
+      out[m[3]] = pairFromMatch(m[1], m[2])
     }
   }
 
@@ -214,11 +224,19 @@ function parseDoubleDummyLine(line) {
   return out
 }
 
-function pickTricks(raw) {
-  // For the '4/5' slash form (N's count / S's count), use the first number to
-  // match the schema example in docs/normalized-schema.md.
-  const first = raw.split('/')[0].trim()
-  return Number.parseInt(first, 10)
+function pairFromMatch(firstRaw, secondRaw) {
+  const first = Number.parseInt(firstRaw, 10)
+  const second = secondRaw == null ? first : Number.parseInt(secondRaw, 10)
+  return [first, second]
+}
+
+function pickSeat(tuples, idx) {
+  const out = { C: null, D: null, H: null, S: null, NT: null }
+  for (const strain of Object.keys(out)) {
+    const pair = tuples[strain]
+    out[strain] = pair ? (pair[idx] ?? null) : null
+  }
+  return out
 }
 
 function parsePar(text) {

@@ -96,7 +96,7 @@ The value of both `chrome.storage.local`'s `envelope` field and `sessionStorage[
 
 ```jsonc
 {
-  "schema_version": "2.0",
+  "schema_version": "2.1",
   "source": "acbl-live", // or "club-game-bws", future sources, etc.
   "fetched_at": "2026-04-26T18:30:00Z",
   "tournaments": [

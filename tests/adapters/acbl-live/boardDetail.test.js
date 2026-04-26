@@ -70,9 +70,15 @@ describe('parseBoardDetail (acbl-live, event 2604321 / board 1)', () => {
     expect(['NS', 'N', 'S']).toContain(board.par.declarer)
   })
 
-  it('extracts double-dummy makes for both sides', () => {
-    expect(board.double_dummy.NS).toEqual({ C: 4, D: 1, H: 3, S: 5, NT: 5 })
-    expect(board.double_dummy.EW).toEqual({ C: 2, D: 6, H: 3, S: 2, NT: 2 })
+  it('extracts per-declarer double-dummy makes (schema 2.1)', () => {
+    // Source line: 'NS: 4/5C 1D 3H 5S 5NT' — the '4/5C' slash means
+    // N makes 4 clubs and S makes 5 clubs. Other strains share a single value.
+    expect(board.double_dummy.N).toEqual({ C: 4, D: 1, H: 3, S: 5, NT: 5 })
+    expect(board.double_dummy.S).toEqual({ C: 5, D: 1, H: 3, S: 5, NT: 5 })
+    // Source line: 'EW: C2 D6 H3 S2 NT2' — no slash form, both E and W
+    // make the same number for every strain.
+    expect(board.double_dummy.E).toEqual({ C: 2, D: 6, H: 3, S: 2, NT: 2 })
+    expect(board.double_dummy.W).toEqual({ C: 2, D: 6, H: 3, S: 2, NT: 2 })
   })
 
   it("includes the user's row (Rick Wilson & Andrew Rowberg, EW pair 4)", () => {

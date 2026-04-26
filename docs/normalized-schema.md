@@ -6,7 +6,7 @@ Every adapter emits this JSON schema regardless of source. The downstream analyz
 
 ```jsonc
 {
-  "schema_version": "2.0",
+  "schema_version": "2.1",
   "source": "acbl-live",          // "acbl-live" | "club-game-bws" | "bbo" | ...
   "fetched_at": "2026-04-26T18:30:00Z",
   "tournaments": [Tournament, ...]
@@ -40,13 +40,14 @@ In every case the structure is the same nested tree; the only difference is the 
 {
   "event_id": "2501",             // identifier of one event within the tournament
   "event_type": "open_pairs",     // "open_pairs" | "swiss_teams" | "knockout" | ...
+  "name": "Wednesday Afternoon Pairs", // optional human-readable label; null/absent if not available
   "date": "2026-04-25",           // event date (ISO YYYY-MM-DD)
   "scoring": "matchpoints",       // "matchpoints" | "imps" | "btw" | ...
   "sessions": [Session, ...]
 }
 ```
 
-`event_id` is unique within the tournament (sanction). One event has one or more sessions.
+`event_id` is unique within the tournament (sanction). One event has one or more sessions. `name` is optional — for ACBL Live tournament data the human-readable label lives on the tournament; for club games (single-event, no real "tournament" wrapper) the descriptive name lives on the event. Analyzers should fall back: `event.name` → `tournament.name` → `event.date`.
 
 ## Session
 
@@ -55,6 +56,10 @@ In every case the structure is the same nested tree; the only difference is the 
   "session_number": 2,            // 1-based; unique within the event
   "time": "14:30",                // 24-hour local start time
   "user_pair": UserPair,          // present only if a pair scorecard initiated this session's extraction
+  "pairs": {                      // optional: full pair-number → players map for the session
+    "4": [Player, Player],        //   keys are stringified pair numbers (since JSON object keys are strings)
+    "10": [Player, Player]        //   players echo the Player shape used elsewhere
+  },
   "boards": [Board, ...],
   "partial": false,               // true if some boards failed to fetch or parse
   "warnings": []                  // human-readable issues encountered during extraction
@@ -62,6 +67,8 @@ In every case the structure is the same nested tree; the only difference is the 
 ```
 
 `session_number` alone identifies a session — no separate composite ID is needed because uniqueness is scoped under the event.
+
+`pairs` is optional. ACBL Live's board-detail pages already include player names on every result row, so the ACBL Live adapter omits this field. Adapters reading sources that don't always carry full names (e.g., a BWS file without the ACBL name database loaded) populate `pairs` so analyzer-side overlay flows can map pair numbers to players.
 
 ## UserPair
 
@@ -94,10 +101,14 @@ In every case the structure is the same nested tree; the only difference is the 
   },
 
   "double_dummy": {
-    // Tricks each declarer can make in each strain, optimal play both sides
-    // Format: { "NS": { "C": 4, "D": 1, "H": 3, "S": 5, "NT": 5 }, "EW": { ... } }
-    "NS": { "C": 4, "D": 1, "H": 3, "S": 5, "NT": 5 },
-    "EW": { "C": 2, "D": 6, "H": 3, "S": 2, "NT": 2 }
+    // Tricks each declarer can make in each strain, optimal play by both sides.
+    // Per-declarer (4 seats × 5 strains = 20 values), because opening-lead
+    // direction can change DD tricks for some layouts and the analyzer matches
+    // tricks against the actual declarer.
+    "N": { "C": 4, "D": 1, "H": 3, "S": 5, "NT": 5 },
+    "S": { "C": 5, "D": 1, "H": 3, "S": 5, "NT": 5 },
+    "E": { "C": 2, "D": 6, "H": 3, "S": 2, "NT": 2 },
+    "W": { "C": 2, "D": 6, "H": 3, "S": 2, "NT": 2 }
   },
 
   "par": {
@@ -130,7 +141,7 @@ Ranks: `A`, `K`, `Q`, `J`, `10`, `9`, `8`, `7`, `6`, `5`, `4`, `3`, `2`. Always 
 {
   "contract": "6S",               // canonical: digit + strain (C/D/H/S/NT) + optional X or XX. "PASS" for passed-out boards. null for "no result" rows (sit-out / averaged / not played).
   "declarer": "S",                // "N" | "E" | "S" | "W". null when contract is null or "PASS".
-  "tricks": null,                 // tricks taken if available; null if only score is known
+  "tricks": 12,                   // tricks taken (0–13). Should be populated whenever score and contract are both known; the analyzer's trick-difference and DD-comparison logic degrades when this is null. Adapters should derive tricks from score when possible (deterministic for non-doubled contracts; for doubled/redoubled, ambiguity may force null in rare cases — emit a warning when this happens).
   "score": 980,                   // signed integer; positive = NS gain. null when no result was recorded for this row.
 
   "matchpoints": 14,              // null if scoring is not matchpoints
@@ -186,11 +197,18 @@ Always from N-S perspective. `+980` = N-S won 980. `-100` = N-S lost 100 (E-W ga
 
 `schema_version` follows semver-ish:
 
-- Patch (`2.0.1`): bugfixes, no field changes
-- Minor (`2.1`): new optional fields added
+- Patch (`2.1.1`): bugfixes, no field changes
+- Minor (`2.2`): new optional fields added
 - Major (`3.0`): breaking changes (renames, removals, type changes)
 
 The analyzer should validate `schema_version` and refuse data from unknown major versions.
+
+### What changed in 2.1
+
+- **`Board.double_dummy` is now per-declarer** — `{ N: {...}, S: {...}, E: {...}, W: {...} }`, replacing the per-side `{ NS, EW }` shape. Each value is a `{ C, D, H, S, NT }` strain map of tricks. Opening-lead direction can change DD tricks for some layouts, so collapsing N+S into a single number lost information. Adapters that only have per-side source data should populate both seats of each side with the same value. This is technically a breaking shape change inside `Board`, but since 2.0 was never consumed by the analyzer, the bump is minor and consumers require ≥ 2.1.
+- Added optional `Event.name` — human-readable label like `"Wednesday Afternoon Pairs"`. Useful for sources where the descriptive name lives at the event level rather than the tournament level (e.g., club games). Analyzers fall back: `event.name` → `tournament.name` → `event.date`.
+- Added optional `Session.pairs` — a `{ "<pair_number>": [Player, Player] }` map covering every pair in the session. Adapters with comprehensive on-page name data (ACBL Live) omit this; adapters whose source can be missing names (BWS files) populate it so analyzers can overlay pasted recap data.
+- Tightened the doc comment on `Result.tricks`: adapters should populate tricks whenever score + contract are both known (deterministic for non-doubled contracts), since downstream trick-difference / DD-comparison logic degrades when this is null.
 
 ### What changed in 2.0
 
@@ -205,7 +223,7 @@ The analyzer should validate `schema_version` and refuse data from unknown major
 
 ```json
 {
-  "schema_version": "2.0",
+  "schema_version": "2.1",
   "source": "acbl-live",
   "fetched_at": "2026-04-26T18:30:00Z",
   "tournaments": [
@@ -217,6 +235,7 @@ The analyzer should validate `schema_version` and refuse data from unknown major
         {
           "event_id": "2501",
           "event_type": "open_pairs",
+          "name": null,
           "date": "2026-04-25",
           "scoring": "matchpoints",
           "sessions": [
@@ -268,15 +287,17 @@ The analyzer should validate `schema_version` and refuse data from unknown major
                     }
                   },
                   "double_dummy": {
-                    "NS": { "C": 4, "D": 1, "H": 3, "S": 5, "NT": 5 },
-                    "EW": { "C": 2, "D": 6, "H": 3, "S": 2, "NT": 2 }
+                    "N": { "C": 4, "D": 1, "H": 3, "S": 5, "NT": 5 },
+                    "S": { "C": 5, "D": 1, "H": 3, "S": 5, "NT": 5 },
+                    "E": { "C": 2, "D": 6, "H": 3, "S": 2, "NT": 2 },
+                    "W": { "C": 2, "D": 6, "H": 3, "S": 2, "NT": 2 }
                   },
                   "par": { "score": 460, "contract": "5NT", "declarer": "NS" },
                   "results": [
                     {
                       "contract": "6S",
                       "declarer": "S",
-                      "tricks": null,
+                      "tricks": 12,
                       "score": 980,
                       "matchpoints": 14,
                       "percentage": 100.0,

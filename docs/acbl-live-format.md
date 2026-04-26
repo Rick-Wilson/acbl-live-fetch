@@ -225,6 +225,10 @@ Par Score
 +460 5NT-NS
 ```
 
+The slash form `4/5♣` on the NS line means **N makes 4 clubs, S makes 5 clubs** (first seat / second seat order). On the EW line a slash form would similarly mean E / W. A bare number means both seats of that side make the same number — e.g. `1♦` on the NS line is "N makes 1 diamond, S makes 1 diamond". Strain rendering flips orientation between the lines: NS shows number-then-suit, EW shows suit-then-number (with the suit symbols inside `<div class="reverse">`). Parsers detect orientation by whether a strain letter is immediately followed by a digit.
+
+The schema's `Board.double_dummy` is per-declarer (`{ N, S, E, W }`), so each slash splits cleanly into the two seat objects for that side.
+
 Also embedded in the handviewer URL's `p={...}` parameter for redundancy. Either source works.
 
 ## Pair-scorecard page structure
