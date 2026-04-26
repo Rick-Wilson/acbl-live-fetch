@@ -1,6 +1,16 @@
 // Service worker entry point. Wires real chrome.* APIs into the pure handler
 // logic in src/background/handlers.js. Keep this file minimal — anything
 // non-trivial belongs in handlers.js where it can be tested without a browser.
+//
+// MV3 service workers don't expose DOMParser (despite Chrome 124+ rumors),
+// so we polyfill it on globalThis with linkedom — a pure-JS DOM that's
+// drop-in compatible with what the parsers use. The polyfill must run before
+// any module that calls `new DOMParser()`.
+
+import { DOMParser as LinkedomDOMParser } from 'linkedom'
+if (typeof globalThis.DOMParser === 'undefined') {
+  globalThis.DOMParser = LinkedomDOMParser
+}
 
 import { handleMessage, sweepExpired } from './background/handlers.js'
 

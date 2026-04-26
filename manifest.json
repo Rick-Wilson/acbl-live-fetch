@@ -3,7 +3,6 @@
   "name": "ACBL Live Fetch",
   "version": "0.1.0",
   "description": "One-click extraction of bridge results from supported sites for analysis at bridge-classroom.com.",
-  "minimum_chrome_version": "124",
   "background": {
     "service_worker": "src/background.js",
     "type": "module"
