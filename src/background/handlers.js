@@ -8,7 +8,7 @@ import adapter from '../adapters/acbl-live/index.js'
 
 export const PENDING_PREFIX = 'pending-sessions:'
 export const PENDING_TTL_MS = 60 * 60 * 1000 // 1 hour
-export const ANALYZER_URL = 'https://bridge-classroom.com/analyze'
+export const ANALYZER_URL = 'https://club-game-analysis.bridge-classroom.com/analyze'
 
 export async function handleMessage(msg, deps) {
   if (!msg || typeof msg.type !== 'string') {

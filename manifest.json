@@ -14,11 +14,14 @@
       "run_at": "document_idle"
     },
     {
-      "matches": ["https://bridge-classroom.com/analyze*"],
+      "matches": ["https://club-game-analysis.bridge-classroom.com/analyze*"],
       "js": ["src/ui/analyzerContent.js"],
       "run_at": "document_start"
     }
   ],
   "permissions": ["storage", "tabs"],
-  "host_permissions": ["https://live.acbl.org/*", "https://bridge-classroom.com/*"]
+  "host_permissions": [
+    "https://live.acbl.org/*",
+    "https://club-game-analysis.bridge-classroom.com/*"
+  ]
 }

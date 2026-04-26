@@ -1,10 +1,10 @@
 # Handoff Protocol
 
-This document specifies how the extension hands a parsed session to the bridge-classroom.com analyzer SPA. It's the contract between three pieces of code:
+This document specifies how the extension hands a parsed session to the analyzer SPA at `club-game-analysis.bridge-classroom.com`. It's the contract between three pieces of code:
 
 - **Service worker** (`src/background.js`) — runs the adapter, holds the data briefly.
 - **Analyzer content script** (`src/ui/analyzerContent.js`) — runs in the analyzer page, bridges extension storage and the page's `sessionStorage`.
-- **Analyzer SPA** (in the bridge-classroom.com codebase) — reads the session and renders.
+- **Analyzer SPA** (served at `club-game-analysis.bridge-classroom.com`) — reads the session and renders.
 
 If you're working on the SPA side, [§ SPA contract](#spa-contract) is the part you need.
 
@@ -40,7 +40,7 @@ Trade-off: payload size is bounded by `sessionStorage`'s ~5 MB-per-origin limit.
          │ ◄──── extraction-complete{sid} ──── │                                     │
          │                                     │                                     │
          │                                     │ 5. chrome.tabs.create               │
-         │                                     │   bridge-classroom.com/analyze#sid=<uuid>
+         │                                     │   club-game-analysis.bridge-classroom.com/analyze#sid=<uuid>
          │                                     │ ────────────────────────────────►   │
          │                                     │                                     │
          │                                     │                       6. content script
@@ -150,7 +150,7 @@ The service worker deletes the `chrome.storage.local` entry on a successful read
 ## URL fragment
 
 ```
-https://bridge-classroom.com/analyze#sid=<uuid>
+https://club-game-analysis.bridge-classroom.com/analyze#sid=<uuid>
 ```
 
 - Fragment, not query string, because fragments don't hit servers and don't appear in HTTP referer / access logs.
@@ -158,7 +158,7 @@ https://bridge-classroom.com/analyze#sid=<uuid>
 
 ## SPA contract
 
-This is the part the bridge-classroom.com SPA needs to implement.
+This is the part the analyzer SPA at `club-game-analysis.bridge-classroom.com` needs to implement.
 
 ### On mount of the `/analyze` route
 

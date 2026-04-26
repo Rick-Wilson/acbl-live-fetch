@@ -79,14 +79,14 @@ Background responds:
 { type: 'extraction-error', error: { code, message } }
 ```
 
-## Handoff to bridge-classroom.com
+## Handoff to the analyzer
 
-The session payload is handed to the analyzer SPA via the user's own `window.sessionStorage`, bridged by a second content script. No server round-trip; data is ephemeral and per-tab.
+The session payload is handed to the analyzer SPA (`club-game-analysis.bridge-classroom.com`) via the user's own `window.sessionStorage`, bridged by a second content script. No server round-trip; data is ephemeral and per-tab.
 
 Sketch of the flow:
 
 1. Service worker finishes extraction → generates a UUID → writes `{ <uuid>: NormalizedSession }` to `chrome.storage.local` under a `pending-sessions:` namespace.
-2. Service worker opens `https://bridge-classroom.com/analyze#sid=<uuid>` via `chrome.tabs.create`.
+2. Service worker opens `https://club-game-analysis.bridge-classroom.com/analyze#sid=<uuid>` via `chrome.tabs.create`.
 3. The analyzer content script (`src/ui/analyzerContent.js`, `run_at: "document_start"`) reads the fragment, requests the session from the service worker via `chrome.runtime.sendMessage`, writes the JSON envelope to `window.sessionStorage` under the key `pending-session`, and the service worker deletes the `chrome.storage.local` entry.
 4. The SPA reads `sessionStorage.getItem('pending-session')` on mount, removes the key, and renders.
 
