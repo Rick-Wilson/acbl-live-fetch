@@ -96,7 +96,7 @@ The value of both `chrome.storage.local`'s `envelope` field and `sessionStorage[
 
 ```jsonc
 {
-  "schema_version": "2.1",
+  "schema_version": "1.0",
   "source": "acbl-live", // or "club-game-bws", future sources, etc.
   "fetched_at": "2026-04-26T18:30:00Z",
   "tournaments": [
@@ -188,7 +188,7 @@ function readPendingSession() {
 function isSupportedSchemaVersion(v) {
   if (typeof v !== 'string') return false
   // Accept the same major version. Reject unknown majors.
-  return v.startsWith('2.')
+  return v.startsWith('1.')
 }
 ```
 

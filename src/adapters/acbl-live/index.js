@@ -5,7 +5,7 @@
 import { fetchSession } from './fetcher.js'
 import { parseBoardDetail } from './parsers/boardDetail.js'
 
-export const SCHEMA_VERSION = '2.1'
+export const SCHEMA_VERSION = '1.0'
 export const SOURCE_NAME = 'acbl-live'
 export const TOURNAMENT_SCHEDULE_BASE = 'https://tournaments.acbl.org/schedule.php'
 

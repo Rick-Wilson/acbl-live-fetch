@@ -99,8 +99,8 @@ describe('extractSession', () => {
       now: () => fixedNow,
     })
 
-    // Top-level wrapper (schema 2.1 — tournaments-tree, per-declarer DD).
-    expect(out.schema_version).toBe('2.1')
+    // Top-level wrapper (schema 1.0 — tournaments-tree, per-declarer DD).
+    expect(out.schema_version).toBe('1.0')
     expect(out.source).toBe('acbl-live')
     expect(out.fetched_at).toBe(fixedNow)
     expect(out.tournaments).toHaveLength(1)

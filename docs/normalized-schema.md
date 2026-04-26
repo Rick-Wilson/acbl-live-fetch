@@ -6,7 +6,7 @@ Every adapter emits this JSON schema regardless of source. The downstream analyz
 
 ```jsonc
 {
-  "schema_version": "2.1",
+  "schema_version": "1.0",
   "source": "acbl-live",          // "acbl-live" | "club-game-bws" | "bbo" | ...
   "fetched_at": "2026-04-26T18:30:00Z",
   "tournaments": [Tournament, ...]
@@ -197,33 +197,17 @@ Always from N-S perspective. `+980` = N-S won 980. `-100` = N-S lost 100 (E-W ga
 
 `schema_version` follows semver-ish:
 
-- Patch (`2.1.1`): bugfixes, no field changes
-- Minor (`2.2`): new optional fields added
-- Major (`3.0`): breaking changes (renames, removals, type changes)
+- Patch (`1.0.1`): bugfixes, no field changes
+- Minor (`1.1`): new optional fields added
+- Major (`2.0`): breaking changes (renames, removals, type changes)
 
 The analyzer should validate `schema_version` and refuse data from unknown major versions.
-
-### What changed in 2.1
-
-- **`Board.double_dummy` is now per-declarer** — `{ N: {...}, S: {...}, E: {...}, W: {...} }`, replacing the per-side `{ NS, EW }` shape. Each value is a `{ C, D, H, S, NT }` strain map of tricks. Opening-lead direction can change DD tricks for some layouts, so collapsing N+S into a single number lost information. Adapters that only have per-side source data should populate both seats of each side with the same value. This is technically a breaking shape change inside `Board`, but since 2.0 was never consumed by the analyzer, the bump is minor and consumers require ≥ 2.1.
-- Added optional `Event.name` — human-readable label like `"Wednesday Afternoon Pairs"`. Useful for sources where the descriptive name lives at the event level rather than the tournament level (e.g., club games). Analyzers fall back: `event.name` → `tournament.name` → `event.date`.
-- Added optional `Session.pairs` — a `{ "<pair_number>": [Player, Player] }` map covering every pair in the session. Adapters with comprehensive on-page name data (ACBL Live) omit this; adapters whose source can be missing names (BWS files) populate it so analyzers can overlay pasted recap data.
-- Tightened the doc comment on `Result.tricks`: adapters should populate tricks whenever score + contract are both known (deterministic for non-doubled contracts), since downstream trick-difference / DD-comparison logic degrades when this is null.
-
-### What changed in 2.0
-
-- Top-level wrapper is now `tournaments: [Tournament, ...]` (an array of trees) rather than a single `session: Session`. This unifies "single session", "whole tournament", and "player history" extractions under one shape.
-- Renamed `event_id → sanction` at the top of the tree (it was always the tournament-level identifier; the URL-segment naming was misleading).
-- Added `tournament.schedule_url` (canonical link to the tournament's schedule page).
-- Added `tournament.name` for the human-readable tournament name (previously emitted as `event_name`).
-- Removed the composite `session_id` (e.g., `"2501-2"`); replaced with `session_number` (integer, unique under each event).
-- New intermediate `Event` node between tournament and session, holding `event_id`, `event_type`, `date`, and `scoring`.
 
 ## Worked example (truncated)
 
 ```json
 {
-  "schema_version": "2.1",
+  "schema_version": "1.0",
   "source": "acbl-live",
   "fetched_at": "2026-04-26T18:30:00Z",
   "tournaments": [
