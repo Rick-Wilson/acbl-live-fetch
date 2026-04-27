@@ -2,13 +2,20 @@
 // docs/architecture.md and emits the tournaments-tree envelope from
 // docs/normalized-schema.md.
 
-import { fetchSession } from './fetcher.js'
 import { fetchAll } from '../../lib/rateLimiter.js'
 import { parseBoardDetail } from './parsers/boardDetail.js'
+import { parsePairScorecard } from './parsers/pairScorecard.js'
 
 export const SCHEMA_VERSION = '1.0'
 export const SOURCE_NAME = 'acbl-live'
 export const TOURNAMENT_SCHEDULE_BASE = 'https://tournaments.acbl.org/schedule.php'
+
+// Default concurrency for extractSession's bulk fetches. Higher than the
+// rate-limiter's library default (4) because the orchestrator now shares one
+// concurrency budget across every (session × section × board) fetch instead
+// of multiplying it via parallel fetchAll calls. Lower than the per-host
+// budget ACBL Live tolerates in practice.
+const DEFAULT_CONCURRENCY = 8
 
 export function matchesUrl(url) {
   try {
@@ -48,7 +55,7 @@ export async function extractSession(url, options = {}) {
   const {
     fetch,
     signal,
-    concurrency = 4,
+    concurrency = DEFAULT_CONCURRENCY,
     delayMs = 0,
     maxRetries,
     now = () => new Date().toISOString(),
@@ -65,47 +72,122 @@ export async function extractSession(url, options = {}) {
   const fetchOpts = { fetch, signal, concurrency, delayMs, maxRetries }
   const baseUrl = new URL(url)
 
-  // 1. Fetch the URL the user clicked from. We need its parsed scorecard to
-  //    discover all sibling sessions and identify the user.
-  const initial = await fetchSession(url, fetchOpts)
-  const initialSc = initial.scorecard
+  // ── Phase 1: initial scorecard ───────────────────────────────────────────
+  const initialMap = await fetchAll([url], { ...fetchOpts, concurrency: 1 })
+  const initialHtml = initialMap.get(url)
+  if (initialHtml instanceof Error) throw initialHtml
+  const initialSc = parsePairScorecard(initialHtml)
   const userIdentity = identifyUser(initialSc.user_pair)
 
-  // 2. For every other session listed in the session-select dropdown, locate
-  //    the user's scorecard for that session. Players can move sections
-  //    between sessions, so the dropdown URL (which keeps the current
-  //    section/direction/pair slot) might point at a *different* pair in
-  //    the sibling session. We follow the user via pair_directory.
-  const otherSessionEntries = (initialSc.available_sessions ?? []).filter(
+  // ── Phase 2: sibling session scorecards (one fetchAll, shared budget) ───
+  const siblingEntries = (initialSc.available_sessions ?? []).filter(
     (s) => s.number !== initialSc.session_number && s.url
   )
-  const otherSessions = await Promise.all(
-    otherSessionEntries.map(async (s) => {
-      const sessionUrl = new URL(s.url, baseUrl).toString()
-      return findUserScorecardForSession(sessionUrl, userIdentity, baseUrl, fetchOpts)
-    })
+  const siblingUrls = siblingEntries.map((s) => new URL(s.url, baseUrl).toString())
+  const siblingMap = siblingUrls.length ? await fetchAll(siblingUrls, fetchOpts) : new Map()
+
+  const sessions = [{ url, html: initialHtml, sc: initialSc }]
+  for (const sUrl of siblingUrls) {
+    const html = siblingMap.get(sUrl)
+    if (html instanceof Error) continue
+    let sc
+    try {
+      sc = parsePairScorecard(html)
+    } catch {
+      continue
+    }
+    sessions.push({ url: sUrl, html, sc })
+  }
+
+  // ── Phase 3: follow the user across sessions ────────────────────────────
+  // For any sibling whose user_pair isn't us (the user changed sections),
+  // find our entry in pair_directory and re-fetch that URL. Single fetchAll
+  // for any corrected URLs.
+  const corrections = []
+  for (let i = 1; i < sessions.length; i++) {
+    if (userPairMatchesIdentity(sessions[i].sc.user_pair, userIdentity)) continue
+    const userEntry = findUserInPairDirectory(sessions[i].sc.pair_directory, userIdentity)
+    if (!userEntry) continue
+    const correctedUrl = new URL(userEntry.url, baseUrl).toString()
+    if (correctedUrl !== sessions[i].url) {
+      corrections.push({ idx: i, url: correctedUrl })
+    }
+  }
+  if (corrections.length > 0) {
+    const correctedMap = await fetchAll(
+      corrections.map((c) => c.url),
+      fetchOpts
+    )
+    for (const { idx, url: cUrl } of corrections) {
+      const html = correctedMap.get(cUrl)
+      if (html instanceof Error) continue
+      let sc
+      try {
+        sc = parsePairScorecard(html)
+      } catch {
+        continue
+      }
+      sessions[idx] = { url: cUrl, html, sc }
+    }
+  }
+
+  // Drop sibling sessions where we still can't locate the user.
+  const usableSessions = sessions.filter(
+    (s, i) => i === 0 || userPairMatchesIdentity(s.sc.user_pair, userIdentity)
   )
 
-  // 3. For every successful session fetch (initial + corrected siblings),
-  //    additionally fetch board-detail for *every* section that played in
-  //    that session, so the analyzer sees the whole event.
-  const allInitialFetches = [initial, ...otherSessions.filter((s) => s !== null)]
-  const sessionsWithAllSections = await Promise.all(
-    allInitialFetches.map((s) => augmentWithOtherSections(s, baseUrl, fetchOpts))
-  )
+  // ── Phase 4: build the full board-detail fetch plan ─────────────────────
+  // For each session, derive every section from pair_directory; for each
+  // section, build a board-detail URL per board. One big list.
+  const plan = [] // { sessionIdx, section, boardNumber, url }
+  for (let i = 0; i < usableSessions.length; i++) {
+    const { sc, url: sUrl } = usableSessions[i]
+    const userSection = sc.user_pair.section
+    const sections = uniqueSections(sc.pair_directory, userSection)
+    const sBase = new URL(sUrl)
+    for (const section of sections) {
+      for (const board of sc.boards) {
+        const swapped = board.board_detail_url.replace(
+          /\/board-detail\/[A-Z]+/,
+          `/board-detail/${section}`
+        )
+        plan.push({
+          sessionIdx: i,
+          section,
+          boardNumber: board.number,
+          url: new URL(swapped, sBase).toString(),
+        })
+      }
+    }
+  }
 
-  // 4. Build a Session for each, combining results across sections.
-  const sessions = sessionsWithAllSections
-    .map((s) => buildSession(s.scorecard, s.boardHtmlsBySection))
+  // ── Phase 5: single fetchAll for every board-detail ─────────────────────
+  // This is the bulk of the work — typically 26 boards × N sessions × M
+  // sections. One concurrency budget, no parallel fetchAll multiplication.
+  const boardMap = plan.length ? await fetchAll(plan.map((p) => p.url), fetchOpts) : new Map()
+
+  // ── Phase 6: distribute results into per-session, per-section maps ─────
+  const sessionBoardHtmls = usableSessions.map(() => new Map())
+  for (const p of plan) {
+    let sectionMap = sessionBoardHtmls[p.sessionIdx].get(p.section)
+    if (!sectionMap) {
+      sectionMap = new Map()
+      sessionBoardHtmls[p.sessionIdx].set(p.section, sectionMap)
+    }
+    sectionMap.set(p.boardNumber, boardMap.get(p.url))
+  }
+
+  // ── Phase 7: build Sessions and assemble the envelope ───────────────────
+  const builtSessions = usableSessions
+    .map(({ sc }, i) => buildSession(sc, sessionBoardHtmls[i]))
     .sort((a, b) => a.session_number - b.session_number)
 
-  // 5. Tournament/event metadata comes from the initial scorecard.
   const event = {
     event_id: initialSc.event_id,
     event_type: initialSc.event_type,
     date: initialSc.date,
     scoring: initialSc.scoring,
-    sessions,
+    sessions: builtSessions,
   }
   const tournament = {
     sanction: initialSc.sanction,
@@ -135,7 +217,6 @@ function userPairMatchesIdentity(userPair, identity) {
   if (ids.length > 0 && identity.acbl_ids.length > 0) {
     return ids.some((id) => identity.acbl_ids.includes(id))
   }
-  // Fall back to name match if either side lacks IDs.
   const names = userPair.players.map((p) => p.name.toLowerCase())
   return names.some((n) => identity.player_names_lower.includes(n))
 }
@@ -149,77 +230,13 @@ function findUserInPairDirectory(directory, identity) {
   })
 }
 
-async function findUserScorecardForSession(sessionUrl, identity, baseUrl, fetchOpts) {
-  let fetched
-  try {
-    fetched = await fetchSession(sessionUrl, fetchOpts)
-  } catch {
-    return null
-  }
-  if (userPairMatchesIdentity(fetched.scorecard.user_pair, identity)) {
-    return fetched
-  }
-  // The dropdown URL points at a different pair (the user changed sections).
-  // Walk pair_directory to find them, then re-fetch.
-  const userEntry = findUserInPairDirectory(fetched.scorecard.pair_directory, identity)
-  if (!userEntry) return null
-  const correctedUrl = new URL(userEntry.url, baseUrl).toString()
-  if (correctedUrl === sessionUrl) return fetched
-  try {
-    return await fetchSession(correctedUrl, fetchOpts)
-  } catch {
-    return null
-  }
-}
-
-// --- multi-section board fetching --------------------------------------------
-
-async function augmentWithOtherSections(sessionFetch, baseUrl, fetchOpts) {
-  // Returns the session fetch annotated with a boardHtmlsBySection map:
-  //   Map<sectionLetter, Map<boardNumber, htmlString | Error>>
-  const { scorecard } = sessionFetch
-  const userSection = scorecard.user_pair.section
-  const allSections = uniqueSections(scorecard.pair_directory, userSection)
-
-  const boardHtmlsBySection = new Map()
-  boardHtmlsBySection.set(userSection, sessionFetch.boardHtmls)
-
-  const otherSections = allSections.filter((s) => s !== userSection)
-  await Promise.all(
-    otherSections.map(async (section) => {
-      const sectionMap = await fetchSectionBoardDetails(scorecard, section, baseUrl, fetchOpts)
-      boardHtmlsBySection.set(section, sectionMap)
-    })
-  )
-
-  return { ...sessionFetch, boardHtmlsBySection }
-}
+// --- session assembly ---------------------------------------------------------
 
 function uniqueSections(pairDirectory, fallbackSection) {
   const set = new Set(pairDirectory.map((p) => p.section).filter(Boolean))
   if (set.size === 0 && fallbackSection) set.add(fallbackSection)
   return [...set].sort()
 }
-
-async function fetchSectionBoardDetails(scorecard, section, baseUrl, fetchOpts) {
-  // Build one board-detail URL per board for this section by swapping the
-  // section letter in the user's section URL template.
-  const urls = scorecard.boards.map((b) => {
-    const url = b.board_detail_url.replace(
-      /\/board-detail\/[A-Z]+/,
-      `/board-detail/${section}`
-    )
-    return new URL(url, baseUrl).toString()
-  })
-  const fetched = await fetchAll(urls, fetchOpts)
-  const map = new Map()
-  scorecard.boards.forEach((b, i) => {
-    map.set(b.number, fetched.get(urls[i]))
-  })
-  return map
-}
-
-// --- session assembly ---------------------------------------------------------
 
 function buildSession(scorecard, boardHtmlsBySection) {
   const sections = [...boardHtmlsBySection.keys()].sort()
@@ -234,11 +251,7 @@ function buildSession(scorecard, boardHtmlsBySection) {
     for (const section of sections) {
       const sectionMap = boardHtmlsBySection.get(section)
       const html = sectionMap?.get(sb.number)
-      if (html == null) {
-        // Section didn't return data for this board (typical when a section
-        // didn't play this board, e.g., differing movements). Skip silently.
-        continue
-      }
+      if (html == null) continue
       if (html instanceof Error) {
         partial = true
         warnings.push(`board ${sb.number} section ${section}: fetch failed (${html.message})`)
@@ -293,8 +306,6 @@ function findUserResultIndex(board, userPair) {
   const idx = board.results.findIndex((r) => {
     const pair = userPair.direction === 'NS' ? r.ns_pair : r.ew_pair
     if (pair.number !== userPair.pair_number) return false
-    // With multi-section results combined into one array, two different
-    // sections can have the same pair_number — section must match too.
     if (pair.section != null && pair.section !== userPair.section) return false
     if (userIds.length === 0) return true
     const pairIds = pair.players.map((p) => p.acbl_id).filter(Boolean)
