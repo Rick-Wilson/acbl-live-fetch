@@ -203,16 +203,13 @@ function mapVulnerability(v) {
 // --- double-dummy parsing ---------------------------------------------------
 
 function parseDoubleDummy(hr, warnings, boardNumber) {
-  const empty = () => ({ C: 0, D: 0, H: 0, S: 0, NT: 0 })
+  const empty = () => ({ C: null, D: null, H: null, S: null, NT: null })
   if (!hr) return { N: empty(), S: empty(), E: empty(), W: empty() }
 
   const ns = parseDoubleDummyLine(hr.double_dummy_ns, warnings, boardNumber, 'NS')
   const ew = parseDoubleDummyLine(hr.double_dummy_ew, warnings, boardNumber, 'EW')
   // The club-game source provides per-side data, not per-declarer. Populate
-  // both seats of each side identically. Values are left in the source's
-  // level form (highest-makeable-contract level, 0–7) per Rick's spec for
-  // this adapter — note this differs from the tournament adapter, which
-  // converts level → tricks.
+  // both seats of each side identically.
   return {
     N: { ...ns },
     S: { ...ns },
@@ -222,7 +219,13 @@ function parseDoubleDummy(hr, warnings, boardNumber) {
 }
 
 function parseDoubleDummyLine(line, warnings, boardNumber, side) {
-  const out = { C: 0, D: 0, H: 0, S: 0, NT: 0 }
+  // The schema field is raw trick counts (0–13). The club source emits the
+  // values as "highest makeable contract level" (0–7), same as the
+  // tournament source. Convert level → tricks (level + 6 for 1–7) so both
+  // adapters' double-dummy values are on the same scale and the analyzer's
+  // trick math works. Level 0 ("can't make 1-level") maps to null because
+  // the source doesn't tell us how many tricks <7 declarer actually takes.
+  const out = { C: null, D: null, H: null, S: null, NT: null }
   if (line == null) {
     warnings.push(`board ${boardNumber} ${side} double-dummy: missing`)
     return out
@@ -238,14 +241,14 @@ function parseDoubleDummyLine(line, warnings, boardNumber, side) {
   //   strain+number   'C1', 'NT5'
   //   range+strain    '3/4H' (use lower)
   //   strain+range    'C6/5'  (use lower)
-  // Numbers can be 0..7 (level form). Missing strains stay 0.
+  // The number is a level (0..7). Missing strains stay null.
   for (const tok of text.split(/\s+/).filter(Boolean)) {
     const numFirst = tok.match(/^(\d+)(?:\/(\d+))?(NT|[CDHS])$/i)
     const strainFirst = tok.match(/^(NT|[CDHS])(\d+)(?:\/(\d+))?$/i)
     if (numFirst) {
-      out[numFirst[3].toUpperCase()] = lowerOf(numFirst[1], numFirst[2])
+      out[numFirst[3].toUpperCase()] = levelToTricks(lowerOf(numFirst[1], numFirst[2]))
     } else if (strainFirst) {
-      out[strainFirst[1].toUpperCase()] = lowerOf(strainFirst[2], strainFirst[3])
+      out[strainFirst[1].toUpperCase()] = levelToTricks(lowerOf(strainFirst[2], strainFirst[3]))
     } else {
       warnings.push(
         `board ${boardNumber} ${side} double-dummy: unrecognized token '${tok}'`
@@ -253,6 +256,15 @@ function parseDoubleDummyLine(line, warnings, boardNumber, side) {
     }
   }
   return out
+}
+
+function levelToTricks(level) {
+  if (!Number.isInteger(level)) return null
+  if (level === 0) return null // ACBL collapses 0..6-trick outcomes into '0'
+  if (level >= 1 && level <= 7) return level + 6
+  // Defensive: pass through if a future source change ever emits raw tricks.
+  if (level >= 8 && level <= 13) return level
+  return null
 }
 
 function lowerOf(aRaw, bRaw) {

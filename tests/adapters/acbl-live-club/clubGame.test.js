@@ -65,15 +65,17 @@ describe('parseClubGame (Livermore Bridge Club, 2026-04-20)', () => {
       expect(board.par[1]).toEqual({ score: 920, contract: '6C', declarer: 'N' })
     })
 
-    it('passes the per-side double-dummy through (level form, per club-adapter spec)', () => {
-      // Source NS line: 'NS: 6C 6D 1H 2S 5NT' → C:6 D:6 H:1 S:2 NT:5
-      // Source EW line: 'EW: C1 D0 H6 S5 NT1' → C:1 D:0 H:6 S:5 NT:1
-      // The club source provides per-side data; we populate both seats of
-      // each side identically.
-      expect(board.double_dummy.N).toEqual({ C: 6, D: 6, H: 1, S: 2, NT: 5 })
-      expect(board.double_dummy.S).toEqual({ C: 6, D: 6, H: 1, S: 2, NT: 5 })
-      expect(board.double_dummy.E).toEqual({ C: 1, D: 0, H: 6, S: 5, NT: 1 })
-      expect(board.double_dummy.W).toEqual({ C: 1, D: 0, H: 6, S: 5, NT: 1 })
+    it('converts source level form to raw-trick double-dummy (per side, both seats identical)', () => {
+      // Source NS line: 'NS: 6C 6D 1H 2S 5NT' (level form: 6=12 tricks etc.)
+      //   → tricks: C:12 D:12 H:7 S:8 NT:11
+      // Source EW line: 'EW: C1 D0 H6 S5 NT1'
+      //   → tricks: C:7 D:null (level 0 = "can't make 1D") H:12 S:11 NT:7
+      // The schema is raw tricks across both adapters; the club source's
+      // level form is converted via level + 6 (or null for level 0).
+      expect(board.double_dummy.N).toEqual({ C: 12, D: 12, H: 7, S: 8, NT: 11 })
+      expect(board.double_dummy.S).toEqual({ C: 12, D: 12, H: 7, S: 8, NT: 11 })
+      expect(board.double_dummy.E).toEqual({ C: 7, D: null, H: 12, S: 11, NT: 7 })
+      expect(board.double_dummy.W).toEqual({ C: 7, D: null, H: 12, S: 11, NT: 7 })
     })
 
     it('resolves pair numbers to the right players via the pair index', () => {
