@@ -9,7 +9,7 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://live.acbl.org/*"],
+      "matches": ["https://live.acbl.org/*", "https://my.acbl.org/*"],
       "js": ["src/ui/sourceContent.js"],
       "run_at": "document_idle"
     },
@@ -22,6 +22,7 @@
   "permissions": ["storage", "tabs"],
   "host_permissions": [
     "https://live.acbl.org/*",
+    "https://my.acbl.org/*",
     "https://club-game-analysis.bridge-classroom.com/*"
   ]
 }

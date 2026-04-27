@@ -1,13 +1,20 @@
-// Source content script. Runs on live.acbl.org/* and injects an "Analyze in
-// Bridge Classroom" button on supported pages. Click sends the page URL to
-// the service worker; the SW does the extraction and opens the analyzer tab.
+// Source content script. Runs on live.acbl.org/* and my.acbl.org/* and
+// injects an "Analyze in Bridge Classroom" button on supported pages. Click
+// sends the page URL to the service worker; the SW dispatches to the
+// matching adapter and opens the analyzer tab with the extracted envelope.
 
-import { classifyPage } from '../adapters/acbl-live/index.js'
+import { classifyPage as classifyLive } from '../adapters/acbl-live/index.js'
+import { classifyPage as classifyClub } from '../adapters/acbl-live-club/index.js'
 
 const BUTTON_ID = 'bridge-classroom-analyze-btn'
 
+// Page types that trigger injection — one per supported source. Each adapter
+// owns a different hostname today, so the classifyPage calls are mutually
+// exclusive.
+const INJECT_PAGE_TYPES = new Set(['pair-scorecard', 'club-game-result'])
+
 export function shouldInject(url) {
-  return classifyPage(url) === 'pair-scorecard'
+  return INJECT_PAGE_TYPES.has(classifyLive(url)) || INJECT_PAGE_TYPES.has(classifyClub(url))
 }
 
 export function buttonStates() {

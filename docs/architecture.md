@@ -18,6 +18,19 @@
 
 8. **Extension shell is separable from analysis logic.** The code in this repo is the _extension shell_ — extraction adapters, fetchers, content scripts, service worker. Analysis logic (the bridge-classroom analyzer) lives elsewhere and consumes the normalized envelope. A future plugin loader (likely GitHub-Pages-hosted) will let the analyzer side evolve without going through extension-store reviews; today the boundary is enforced by directory layout — see [§ Repo layout](#repo-layout) — so the loader can land cleanly later.
 
+## Adapter registry
+
+The service worker holds an ordered registry of adapters in `src/background/handlers.js`. When an `extract-session` message arrives, the dispatcher picks the first adapter whose `matchesUrl(url)` returns true and delegates the rest of the work to it. New sources are added by writing an adapter and appending it to the registry — no other code path needs to change.
+
+Adapters today:
+
+| Adapter | Hostname | Page types | Output `source` |
+|---|---|---|---|
+| `acbl-live` | `live.acbl.org` | `pair-scorecard`, `board-detail`, `event-summary`, `player-history` | `"acbl-live"` |
+| `acbl-live-club` | `my.acbl.org` | `club-game-result` | `"acbl-live-club"` |
+
+Both emit the same envelope shape (top-level `tournaments[]`, `Tournament > Event > Session > Board > Result`); only the `source` field differs. See [normalized-schema.md](normalized-schema.md).
+
 ## Component contracts
 
 ### Adapter interface
@@ -155,10 +168,15 @@ src/
 │   └── analyzerContent.js     │  the browser-extension sandbox.
 │
 ├── adapters/                  ┐
-│   └── acbl-live/             │  Extraction — source-specific fetchers and
-│       ├── index.js           │  parsers that turn HTML/files into the
-│       ├── fetcher.js         │  normalized envelope. Pure JS; testable
-│       └── parsers/           │  in Node without a browser.
+│   ├── acbl-live/             │  ACBL Live tournament source: per-pair
+│   │   ├── index.js           │  scorecards on live.acbl.org, multi-fetch
+│   │   ├── fetcher.js         │  across sessions × sections × boards.
+│   │   └── parsers/           │
+│   │
+│   └── acbl-live-club/        │  ACBL my.acbl.org club-game source:
+│       ├── index.js           │  single fetch, data embedded as a Vue prop
+│       ├── extractor.js       │  on a <result-details> element.
+│       └── parsers/           │
 │
 ├── lib/                       ┐  Extraction utilities (rateLimiter,
 │   ├── parseError.js          │  parseError, etc.). Shared across adapters.

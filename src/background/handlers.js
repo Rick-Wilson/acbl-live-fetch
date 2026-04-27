@@ -4,7 +4,27 @@
 //
 // Message protocol: see docs/handoff-protocol.md.
 
-import adapter from '../adapters/acbl-live/index.js'
+import acblLiveAdapter from '../adapters/acbl-live/index.js'
+import acblLiveClubAdapter from '../adapters/acbl-live-club/index.js'
+
+// Adapter registry. The first adapter whose matchesUrl(url) returns true
+// owns that URL. Order matters when adapters could overlap; today they
+// don't (different hostnames), but list more-specific ones first.
+export const ADAPTERS = [acblLiveClubAdapter, acblLiveAdapter]
+
+export function pickAdapter(url) {
+  return ADAPTERS.find((a) => a.matchesUrl(url)) ?? null
+}
+
+async function dispatchExtract(url, options) {
+  const a = pickAdapter(url)
+  if (!a) {
+    const err = new Error(`No adapter matches URL: ${url}`)
+    err.name = 'ParseError'
+    throw err
+  }
+  return a.extractSession(url, options)
+}
 
 export const PENDING_PREFIX = 'pending-sessions:'
 export const PENDING_TTL_MS = 60 * 60 * 1000 // 1 hour
@@ -26,7 +46,7 @@ export async function handleMessage(msg, deps) {
 }
 
 export async function runExtraction(url, deps) {
-  const { storage, tabs, crypto, fetch, signal, extract = adapter.extractSession } = deps
+  const { storage, tabs, crypto, fetch, signal, extract = dispatchExtract } = deps
   if (typeof url !== 'string' || !url) {
     return { type: 'extraction-error', error: { code: 'bad-request', message: 'Missing URL' } }
   }
