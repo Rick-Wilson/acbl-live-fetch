@@ -173,37 +173,59 @@ export async function extractSession(url, options = {}) {
     }
   }
 
-  // ── Phase 5: single fetchAll for every board-detail ─────────────────────
-  // This is the bulk of the work — typically 26 boards × N sessions × M
-  // sections. One concurrency budget, no parallel fetchAll multiplication.
+  // ── Phase 5: fetch every board-detail AND parse on-the-fly ──────────────
+  // Each fetch worker, the moment its HTML lands, calls parseBoardDetail in
+  // the onResult callback. While that worker's CPU is parsing, the other
+  // (concurrency - 1) workers' fetches are still in flight against ACBL.
+  // Net effect: parsing time is hidden inside the fetch window instead of
+  // being a separate phase 7 of equal cost.
   timer.start()
-  const boardMap = plan.length ? await fetchAll(plan.map((p) => p.url), fetchOpts) : new Map()
-  timer.mark('phase5.boardDetails', {
+  const planByUrl = new Map(plan.map((p) => [p.url, p]))
+  const parsedByUrl = new Map() // url → parsed Board | Error
+  if (plan.length > 0) {
+    await fetchAll(plan.map((p) => p.url), {
+      ...fetchOpts,
+      onResult: (url, value) => {
+        if (value instanceof Error) {
+          parsedByUrl.set(url, value)
+          return
+        }
+        const item = planByUrl.get(url)
+        try {
+          parsedByUrl.set(
+            url,
+            parseBoardDetail(value, { boardNumber: item.boardNumber, section: item.section })
+          )
+        } catch (err) {
+          parsedByUrl.set(url, err)
+        }
+      },
+    })
+  }
+  timer.mark('phase5.fetchAndParse', {
     fetches: plan.length,
     sessions: usableSessions.length,
   })
 
-  // ── Phase 6: distribute results into per-session, per-section maps ─────
-  const sessionBoardHtmls = usableSessions.map(() => new Map())
+  // ── Phase 6: distribute parsed boards into per-session, per-section maps ─
+  const sessionBoards = usableSessions.map(() => new Map())
   for (const p of plan) {
-    let sectionMap = sessionBoardHtmls[p.sessionIdx].get(p.section)
+    let sectionMap = sessionBoards[p.sessionIdx].get(p.section)
     if (!sectionMap) {
       sectionMap = new Map()
-      sessionBoardHtmls[p.sessionIdx].set(p.section, sectionMap)
+      sessionBoards[p.sessionIdx].set(p.section, sectionMap)
     }
-    sectionMap.set(p.boardNumber, boardMap.get(p.url))
+    sectionMap.set(p.boardNumber, parsedByUrl.get(p.url))
   }
 
-  // ── Phase 7: build Sessions and assemble the envelope ───────────────────
-  // This is where every board-detail HTML is parsed via linkedom — typically
-  // CPU-bound and a meaningful chunk of total wall time, so it gets its own
-  // timing.
+  // ── Phase 7: assemble Sessions from already-parsed boards ───────────────
+  // Pure data-manipulation now; no parsing left to do.
   timer.start()
   const builtSessions = usableSessions
-    .map(({ sc }, i) => buildSession(sc, sessionBoardHtmls[i]))
+    .map(({ sc }, i) => buildSession(sc, sessionBoards[i]))
     .sort((a, b) => a.session_number - b.session_number)
-  timer.mark('phase7.parseAndBuild', {
-    boardsParsed: builtSessions.reduce((n, s) => n + s.boards.length, 0),
+  timer.mark('phase7.assemble', {
+    boardsBuilt: builtSessions.reduce((n, s) => n + s.boards.length, 0),
   })
 
   const event = {
@@ -292,8 +314,12 @@ function uniqueSections(pairDirectory, fallbackSection) {
   return [...set].sort()
 }
 
-function buildSession(scorecard, boardHtmlsBySection) {
-  const sections = [...boardHtmlsBySection.keys()].sort()
+function buildSession(scorecard, parsedBoardsBySection) {
+  // parsedBoardsBySection: Map<sectionLetter, Map<boardNumber, Board | Error>>
+  // Each Board is the output of parseBoardDetail — already parsed during the
+  // fetch phase via the onResult callback. Errors here can be either fetch
+  // failures or parse failures; both are surfaced as warnings.
+  const sections = [...parsedBoardsBySection.keys()].sort()
   const warnings = []
   let partial = false
   const boards = []
@@ -303,24 +329,17 @@ function buildSession(scorecard, boardHtmlsBySection) {
     let representativeBoard = null
 
     for (const section of sections) {
-      const sectionMap = boardHtmlsBySection.get(section)
-      const html = sectionMap?.get(sb.number)
-      if (html == null) continue
-      if (html instanceof Error) {
+      const sectionMap = parsedBoardsBySection.get(section)
+      const value = sectionMap?.get(sb.number)
+      if (value == null) continue
+      if (value instanceof Error) {
         partial = true
-        warnings.push(`board ${sb.number} section ${section}: fetch failed (${html.message})`)
+        const kind = value.name === 'ParseError' ? 'parse failed' : 'fetch failed'
+        warnings.push(`board ${sb.number} section ${section}: ${kind} (${value.message})`)
         continue
       }
-      let parsed
-      try {
-        parsed = parseBoardDetail(html, { boardNumber: sb.number, section })
-      } catch (err) {
-        partial = true
-        warnings.push(`board ${sb.number} section ${section}: parse failed (${err.message})`)
-        continue
-      }
-      if (representativeBoard === null) representativeBoard = parsed
-      combinedResults.push(...parsed.results)
+      if (representativeBoard === null) representativeBoard = value
+      combinedResults.push(...value.results)
     }
 
     if (representativeBoard === null) {

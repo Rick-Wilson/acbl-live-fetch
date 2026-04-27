@@ -106,6 +106,52 @@ describe('fetchAll', () => {
     expect(fetchFn).toHaveBeenCalledTimes(2) // initial + 1 retry
   })
 
+  it('invokes onResult per URL with the resolved value (lets callers overlap CPU work with later fetches)', async () => {
+    const observed = []
+    const fetchFn = vi.fn(async (url) => {
+      // Stagger response timing so we can assert callbacks fire as each one
+      // resolves rather than after the whole batch.
+      const delay = url.endsWith('/3') ? 5 : url.endsWith('/2') ? 15 : 25
+      await new Promise((r) => setTimeout(r, delay))
+      return ok(`body-${url}`)
+    })
+    const result = await fetchAll(['https://x/1', 'https://x/2', 'https://x/3'], {
+      fetch: fetchFn,
+      concurrency: 3,
+      onResult: (url, value) => observed.push({ url, value }),
+    })
+
+    expect(observed).toHaveLength(3)
+    // Fastest one (/3) called first, then /2, then /1.
+    expect(observed[0].url).toBe('https://x/3')
+    expect(observed[1].url).toBe('https://x/2')
+    expect(observed[2].url).toBe('https://x/1')
+    expect(observed[0].value).toBe('body-https://x/3')
+    // result Map still populated identically to the no-callback case.
+    expect(result.size).toBe(3)
+  })
+
+  it('passes errors through onResult and swallows callback exceptions', async () => {
+    const observed = []
+    const fetchFn = vi.fn(async (url) => {
+      if (url.endsWith('/bad')) return status(404)
+      return ok(`ok-${url}`)
+    })
+    await fetchAll(['https://x/good', 'https://x/bad'], {
+      fetch: fetchFn,
+      maxRetries: 0,
+      onResult: (url, value) => {
+        observed.push({ url, isError: value instanceof Error })
+        if (url.endsWith('/good')) {
+          throw new Error('callback bug — should be swallowed, not crash the worker')
+        }
+      },
+    })
+    expect(observed).toHaveLength(2)
+    expect(observed.find((o) => o.url === 'https://x/bad').isError).toBe(true)
+    expect(observed.find((o) => o.url === 'https://x/good').isError).toBe(false)
+  })
+
   it('aborts cleanly when the signal is fired', async () => {
     const controller = new AbortController()
     const fetchFn = vi.fn(async (_, { signal } = {}) => {

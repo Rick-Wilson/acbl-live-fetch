@@ -24,6 +24,13 @@ export async function fetchAll(urls, options = {}) {
     signal,
     fetch: fetchFn = globalThis.fetch,
     maxRetries = 2,
+    // Optional callback invoked synchronously per worker as soon as each URL's
+    // fetch resolves (or fails) — before the next fetch in that worker starts.
+    // Use this to overlap CPU work (parsing / processing) with network time:
+    // while one worker calls onResult, other workers' fetches are still in
+    // flight. Errors thrown from onResult are swallowed so they can't poison
+    // the worker loop.
+    onResult,
   } = options
 
   if (!Array.isArray(urls)) throw new TypeError('urls must be an array')
@@ -42,11 +49,20 @@ export async function fetchAll(urls, options = {}) {
       throwIfAborted(signal)
       const myIdx = nextIndex++
       const url = urls[myIdx]
+      let value
       try {
-        result.set(url, await fetchOne(url, fetchFn, { signal, maxRetries }))
+        value = await fetchOne(url, fetchFn, { signal, maxRetries })
       } catch (err) {
         if (err?.name === 'AbortError') throw err
-        result.set(url, err)
+        value = err
+      }
+      result.set(url, value)
+      if (typeof onResult === 'function') {
+        try {
+          onResult(url, value)
+        } catch {
+          // swallow — caller's bug shouldn't kill the worker loop
+        }
       }
       if (delayMs > 0 && nextIndex < urls.length) {
         await sleep(delayMs, signal)
