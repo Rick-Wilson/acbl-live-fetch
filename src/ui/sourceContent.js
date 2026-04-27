@@ -65,6 +65,20 @@ export function pickAnchor(doc) {
   return doc.querySelector('h1') ?? doc.querySelector('h4') ?? doc.body
 }
 
+export function pickInjectionStrategy(url) {
+  // my.acbl.org is a Vue SPA: at document_idle the DOM is just a noscript
+  // shell, then Vue mounts and replaces it. An in-flow injection anchored to
+  // the static <h1> would get clobbered. Use a fixed-position overlay button
+  // there so it doesn't depend on the page's DOM structure.
+  // live.acbl.org is server-rendered; use the in-flow strategy that puts the
+  // button on the date row.
+  try {
+    return new URL(url).hostname === 'my.acbl.org' ? 'overlay' : 'inline'
+  } catch {
+    return 'inline'
+  }
+}
+
 export async function handleClick(deps) {
   const { url, sendMessage, setState } = deps
   setState('extracting')
@@ -94,8 +108,6 @@ export function injectButton(deps) {
   const { document: doc, location, sendMessage } = deps
   if (!shouldInject(location.href)) return null
   if (doc.getElementById(BUTTON_ID)) return doc.getElementById(BUTTON_ID)
-  const anchor = pickAnchor(doc)
-  if (!anchor) return null
   const btn = buildButton(doc)
   btn.addEventListener('click', () => {
     handleClick({
@@ -104,6 +116,26 @@ export function injectButton(deps) {
       setState: (state, msg) => applyState(btn, state, msg),
     })
   })
+
+  if (pickInjectionStrategy(location.href) === 'overlay') {
+    // Fixed-position floating button. Resilient to SPA re-renders because
+    // it doesn't depend on any specific anchor element. zIndex is
+    // intentionally extreme so the host page's stacking can't hide it.
+    Object.assign(btn.style, {
+      position: 'fixed',
+      top: '12px',
+      right: '12px',
+      zIndex: '2147483647',
+      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)',
+    })
+    if (!doc.body) return null
+    doc.body.appendChild(btn)
+    return btn
+  }
+
+  // In-flow strategy (server-rendered pages like live.acbl.org).
+  const anchor = pickAnchor(doc)
+  if (!anchor) return null
   if (anchor === doc.body) {
     anchor.appendChild(btn)
   } else if (anchor.tagName === 'H1') {
@@ -131,16 +163,37 @@ export function injectButton(deps) {
 // top-level await (not available in our build target).
 if (typeof globalThis.chrome !== 'undefined' || typeof globalThis.browser !== 'undefined') {
   import('webextension-polyfill').then(({ default: browser }) => {
-    const start = () =>
-      injectButton({
-        document,
-        location: window.location,
-        sendMessage: (msg) => browser.runtime.sendMessage(msg),
-      })
+    const opts = {
+      document,
+      location: window.location,
+      sendMessage: (msg) => browser.runtime.sendMessage(msg),
+    }
+    const start = () => injectButton(opts)
+
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', start, { once: true })
     } else {
       start()
+    }
+
+    // SPAs (e.g., my.acbl.org's Vue page) mount after document_idle and may
+    // wipe the body when they render. Watch for our button disappearing and
+    // re-inject. injectButton is idempotent, so we can call it freely; we
+    // only re-call when the button is missing.
+    if (typeof MutationObserver !== 'undefined' && document.body) {
+      let scheduled = false
+      const reinject = () => {
+        if (scheduled) return
+        if (document.getElementById('bridge-classroom-analyze-btn')) return
+        scheduled = true
+        // Defer to next microtask to coalesce mutation bursts.
+        Promise.resolve().then(() => {
+          scheduled = false
+          start()
+        })
+      }
+      const observer = new MutationObserver(reinject)
+      observer.observe(document.documentElement, { childList: true, subtree: true })
     }
   })
 }
