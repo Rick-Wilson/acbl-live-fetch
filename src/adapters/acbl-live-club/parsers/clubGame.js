@@ -20,6 +20,7 @@
 //   }
 
 import { ParseError } from '../../../lib/parseError.js'
+import { parseDoubleDummyLine } from '../../../lib/doubleDummy.js'
 
 const HANDVIEWER_BASE = 'https://www.bridgebase.com/tools/handviewer.html'
 
@@ -234,13 +235,12 @@ function parseDoubleDummy(hr, warnings, boardNumber) {
   const empty = () => ({ C: null, D: null, H: null, S: null, NT: null })
   if (!hr) return { N: empty(), S: empty(), E: empty(), W: empty() }
 
-  const ns = parseDoubleDummyLine(hr.double_dummy_ns, warnings, boardNumber, 'NS')
-  const ew = parseDoubleDummyLine(hr.double_dummy_ew, warnings, boardNumber, 'EW')
-  // Slash form ("3/4H" or "C5/6") gives per-seat values: first seat in
-  // each pair is the "first" listed, second seat the "second". For NS,
-  // first=N and second=S. For EW, first=W and second=E (same display
-  // ordering the analyzer uses elsewhere). Single-value tokens populate
-  // both seats with the same number.
+  const ns = parseLine(hr.double_dummy_ns, warnings, boardNumber, 'NS')
+  const ew = parseLine(hr.double_dummy_ew, warnings, boardNumber, 'EW')
+  // Slash form ("3/4H" or "C5/6") gives per-seat values: first listed → N,
+  // second listed → S (and W, E for the EW line — matches the analyzer's
+  // seat-display ordering elsewhere). Single-value tokens populate both
+  // seats with the same number via parseDoubleDummyLine.
   return {
     N: { ...ns.first },
     S: { ...ns.second },
@@ -249,71 +249,18 @@ function parseDoubleDummy(hr, warnings, boardNumber) {
   }
 }
 
-function parseDoubleDummyLine(line, warnings, boardNumber, side) {
-  // Schema field is RAW TRICKS (0–13). The club source encodes the
-  // level-vs-tricks distinction in the token ORDER:
-  //   • <digit><strain>  ("1C", "5NT")  = highest makeable contract level
-  //                                       (1..7); tricks = level + 6.
-  //   • <strain><digit>  ("C5", "NT6")  = raw trick count (0..6 typically)
-  //                                       — the side can't make a 1-level
-  //                                       contract, so the digit is the
-  //                                       actual tricks they can take.
-  // Slash form ("3/4H" or "C5/6") gives per-seat values; we return both.
-  // A leading 0 in level form ("0H") means the same "<7 tricks" bucket
-  // but with no specific count → null.
-  const empty = () => ({ C: null, D: null, H: null, S: null, NT: null })
-  const result = { first: empty(), second: empty() }
+/** Thin wrapper that scopes the shared parser's warnings to a board+side
+ *  for the existing per-board warning surface. */
+function parseLine(line, warnings, boardNumber, side) {
   if (line == null) {
     warnings.push(`board ${boardNumber} ${side} double-dummy: missing`)
-    return result
+    return { first: {}, second: {} }
   }
-  const text = String(line).replace(/^(?:NS|EW):\s*/i, '').trim()
-  if (text === '') {
-    warnings.push(`board ${boardNumber} ${side} double-dummy: empty`)
-    return result
-  }
-  for (const tok of text.split(/\s+/).filter(Boolean)) {
-    const numFirst = tok.match(/^(\d+)(?:\/(\d+))?(NT|[CDHS])$/i)
-    const strainFirst = tok.match(/^(NT|[CDHS])(\d+)(?:\/(\d+))?$/i)
-    if (numFirst) {
-      // Contract-level form. Apply +6 to each side of the slash.
-      const strain = numFirst[3].toUpperCase()
-      const a = levelToTricks(parseDigit(numFirst[1]))
-      const b = numFirst[2] != null ? levelToTricks(parseDigit(numFirst[2])) : a
-      result.first[strain] = a
-      result.second[strain] = b
-    } else if (strainFirst) {
-      // Raw-tricks form. Use as-is (clamped to 0..13).
-      const strain = strainFirst[1].toUpperCase()
-      const a = clampTricks(parseDigit(strainFirst[2]))
-      const b = strainFirst[3] != null ? clampTricks(parseDigit(strainFirst[3])) : a
-      result.first[strain] = a
-      result.second[strain] = b
-    } else {
-      warnings.push(
-        `board ${boardNumber} ${side} double-dummy: unrecognized token '${tok}'`
-      )
-    }
+  const result = parseDoubleDummyLine(line)
+  for (const w of result.warnings) {
+    warnings.push(`board ${boardNumber} ${side} double-dummy: ${w}`)
   }
   return result
-}
-
-function levelToTricks(level) {
-  if (!Number.isInteger(level)) return null
-  if (level === 0) return null // ACBL "<7 tricks" bucket without a specific count
-  if (level >= 1 && level <= 7) return level + 6
-  return null
-}
-
-function clampTricks(n) {
-  if (!Number.isInteger(n)) return null
-  if (n < 0 || n > 13) return null
-  return n
-}
-
-function parseDigit(raw) {
-  const n = Number.parseInt(raw, 10)
-  return Number.isNaN(n) ? null : n
 }
 
 // --- par parsing ------------------------------------------------------------
