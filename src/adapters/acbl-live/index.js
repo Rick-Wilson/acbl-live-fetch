@@ -59,6 +59,7 @@ export async function extractSession(url, options = {}) {
     delayMs = 0,
     maxRetries,
     now = () => new Date().toISOString(),
+    log = defaultLog,
   } = options
 
   const pageType = classifyPage(url)
@@ -71,15 +72,20 @@ export async function extractSession(url, options = {}) {
 
   const fetchOpts = { fetch, signal, concurrency, delayMs, maxRetries }
   const baseUrl = new URL(url)
+  const timer = newTimer(log)
+  timer.startTotal()
 
   // ── Phase 1: initial scorecard ───────────────────────────────────────────
+  timer.start()
   const initialMap = await fetchAll([url], { ...fetchOpts, concurrency: 1 })
   const initialHtml = initialMap.get(url)
   if (initialHtml instanceof Error) throw initialHtml
   const initialSc = parsePairScorecard(initialHtml)
   const userIdentity = identifyUser(initialSc.user_pair)
+  timer.mark('phase1.initialScorecard', { fetches: 1 })
 
   // ── Phase 2: sibling session scorecards (one fetchAll, shared budget) ───
+  timer.start()
   const siblingEntries = (initialSc.available_sessions ?? []).filter(
     (s) => s.number !== initialSc.session_number && s.url
   )
@@ -98,11 +104,13 @@ export async function extractSession(url, options = {}) {
     }
     sessions.push({ url: sUrl, html, sc })
   }
+  timer.mark('phase2.siblingScorecards', { fetches: siblingUrls.length })
 
   // ── Phase 3: follow the user across sessions ────────────────────────────
   // For any sibling whose user_pair isn't us (the user changed sections),
   // find our entry in pair_directory and re-fetch that URL. Single fetchAll
   // for any corrected URLs.
+  timer.start()
   const corrections = []
   for (let i = 1; i < sessions.length; i++) {
     if (userPairMatchesIdentity(sessions[i].sc.user_pair, userIdentity)) continue
@@ -130,6 +138,8 @@ export async function extractSession(url, options = {}) {
       sessions[idx] = { url: cUrl, html, sc }
     }
   }
+
+  timer.mark('phase3.corrections', { fetches: corrections.length })
 
   // Drop sibling sessions where we still can't locate the user.
   const usableSessions = sessions.filter(
@@ -164,7 +174,12 @@ export async function extractSession(url, options = {}) {
   // ── Phase 5: single fetchAll for every board-detail ─────────────────────
   // This is the bulk of the work — typically 26 boards × N sessions × M
   // sections. One concurrency budget, no parallel fetchAll multiplication.
+  timer.start()
   const boardMap = plan.length ? await fetchAll(plan.map((p) => p.url), fetchOpts) : new Map()
+  timer.mark('phase5.boardDetails', {
+    fetches: plan.length,
+    sessions: usableSessions.length,
+  })
 
   // ── Phase 6: distribute results into per-session, per-section maps ─────
   const sessionBoardHtmls = usableSessions.map(() => new Map())
@@ -178,9 +193,16 @@ export async function extractSession(url, options = {}) {
   }
 
   // ── Phase 7: build Sessions and assemble the envelope ───────────────────
+  // This is where every board-detail HTML is parsed via linkedom — typically
+  // CPU-bound and a meaningful chunk of total wall time, so it gets its own
+  // timing.
+  timer.start()
   const builtSessions = usableSessions
     .map(({ sc }, i) => buildSession(sc, sessionBoardHtmls[i]))
     .sort((a, b) => a.session_number - b.session_number)
+  timer.mark('phase7.parseAndBuild', {
+    boardsParsed: builtSessions.reduce((n, s) => n + s.boards.length, 0),
+  })
 
   const event = {
     event_id: initialSc.event_id,
@@ -195,12 +217,42 @@ export async function extractSession(url, options = {}) {
     name: initialSc.tournament_name,
     events: [event],
   }
+  timer.endTotal()
   return {
     schema_version: SCHEMA_VERSION,
     source: SOURCE_NAME,
     fetched_at: now(),
     tournaments: [tournament],
   }
+}
+
+// --- timing instrumentation ---------------------------------------------------
+
+function newTimer(log) {
+  let phaseStart = 0
+  let totalStart = 0
+  return {
+    startTotal() {
+      totalStart = Date.now()
+    },
+    endTotal() {
+      log('extractSession.total', { ms: Date.now() - totalStart })
+    },
+    start() {
+      phaseStart = Date.now()
+    },
+    mark(phase, extra = {}) {
+      log(phase, { ms: Date.now() - phaseStart, ...extra })
+    },
+  }
+}
+
+function defaultLog(phase, data) {
+  // Single-line console output keyed by phase name. Visible in
+  // chrome://extensions → service worker (inspect views) → Console.
+  // Pass `log: () => {}` in options to silence.
+  // eslint-disable-next-line no-console
+  console.info(`[acbl-live] ${phase}`, data)
 }
 
 // --- user identification + cross-session tracking -----------------------------

@@ -104,9 +104,15 @@ describe('classifyPage', () => {
 })
 
 describe('extractSession', () => {
+  // Silence per-phase timing logs in tests; the SW console gets them in real use.
+  const silentLog = () => {}
+
   it('rejects non-pair-scorecard URLs (player-history is Phase 3)', async () => {
     await expect(
-      extractSession('https://live.acbl.org/player-results/3506177', { fetch: vi.fn() })
+      extractSession('https://live.acbl.org/player-results/3506177', {
+        fetch: vi.fn(),
+        log: silentLog,
+      })
     ).rejects.toThrow(/pair-scorecard/i)
   })
 
@@ -135,6 +141,7 @@ describe('extractSession', () => {
     const out = await extractSession(SCORECARD_URL, {
       fetch: fetchFn,
       now: () => fixedNow,
+      log: silentLog,
     })
 
     // Top-level wrapper
@@ -187,7 +194,7 @@ describe('extractSession', () => {
       throw new Error(`unexpected URL: ${url}`)
     })
 
-    const out = await extractSession(SCORECARD_URL, { fetch: fetchFn, maxRetries: 0 })
+    const out = await extractSession(SCORECARD_URL, { fetch: fetchFn, maxRetries: 0, log: silentLog })
     const session2 = out.tournaments[0].events[0].sessions.find((s) => s.session_number === 2)
     const session1 = out.tournaments[0].events[0].sessions.find((s) => s.session_number === 1)
 
@@ -209,7 +216,7 @@ describe('extractSession', () => {
       return ok(board1Html)
     })
 
-    const out = await extractSession(SCORECARD_URL, { fetch: fetchFn })
+    const out = await extractSession(SCORECARD_URL, { fetch: fetchFn, log: silentLog })
     const session2 = out.tournaments[0].events[0].sessions.find((s) => s.session_number === 2)
 
     expect(session2.partial).toBe(true)
@@ -244,7 +251,7 @@ describe('extractSession', () => {
       throw new Error(`unexpected URL: ${url}`)
     })
 
-    const out = await extractSession(SCORECARD_URL, { fetch: fetchFn })
+    const out = await extractSession(SCORECARD_URL, { fetch: fetchFn, log: silentLog })
     const session = out.tournaments[0].events[0].sessions.find((s) => s.session_number === 2)
 
     // Section B board-detail was fetched for every board (1..26).
@@ -275,7 +282,7 @@ describe('extractSession', () => {
       throw new Error(`unexpected URL: ${url}`)
     })
 
-    const out = await extractSession(SCORECARD_URL, { fetch: fetchFn, maxRetries: 0 })
+    const out = await extractSession(SCORECARD_URL, { fetch: fetchFn, maxRetries: 0, log: silentLog })
     const event = out.tournaments[0].events[0]
 
     // Only session 2 made it; the failed sibling is silently dropped.
