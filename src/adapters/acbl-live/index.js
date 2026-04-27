@@ -18,14 +18,24 @@ export function matchesUrl(url) {
   }
 }
 
+// Event IDs in ACBL Live URLs are usually all digits ('2501') but older events
+// use a mixed alphanumeric form ('17OP') — confirmed against sanction 2601343
+// in January 2026. Keep the second URL segment (event_id) permissive.
+const EVENT_ID_PAT = '[A-Za-z0-9]+'
+
 export function classifyPage(url) {
   if (!matchesUrl(url)) return 'unknown'
   const path = new URL(url).pathname
-  if (/^\/event\/\d+\/\d+\/\d+\/scores\/[A-Z]+\/[NESW]\/\d+\/?$/.test(path)) {
+  if (
+    new RegExp(`^/event/\\d+/${EVENT_ID_PAT}/\\d+/scores/[A-Z]+/[NESW]/\\d+/?$`).test(path)
+  ) {
     return 'pair-scorecard'
   }
-  if (/^\/event\/\d+\/\d+\/\d+\/board-detail\/[A-Z]+\/?$/.test(path)) {
+  if (new RegExp(`^/event/\\d+/${EVENT_ID_PAT}/\\d+/board-detail/[A-Z]+/?$`).test(path)) {
     return 'board-detail'
+  }
+  if (new RegExp(`^/event/\\d+/${EVENT_ID_PAT}/\\d+/summary/?$`).test(path)) {
+    return 'event-summary'
   }
   if (/^\/player-results\/\d+\/?$/.test(path)) {
     return 'player-history'

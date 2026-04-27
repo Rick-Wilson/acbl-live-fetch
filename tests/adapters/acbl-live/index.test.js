@@ -59,12 +59,36 @@ describe('classifyPage', () => {
     expect(classifyPage('https://live.acbl.org/event/1/2/3/scores/B/N/12')).toBe('pair-scorecard')
   })
 
+  it('classifies pair-scorecard URLs with alphanumeric event_id (older events)', () => {
+    // Confirmed against sanction 2601343 (Jan 2026): older ACBL Live events
+    // use mixed-case event_ids like '17OP' instead of all digits.
+    expect(classifyPage('https://live.acbl.org/event/2601343/17OP/2/scores/A/E/4')).toBe(
+      'pair-scorecard'
+    )
+  })
+
   it('classifies board-detail URLs', () => {
     expect(classifyPage('https://live.acbl.org/event/2604321/2501/2/board-detail/A')).toBe(
       'board-detail'
     )
     expect(classifyPage('https://live.acbl.org/event/1/2/3/board-detail/A?board_num=1')).toBe(
       'board-detail'
+    )
+    // Alphanumeric event_id form
+    expect(classifyPage('https://live.acbl.org/event/2601343/17OP/2/board-detail/A')).toBe(
+      'board-detail'
+    )
+  })
+
+  it("classifies the per-event /summary page as 'event-summary'", () => {
+    // The summary page lives at the event level (not pair level) — the user
+    // typically clicks through it to a pair scorecard. We classify it so the
+    // URL is recognized, even though the extension doesn't extract from it.
+    expect(classifyPage('https://live.acbl.org/event/2601343/17OP/2/summary')).toBe(
+      'event-summary'
+    )
+    expect(classifyPage('https://live.acbl.org/event/2604321/2501/2/summary')).toBe(
+      'event-summary'
     )
   })
 

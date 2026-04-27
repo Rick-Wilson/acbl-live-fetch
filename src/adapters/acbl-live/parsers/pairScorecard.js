@@ -478,13 +478,15 @@ function deriveIdsFromBoardUrls(boards) {
   //   /event/{sanction}/{event_id}/{session_number}/board-detail/{section}?board_num={n}
   // The first URL segment is named "event" but actually identifies the
   // tournament (ACBL's term: sanction). See docs/acbl-live-format.md.
+  // event_id is usually all digits ('2501') but older events use mixed
+  // alphanumerics ('17OP') — keep that segment permissive.
   const sample = boards.find((b) => b.board_detail_url)?.board_detail_url
   if (!sample) {
     throw new ParseError(
       'No board-detail URL available to derive sanction / event_id / session_number / section'
     )
   }
-  const m = sample.match(/\/event\/(\d+)\/(\d+)\/(\d+)\/board-detail\/([A-Z]+)/)
+  const m = sample.match(/\/event\/(\d+)\/([A-Za-z0-9]+)\/(\d+)\/board-detail\/([A-Z]+)/)
   if (!m) {
     throw new ParseError(
       `Could not parse sanction/event_id/session_number/section from URL: '${sample}'`

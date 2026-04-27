@@ -18,16 +18,23 @@ The user's session cookie authenticates them automatically when the extension ru
 ```
 https://live.acbl.org/event/{sanction}/{event_id}/{session_number}/scores/{section}/{direction}/{pair_num}
 https://live.acbl.org/event/{sanction}/{event_id}/{session_number}/board-detail/{section}?board_num={n}
+https://live.acbl.org/event/{sanction}/{event_id}/{session_number}/summary
 https://live.acbl.org/player-results/{player_id}
 ```
 
 Examples:
 
 ```
-Pair scorecard:  https://live.acbl.org/event/2604321/2501/2/scores/A/E/4
-Board detail:    https://live.acbl.org/event/2604321/2501/2/board-detail/A?board_num=1
-Player history:  https://live.acbl.org/player-results/3506177
+Pair scorecard (recent):  https://live.acbl.org/event/2604321/2501/2/scores/A/E/4
+Pair scorecard (older):   https://live.acbl.org/event/2601343/17OP/2/scores/A/E/4
+Board detail:             https://live.acbl.org/event/2604321/2501/2/board-detail/A?board_num=1
+Event session summary:    https://live.acbl.org/event/2601343/17OP/2/summary
+Player history:           https://live.acbl.org/player-results/3506177
 ```
+
+`event_id` is usually all digits (e.g., `2501`) for recent events, but older events use a mixed alphanumeric form (e.g., `17OP` — confirmed on sanction 2601343 from January 2026). URL parsers must accept `[A-Za-z0-9]+`, not just `\d+`. `sanction` and `session_number` remain numeric.
+
+The `/summary` path is an event-session overview (not per-pair). The extension recognizes it but doesn't extract from it; the user navigates from there to a pair scorecard.
 
 ### URL-segment naming caveat
 
