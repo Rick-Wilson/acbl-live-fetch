@@ -85,36 +85,64 @@ function buildSession(session, data) {
   }
 }
 
+function synthesizePair(number, sectionName) {
+  // Used when the pair index doesn't carry an entry for a pair_number that
+  // appears on a result row. Players aren't recoverable in this case, but
+  // the analyzer needs at minimum a Pair-shaped object with the number.
+  if (number == null) {
+    return { number: null, section: sectionName, players: [] }
+  }
+  return { number, section: sectionName, players: [] }
+}
+
 function buildPairIndex(session) {
   // Keyed by `${section}|${direction}|${pair_number}` → Pair object.
-  // Direction is normalized to NS / EW; source uses "NS"/"EW" already in
-  // pair_summaries[].direction in the fixture, but tolerate single-letter
-  // variants defensively.
+  //
+  // Movement handling:
+  //   * Mitchell-ish movements: pair_summaries[].direction is "NS" or "EW",
+  //     and (NS pair 5) is a different pair from (EW pair 5). Index each
+  //     under its own direction.
+  //   * Howell-ish movements: pair_summaries[].direction is null. The same
+  //     pair plays both directions across rounds. Index it under both NS
+  //     and EW keys so direction-specific lookups still resolve.
   const idx = new Map()
   for (const section of session.sections ?? []) {
     for (const ps of section.pair_summaries ?? []) {
       const direction = normalizeDirection(ps.direction)
       const number = parseIntOrNull(ps.pair_number)
-      if (direction == null || number == null) continue
-      idx.set(`${section.name}|${direction}|${number}`, {
+      if (number == null) continue
+      const pair = {
         number,
         section: section.name,
         players: (ps.players ?? []).map(toPlayer),
-      })
+      }
+      if (direction) {
+        idx.set(`${section.name}|${direction}|${number}`, pair)
+      } else {
+        idx.set(`${section.name}|NS|${number}`, pair)
+        idx.set(`${section.name}|EW|${number}`, pair)
+      }
     }
   }
   return idx
 }
 
 function toPlayer(p) {
-  // Synthetic IDs like "tmp:0a0e36e4-..." are placeholders for non-members —
-  // emit acbl_id: null so downstream code doesn't try to match them across
-  // events.
+  // Source emits placeholder IDs for non-members under at least two forms:
+  //   * 'tmp:<uuid>'  — synthetic UUID for entry without an ACBL number.
+  //   * '#<digits>'   — local-club placeholder, often paired with
+  //                     is_valid_member: 0 in the source.
+  // Real ACBL numbers are pure digits. Emit acbl_id: null for any placeholder
+  // so downstream code doesn't try to match these across events.
   const rawId = p?.id_number
-  const acbl_id = typeof rawId === 'string' && !rawId.startsWith('tmp:') ? rawId : null
+  const looksLikeAcblId =
+    typeof rawId === 'string' &&
+    rawId !== '' &&
+    !rawId.startsWith('tmp:') &&
+    !rawId.startsWith('#')
   return {
     name: normalizePlayerName(p?.name),
-    acbl_id,
+    acbl_id: looksLikeAcblId ? rawId : null,
     external_ids: {},
   }
 }
@@ -322,8 +350,13 @@ function parsePar(parString, warnings, boardNumber) {
 // --- result -----------------------------------------------------------------
 
 function buildResult(br, sectionName, pairIndex, top, bboGameLinks, boardNumber) {
-  const ns = pairIndex.get(`${sectionName}|NS|${parseIntOrNull(br.ns_pair)}`) ?? null
-  const ew = pairIndex.get(`${sectionName}|EW|${parseIntOrNull(br.ew_pair)}`) ?? null
+  const nsNum = parseIntOrNull(br.ns_pair)
+  const ewNum = parseIntOrNull(br.ew_pair)
+  // Schema requires Pair objects (not null) on every result. If the pair
+  // isn't in the index — e.g., a sit-out / phantom pair, or pair_summaries
+  // is missing entries — synthesize a minimal Pair with empty players.
+  const ns = pairIndex.get(`${sectionName}|NS|${nsNum}`) ?? synthesizePair(nsNum, sectionName)
+  const ew = pairIndex.get(`${sectionName}|EW|${ewNum}`) ?? synthesizePair(ewNum, sectionName)
 
   const contract = parseContract(br.contract)
 

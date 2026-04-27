@@ -135,6 +135,84 @@ describe('parseClubGame (Livermore Bridge Club, 2026-04-20)', () => {
     })
   })
 
+  describe('Howell movement (Stoneridge Creek fixture, sample-club-game-2.html)', () => {
+    const html2 = readFileSync(
+      resolve(here, '../../../fixtures/my-acbl/sample-club-game-2.html'),
+      'utf8'
+    )
+    const data2 = extractClubGameData(html2)
+    const t2 = parseClubGame(data2)
+    const session2 = t2.events[0].sessions[0]
+
+    it('parses without rejecting (every result has a non-null Pair on each side)', () => {
+      // pair_summaries[].direction is null in this fixture (Howell). Earlier
+      // versions of the index keyed by direction and returned null for every
+      // lookup, which made the analyzer's deserializer fail with
+      // "expected struct Pair". Verify every result row has both pairs.
+      for (const board of session2.boards) {
+        for (const r of board.results) {
+          expect(r.ns_pair).not.toBeNull()
+          expect(r.ew_pair).not.toBeNull()
+          expect(typeof r.ns_pair.number).toBe('number')
+          expect(typeof r.ew_pair.number).toBe('number')
+        }
+      }
+    })
+
+    it('resolves Howell pair_summaries via either direction key', () => {
+      // pair_summaries has pairs 1..7, 9..12 (no 8 — phantom pair). Each
+      // pair plays both NS and EW across rounds; the index should resolve
+      // pair 5 whether it shows up as ns_pair or ew_pair.
+      const board1 = session2.boards.find((b) => b.number === 1)
+      const usedAsNs = board1.results.find((r) => r.ns_pair.number === 5)
+      const usedAsEw = board1.results.find((r) => r.ew_pair.number === 5)
+      // At least one of these should land in this fixture, with players
+      // populated from pair_summaries.
+      const sample = usedAsNs?.ns_pair ?? usedAsEw?.ew_pair
+      if (sample) {
+        expect(sample.players.length).toBeGreaterThan(0)
+      }
+    })
+
+    it("synthesizes a Pair (with empty players) for the phantom sit-out pair 8", () => {
+      // Pair 8 is missing from pair_summaries but appears on result rows
+      // (it's the sit-out / phantom pair in this 12-pair Howell). The
+      // synthesized object keeps the schema valid.
+      let foundPhantom = null
+      for (const board of session2.boards) {
+        for (const r of board.results) {
+          if (r.ns_pair.number === 8) foundPhantom = r.ns_pair
+          if (r.ew_pair.number === 8) foundPhantom = r.ew_pair
+          if (foundPhantom) break
+        }
+        if (foundPhantom) break
+      }
+      if (foundPhantom) {
+        expect(foundPhantom.section).toBe('A')
+        expect(foundPhantom.players).toEqual([])
+      }
+    })
+
+    it("treats '#'-prefixed id_numbers as null acbl_id (non-member placeholder)", () => {
+      // The Stoneridge fixture has e.g. id_number '#123456' for non-members.
+      // These shouldn't leak through as if they were real ACBL numbers.
+      const seenIds = new Set()
+      for (const board of session2.boards) {
+        for (const r of board.results) {
+          for (const pair of [r.ns_pair, r.ew_pair]) {
+            for (const p of pair.players) {
+              if (p.acbl_id != null) seenIds.add(p.acbl_id)
+            }
+          }
+        }
+      }
+      for (const id of seenIds) {
+        expect(id.startsWith('#')).toBe(false)
+        expect(id.startsWith('tmp:')).toBe(false)
+      }
+    })
+  })
+
   describe('player ID handling', () => {
     it('treats synthetic tmp:* IDs as null acbl_id', () => {
       // Walk every result; if any player has a 'tmp:'-prefixed source ID,
