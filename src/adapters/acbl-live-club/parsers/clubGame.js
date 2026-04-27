@@ -113,10 +113,25 @@ function toPlayer(p) {
   const rawId = p?.id_number
   const acbl_id = typeof rawId === 'string' && !rawId.startsWith('tmp:') ? rawId : null
   return {
-    name: p?.name ?? null,
+    name: normalizePlayerName(p?.name),
     acbl_id,
     external_ids: {},
   }
+}
+
+function normalizePlayerName(name) {
+  // The club source emits names as "Lastname, Firstname" (e.g. "Vondera,
+  // Wayne"). The tournament adapter and the analyzer's downstream UI both
+  // expect "Firstname Lastname". Normalize here so all sources agree.
+  // Names without a comma (already first-last, e.g. "Bruno Jahn") pass
+  // through unchanged.
+  if (typeof name !== 'string') return name ?? null
+  const parts = name.split(',')
+  if (parts.length !== 2) return name
+  const last = parts[0].trim()
+  const first = parts[1].trim()
+  if (!last || !first) return name
+  return `${first} ${last}`
 }
 
 // --- board ------------------------------------------------------------------

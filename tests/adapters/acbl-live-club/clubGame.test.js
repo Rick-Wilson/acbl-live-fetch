@@ -85,14 +85,31 @@ describe('parseClubGame (Livermore Bridge Club, 2026-04-20)', () => {
       expect(r.contract).toBe('5D')
       expect(r.declarer).toBe('N')
       expect(r.ns_pair.section).toBe('A')
-      expect(r.ns_pair.players.map((p) => p.name)).toEqual([
-        'Vondera, Wayne',
-        'Gast, Lynn',
-      ])
+      // The source emits names as "Lastname, Firstname"; the parser normalizes
+      // to "Firstname Lastname" to match the tournament adapter and the
+      // analyzer's downstream UI.
+      expect(r.ns_pair.players.map((p) => p.name)).toEqual(['Wayne Vondera', 'Lynn Gast'])
       expect(r.ew_pair.players.map((p) => p.name)).toEqual([
-        'Mirin, Arthur',
-        'Bergmann, Dan',
+        'Arthur Mirin',
+        'Dan Bergmann',
       ])
+    })
+
+    it('leaves already-first-last names untouched (no comma)', () => {
+      // Some players in the source come through without the comma form —
+      // for those, the name should pass through unchanged. Walk every
+      // result and assert no name still contains a comma.
+      const allNames = new Set()
+      for (const r of board.results) {
+        for (const pair of [r.ns_pair, r.ew_pair].filter(Boolean)) {
+          for (const p of pair.players) {
+            if (p.name) allNames.add(p.name)
+          }
+        }
+      }
+      for (const n of allNames) {
+        expect(n).not.toContain(',')
+      }
     })
 
     it('normalizes contract spacing and lowercase doubles in result rows', () => {
