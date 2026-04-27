@@ -236,74 +236,84 @@ function parseDoubleDummy(hr, warnings, boardNumber) {
 
   const ns = parseDoubleDummyLine(hr.double_dummy_ns, warnings, boardNumber, 'NS')
   const ew = parseDoubleDummyLine(hr.double_dummy_ew, warnings, boardNumber, 'EW')
-  // The club-game source provides per-side data, not per-declarer. Populate
-  // both seats of each side identically.
+  // Slash form ("3/4H" or "C5/6") gives per-seat values: first seat in
+  // each pair is the "first" listed, second seat the "second". For NS,
+  // first=N and second=S. For EW, first=W and second=E (same display
+  // ordering the analyzer uses elsewhere). Single-value tokens populate
+  // both seats with the same number.
   return {
-    N: { ...ns },
-    S: { ...ns },
-    E: { ...ew },
-    W: { ...ew },
+    N: { ...ns.first },
+    S: { ...ns.second },
+    W: { ...ew.first },
+    E: { ...ew.second },
   }
 }
 
 function parseDoubleDummyLine(line, warnings, boardNumber, side) {
-  // The schema field is raw trick counts (0–13). The club source emits the
-  // values as "highest makeable contract level" (0–7), same as the
-  // tournament source. Convert level → tricks (level + 6 for 1–7) so both
-  // adapters' double-dummy values are on the same scale and the analyzer's
-  // trick math works. Level 0 ("can't make 1-level") maps to null because
-  // the source doesn't tell us how many tricks <7 declarer actually takes.
-  const out = { C: null, D: null, H: null, S: null, NT: null }
+  // Schema field is RAW TRICKS (0–13). The club source encodes the
+  // level-vs-tricks distinction in the token ORDER:
+  //   • <digit><strain>  ("1C", "5NT")  = highest makeable contract level
+  //                                       (1..7); tricks = level + 6.
+  //   • <strain><digit>  ("C5", "NT6")  = raw trick count (0..6 typically)
+  //                                       — the side can't make a 1-level
+  //                                       contract, so the digit is the
+  //                                       actual tricks they can take.
+  // Slash form ("3/4H" or "C5/6") gives per-seat values; we return both.
+  // A leading 0 in level form ("0H") means the same "<7 tricks" bucket
+  // but with no specific count → null.
+  const empty = () => ({ C: null, D: null, H: null, S: null, NT: null })
+  const result = { first: empty(), second: empty() }
   if (line == null) {
     warnings.push(`board ${boardNumber} ${side} double-dummy: missing`)
-    return out
+    return result
   }
-  // Strip leading 'NS:'/'EW:' if present.
   const text = String(line).replace(/^(?:NS|EW):\s*/i, '').trim()
   if (text === '') {
     warnings.push(`board ${boardNumber} ${side} double-dummy: empty`)
-    return out
+    return result
   }
-  // Tokens are space-separated. Each token is one of:
-  //   number+strain   '1C', '5NT'
-  //   strain+number   'C1', 'NT5'
-  //   range+strain    '3/4H' (use lower)
-  //   strain+range    'C6/5'  (use lower)
-  // The number is a level (0..7). Missing strains stay null.
   for (const tok of text.split(/\s+/).filter(Boolean)) {
     const numFirst = tok.match(/^(\d+)(?:\/(\d+))?(NT|[CDHS])$/i)
     const strainFirst = tok.match(/^(NT|[CDHS])(\d+)(?:\/(\d+))?$/i)
     if (numFirst) {
-      out[numFirst[3].toUpperCase()] = levelToTricks(lowerOf(numFirst[1], numFirst[2]))
+      // Contract-level form. Apply +6 to each side of the slash.
+      const strain = numFirst[3].toUpperCase()
+      const a = levelToTricks(parseDigit(numFirst[1]))
+      const b = numFirst[2] != null ? levelToTricks(parseDigit(numFirst[2])) : a
+      result.first[strain] = a
+      result.second[strain] = b
     } else if (strainFirst) {
-      out[strainFirst[1].toUpperCase()] = levelToTricks(lowerOf(strainFirst[2], strainFirst[3]))
+      // Raw-tricks form. Use as-is (clamped to 0..13).
+      const strain = strainFirst[1].toUpperCase()
+      const a = clampTricks(parseDigit(strainFirst[2]))
+      const b = strainFirst[3] != null ? clampTricks(parseDigit(strainFirst[3])) : a
+      result.first[strain] = a
+      result.second[strain] = b
     } else {
       warnings.push(
         `board ${boardNumber} ${side} double-dummy: unrecognized token '${tok}'`
       )
     }
   }
-  return out
+  return result
 }
 
 function levelToTricks(level) {
   if (!Number.isInteger(level)) return null
-  if (level === 0) return null // ACBL collapses 0..6-trick outcomes into '0'
+  if (level === 0) return null // ACBL "<7 tricks" bucket without a specific count
   if (level >= 1 && level <= 7) return level + 6
-  // Defensive: pass through if a future source change ever emits raw tricks.
-  if (level >= 8 && level <= 13) return level
   return null
 }
 
-function lowerOf(aRaw, bRaw) {
-  // For ranges like '3/4H' or 'C6/5', use the lower value (conservative).
-  // The schema field is a single integer; the upper value is discarded.
-  const a = Number.parseInt(aRaw, 10)
-  if (bRaw == null) return Number.isNaN(a) ? 0 : a
-  const b = Number.parseInt(bRaw, 10)
-  if (Number.isNaN(a)) return Number.isNaN(b) ? 0 : b
-  if (Number.isNaN(b)) return a
-  return Math.min(a, b)
+function clampTricks(n) {
+  if (!Number.isInteger(n)) return null
+  if (n < 0 || n > 13) return null
+  return n
+}
+
+function parseDigit(raw) {
+  const n = Number.parseInt(raw, 10)
+  return Number.isNaN(n) ? null : n
 }
 
 // --- par parsing ------------------------------------------------------------

@@ -65,17 +65,22 @@ describe('parseClubGame (Livermore Bridge Club, 2026-04-20)', () => {
       expect(board.par[1]).toEqual({ score: 920, contract: '6C', declarer: 'N' })
     })
 
-    it('converts source level form to raw-trick double-dummy (per side, both seats identical)', () => {
-      // Source NS line: 'NS: 6C 6D 1H 2S 5NT' (level form: 6=12 tricks etc.)
-      //   → tricks: C:12 D:12 H:7 S:8 NT:11
-      // Source EW line: 'EW: C1 D0 H6 S5 NT1'
-      //   → tricks: C:7 D:null (level 0 = "can't make 1D") H:12 S:11 NT:7
-      // The schema is raw tricks across both adapters; the club source's
-      // level form is converted via level + 6 (or null for level 0).
+    it('decodes mixed level / raw-trick double-dummy forms (per-seat from slash splits)', () => {
+      // The club source mixes two forms in the same line, distinguished by
+      // token order:
+      //   • <digit><strain>  ("6C", "5NT") = highest-makeable-contract level
+      //                                       1..7; tricks = level + 6
+      //   • <strain><digit>  ("C1", "H6")  = raw trick count (0..6 typically,
+      //                                       used when the side can't make a
+      //                                       1-level contract)
+      // Source NS: '6C 6D 1H 2S 5NT' — all level form. Tricks: C12 D12 H7 S8 NT11.
       expect(board.double_dummy.N).toEqual({ C: 12, D: 12, H: 7, S: 8, NT: 11 })
       expect(board.double_dummy.S).toEqual({ C: 12, D: 12, H: 7, S: 8, NT: 11 })
-      expect(board.double_dummy.E).toEqual({ C: 7, D: null, H: 12, S: 11, NT: 7 })
-      expect(board.double_dummy.W).toEqual({ C: 7, D: null, H: 12, S: 11, NT: 7 })
+      // Source EW: 'C1 D0 H6 S5 NT1' — all raw-tricks form. Use as-is, with
+      // 'D0' meaning 0 raw tricks. (The old parser interpreted these as
+      // levels and ran +6 on every digit; the schema field is raw tricks.)
+      expect(board.double_dummy.E).toEqual({ C: 1, D: 0, H: 6, S: 5, NT: 1 })
+      expect(board.double_dummy.W).toEqual({ C: 1, D: 0, H: 6, S: 5, NT: 1 })
     })
 
     it('resolves pair numbers to the right players via the pair index', () => {

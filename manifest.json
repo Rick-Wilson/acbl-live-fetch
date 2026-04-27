@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ACBL Live Fetch",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "One-click extraction of bridge results from supported sites for analysis at bridge-classroom.com.",
   "background": {
     "service_worker": "src/background.js",
