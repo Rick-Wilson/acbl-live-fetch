@@ -13,9 +13,11 @@ export const TOURNAMENT_SCHEDULE_BASE = 'https://tournaments.acbl.org/schedule.p
 // Default concurrency for extractSession's bulk fetches. Higher than the
 // rate-limiter's library default (4) because the orchestrator now shares one
 // concurrency budget across every (session × section × board) fetch instead
-// of multiplying it via parallel fetchAll calls. Lower than the per-host
-// budget ACBL Live tolerates in practice.
-const DEFAULT_CONCURRENCY = 8
+// of multiplying it via parallel fetchAll calls. Empirically: with 108-board
+// extractions, bumping from 8 → 16 cut phase5 (board-details) wall time
+// roughly in half with no observed 429s. The retry/backoff in fetchAll
+// handles rate limiting if ACBL ever does push back.
+const DEFAULT_CONCURRENCY = 16
 
 export function matchesUrl(url) {
   try {
