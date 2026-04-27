@@ -39,6 +39,9 @@ const MONTHS = {
 //   available_sessions: [     // every session listed in the page's session-select
 //     { number, url }         //   dropdown — orchestrator uses this to fetch all
 //   ],                        //   sessions of the same event for the same pair
+//   pair_directory: [         // every pair listed in this session's #pair-select
+//     { section, direction, pair_number, players_text, url }  // covers every section
+//   ],
 //   boards: [
 //     {
 //       number, board_detail_url,
@@ -66,6 +69,7 @@ export function parsePairScorecard(htmlString) {
   const { sanction, event_id, session_number, section } = deriveIdsFromBoardUrls(boards)
   const tournament_name = parseTournamentNameFromBboUrl(doc)
   const available_sessions = parseAvailableSessions(doc, session_number)
+  const pair_directory = parsePairDirectory(doc)
 
   return {
     sanction,
@@ -86,8 +90,36 @@ export function parsePairScorecard(htmlString) {
       carryover: overall.carryover,
     },
     available_sessions,
+    pair_directory,
     boards,
   }
+}
+
+function parsePairDirectory(doc) {
+  // <select id="pair-select"> lists every pair in every section for the
+  // current session. Format of each option:
+  //   <option data-url="/event/.../scores/A/N/1">(A-NS) 1-Tim Benoit & Michael Fleisher</option>
+  // The orchestrator uses this to (a) discover all sections in the session
+  // and (b) follow the user across sessions when they switch sections.
+  const select = doc.querySelector('select#pair-select')
+  if (!select) return []
+  const out = []
+  for (const opt of select.querySelectorAll('option')) {
+    const url = opt.getAttribute('data-url')
+    if (!url) continue
+    const urlMatch = url.match(/\/scores\/([A-Z]+)\/([NESW])\/(\d+)/)
+    if (!urlMatch) continue
+    const text = collapse(opt.textContent)
+    const labelMatch = text.match(/^\(([A-Z]+)-(NS|EW)\)\s*(\d+)\s*-\s*(.+)$/)
+    out.push({
+      section: urlMatch[1],
+      direction: normalizeDirection(urlMatch[2]),
+      pair_number: Number.parseInt(urlMatch[3], 10),
+      players_text: labelMatch ? labelMatch[4].trim() : text,
+      url,
+    })
+  }
+  return out
 }
 
 function parseAvailableSessions(doc, currentSessionNumber) {

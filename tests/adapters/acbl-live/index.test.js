@@ -217,6 +217,56 @@ describe('extractSession', () => {
     expect(session2.warnings.some((w) => /board 5.*parse failed/.test(w))).toBe(true)
   })
 
+  it('fetches every section in each session and combines results per board', async () => {
+    // The fixture's pair-select only lists section A. Inject a synthetic
+    // section B option so the orchestrator discovers a second section and
+    // fetches /board-detail/B?board_num=N for every board. We anchor on the
+    // last A-EW option in the dropdown — appending after it.
+    const lastAEWOption =
+      '<option value="" data-url="/event/2604321/2501/2/scores/A/E/15">(A-EW) 15-Jennifer Kuhn &amp; Philip Kuhn</option>'
+    const multiSectionScorecard = scorecardHtml.replace(
+      lastAEWOption,
+      lastAEWOption +
+        '<option value="" data-url="/event/2604321/2501/2/scores/B/N/1">(B-NS) 1-Synthetic NS &amp; Synthetic NS</option>' +
+        '<option value="" data-url="/event/2604321/2501/2/scores/B/E/1">(B-EW) 1-Synthetic EW &amp; Synthetic EW</option>'
+    )
+    expect(multiSectionScorecard).not.toBe(scorecardHtml) // sanity: replacement matched
+
+    const sectionBBoardUrls = []
+    const fetchFn = vi.fn(async (url) => {
+      if (url === SCORECARD_URL) return ok(multiSectionScorecard)
+      if (url === SESSION_1_URL) return ok(session1ScorecardHtml)
+      if (url.includes('/board-detail/B')) {
+        sectionBBoardUrls.push(url)
+        return ok(board1Html)
+      }
+      if (url.includes('/board-detail/')) return ok(board1Html)
+      throw new Error(`unexpected URL: ${url}`)
+    })
+
+    const out = await extractSession(SCORECARD_URL, { fetch: fetchFn })
+    const session = out.tournaments[0].events[0].sessions.find((s) => s.session_number === 2)
+
+    // Section B board-detail was fetched for every board (1..26).
+    expect(sectionBBoardUrls).toHaveLength(26)
+    for (let n = 1; n <= 26; n++) {
+      expect(sectionBBoardUrls).toContain(
+        `https://live.acbl.org/event/2604321/2501/2/board-detail/B?board_num=${n}`
+      )
+    }
+
+    // Each board's results combine section A + section B (30 rows total —
+    // 15 from each section's parsed board-detail).
+    expect(session.boards).toHaveLength(26)
+    expect(session.boards[0].results).toHaveLength(30)
+
+    // The user's row is still found correctly: A-EW-4.
+    expect(session.boards[0].user_result_index).not.toBeNull()
+    const userResult = session.boards[0].results[session.boards[0].user_result_index]
+    expect(userResult.ew_pair.section).toBe('A')
+    expect(userResult.ew_pair.number).toBe(4)
+  })
+
   it("ships the sessions it could fetch when a sibling session's scorecard fails", async () => {
     const fetchFn = vi.fn(async (url) => {
       if (url === SCORECARD_URL) return ok(scorecardHtml)

@@ -50,6 +50,26 @@ describe('parsePairScorecard (acbl-live, sanction 2604321 / event 2501 / session
     ])
   })
 
+  it('extracts pair_directory from the #pair-select dropdown', () => {
+    expect(sc.pair_directory.length).toBeGreaterThan(0)
+    // Each entry has section, direction, pair_number, players_text, url.
+    for (const entry of sc.pair_directory) {
+      expect(entry.section).toMatch(/^[A-Z]+$/)
+      expect(['NS', 'EW']).toContain(entry.direction)
+      expect(typeof entry.pair_number).toBe('number')
+      expect(entry.players_text).toBeTruthy()
+      expect(entry.url).toMatch(/\/scores\/[A-Z]+\/[NESW]\/\d+/)
+    }
+    // The user's pair (A-EW-4) appears in the directory with their names —
+    // the orchestrator uses this entry to follow the user across sessions
+    // when they change sections.
+    const userEntry = sc.pair_directory.find(
+      (p) => p.section === 'A' && p.direction === 'EW' && p.pair_number === 4
+    )
+    expect(userEntry).toBeDefined()
+    expect(userEntry.players_text.toLowerCase()).toContain('rick wilson')
+  })
+
   describe('user_pair', () => {
     it('extracts pair number, direction, and section', () => {
       expect(sc.user_pair.pair_number).toBe(4)
