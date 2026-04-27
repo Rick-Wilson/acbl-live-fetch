@@ -1,6 +1,6 @@
 {
   "name": "acbl-live-fetch",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Browser extension that fetches bridge game data from supported sites and hands it to bridge-classroom.com for analysis.",
   "type": "module",
   "license": "Unlicense",
