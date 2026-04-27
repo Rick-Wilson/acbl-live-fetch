@@ -139,28 +139,31 @@ function parseDoubleDummyAndPar(doc) {
     throw new ParseError('Could not find div.double-dummy', { selector: 'div.double-dummy' })
   }
 
-  let nsLine = ''
-  let ewLine = ''
+  let nsSpan = null
+  let ewSpan = null
   for (const span of ddEl.querySelectorAll('span')) {
     const decorated = collapse(decorateSuitSymbols(span))
-    if (/^NS:/i.test(decorated)) nsLine = decorated
-    else if (/^EW:/i.test(decorated)) ewLine = decorated
+    if (/^NS:/i.test(decorated)) nsSpan = span
+    else if (/^EW:/i.test(decorated)) ewSpan = span
   }
 
-  if (!nsLine || !ewLine) {
+  if (!nsSpan || !ewSpan) {
     throw new ParseError('Could not extract NS/EW double-dummy lines', {
       selector: 'div.double-dummy span',
       html: ddEl.outerHTML,
     })
   }
 
-  // Per docs/normalized-schema.md (2.1+), double_dummy is per-declarer.
-  // The NS line carries N's and S's tricks; the EW line carries E's and W's.
-  // ACBL writes the slash form 'X/Y' as {first seat / second seat} — N/S on
-  // the NS line, E/W on the EW line. A single value means both seats of that
-  // side make the same number.
-  const nsTuples = parseDoubleDummyLine(nsLine.replace(/^NS:\s*/i, ''))
-  const ewTuples = parseDoubleDummyLine(ewLine.replace(/^EW:\s*/i, ''))
+  // Per docs/normalized-schema.md, double_dummy values are RAW TRICKS (0–13).
+  // ACBL renders each strain in one of two visual forms, and the form
+  // determines whether the digit is a contract level or a raw trick count:
+  //   • Unwrapped (white background): contract level 1–7 → tricks = level + 6
+  //   • Wrapped in <div class="reverse"> (blue background): raw tricks 0–6
+  // A given line can mix both forms — e.g. EW makes 3♦ as a contract but
+  // only 5♥ as a raw trick count. We walk the DOM rather than working from
+  // collapsed text so the wrapper context isn't lost.
+  const nsTuples = parseDoubleDummyLine(nsSpan)
+  const ewTuples = parseDoubleDummyLine(ewSpan)
   const doubleDummy = {
     N: pickSeat(nsTuples, 0),
     S: pickSeat(nsTuples, 1),
@@ -195,56 +198,90 @@ function decorateSuitSymbols(el) {
   return clone.textContent
 }
 
-function parseDoubleDummyLine(line) {
-  // ACBL Live shows double-dummy makes per side in two source orientations:
-  //   NS: '4/5C 1D 3H 5S 5NT'  — number-then-strain; '4/5' = first seat / second seat
-  //   EW: 'C2 D6 H3 S2 NT2'    — strain-then-number (rendered "reversed" on the page)
-  // Detect orientation by whether a strain letter is immediately followed by a
-  // digit anywhere in the line; otherwise treat as number-then-strain.
-  // Output is a per-strain pair [firstSeat, secondSeat]. The caller (the NS or
-  // EW line) decides what those seats mean (N/S for the NS line, E/W for EW).
-  // A single value 'C2' or '5NT' means both seats make the same number.
-  const collapsed = collapse(line)
+function parseDoubleDummyLine(span) {
+  // Walks the children of an NS/EW <span>, distinguishing by structure
+  // whether each entry encodes a contract level or a raw trick count:
+  //   • Plain text + suit-symbol children: contract-level form (e.g.
+  //     "4/5♣", "1♦", "5NT"). Digit is the highest makeable level (1–7);
+  //     tricks = level + 6. A digit of 0 means the bucket "<7 tricks" with
+  //     no specific value, so we emit null.
+  //   • <div class="reverse"> wrapper: raw-trick form (e.g. "♣6", "♥5",
+  //     "♣4/5"). Digit is the actual trick count (0–6 typically, since
+  //     7+ tricks gets expressed as a real contract level).
+  //
+  // Output is a per-strain pair [firstSeat, secondSeat]. A single value
+  // means both seats of that side take the same number of tricks.
   const out = { C: null, D: null, H: null, S: null, NT: null }
-  const strainFirst = /(?:NT|[CDHS])\d/.test(collapsed)
+  const levelTextChunks = []
 
-  if (strainFirst) {
-    for (const m of collapsed.matchAll(/(NT|[CDHS])(\d+)(?:\s*\/\s*(\d+))?/g)) {
-      out[m[1]] = pairFromMatch(m[2], m[3])
-    }
-  } else {
-    for (const m of collapsed.matchAll(/(\d+)(?:\s*\/\s*(\d+))?\s*(NT|[CDHS])/g)) {
-      out[m[3]] = pairFromMatch(m[1], m[2])
+  for (const child of span.childNodes) {
+    const isElement = child.nodeType === 1
+    if (isElement && child.classList && child.classList.contains('reverse')) {
+      // Raw-tricks form: parse the inner content directly. Inner shape is
+      // <strain><digit> or <strain><digit>/<digit>.
+      const inner = collapse(decorateSuitSymbols(child))
+      const m = inner.match(/(NT|[CDHS])\s*(\d+)(?:\s*\/\s*(\d+))?/)
+      if (m) {
+        const strain = m[1]
+        out[strain] = pairFromTricks(m[2], m[3])
+      }
+    } else if (isElement) {
+      // A non-reverse element. Special-case suit-symbol spans (they have
+      // no text content, just a class) — decorateSuitSymbols only finds
+      // suit symbols inside its argument, never the argument itself.
+      if (child.classList && child.classList.contains('symbol')) {
+        const cls = [...child.classList].find((c) => SUIT_CLASS_TO_LETTER[c])
+        if (cls) levelTextChunks.push(SUIT_CLASS_TO_LETTER[cls])
+      } else {
+        levelTextChunks.push(decorateSuitSymbols(child))
+      }
+    } else if (child.nodeType === 3) {
+      levelTextChunks.push(child.textContent)
     }
   }
 
+  // Parse the assembled level-form text. Format is digit(/digit)? then
+  // strain letter. Skip any strain that was already filled by a reverse
+  // wrapper (sanity guard against duplicates).
+  const collapsed = collapse(levelTextChunks.join(''))
+    .replace(/^NS:\s*/i, '')
+    .replace(/^EW:\s*/i, '')
+  for (const m of collapsed.matchAll(/(\d+)(?:\s*\/\s*(\d+))?\s*(NT|[CDHS])/g)) {
+    if (out[m[3]] != null) continue
+    out[m[3]] = pairFromLevels(m[1], m[2])
+  }
+
   if (Object.values(out).every((v) => v == null)) {
-    throw new ParseError(`Could not parse double-dummy line: '${line}'`, { html: line })
+    throw new ParseError(`Could not parse double-dummy line`, { html: span.outerHTML })
   }
   return out
 }
 
-function pairFromMatch(firstRaw, secondRaw) {
+function pairFromLevels(firstRaw, secondRaw) {
   const first = levelToTricks(Number.parseInt(firstRaw, 10))
   const second = secondRaw == null ? first : levelToTricks(Number.parseInt(secondRaw, 10))
   return [first, second]
 }
 
+function pairFromTricks(firstRaw, secondRaw) {
+  const first = clampTricks(Number.parseInt(firstRaw, 10))
+  const second = secondRaw == null ? first : clampTricks(Number.parseInt(secondRaw, 10))
+  return [first, second]
+}
+
+function clampTricks(n) {
+  if (!Number.isInteger(n)) return null
+  if (n < 0 || n > 13) return null
+  return n
+}
+
 function levelToTricks(level) {
-  // ACBL Live's source uses "highest makeable contract level" (0–7), where the
-  // digit means "the highest contract this declarer can make in this strain":
-  //   0 = fewer than 7 tricks (ACBL collapses 0-6 into a single bucket)
-  //   1 = makes 1-level (7 tricks), ..., 7 = makes 7-level (13 tricks).
-  // The schema field is raw tricks (0–13), matching DDS solver output for
-  // cross-source consistency. Level 0 maps to null because we know it's ≤ 6
-  // tricks but not which specific value.
+  // Contract-level form: 1–7 → tricks 7–13 via level + 6.
+  // 0 means ACBL's "<7 tricks" bucket without a specific count, so null —
+  // the reverse-wrapper form would have been used to convey an exact 0–6.
   if (!Number.isInteger(level)) return null
   if (level === 0) return null
   if (level >= 1 && level <= 7) return level + 6
-  // Defensively pass through any unexpected value (e.g., a future ACBL change
-  // that emits raw tricks 0-13) — but emit null for >13 since that can't be a
-  // real trick count.
-  if (level >= 8 && level <= 13) return level
   return null
 }
 

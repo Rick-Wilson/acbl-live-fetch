@@ -73,17 +73,24 @@ describe('parseBoardDetail (acbl-live, event 2604321 / board 1)', () => {
   })
 
   it('extracts per-declarer double-dummy makes as raw tricks', () => {
-    // ACBL Live's source line is in *level* form (highest-makeable-contract
-    // level, 0–7); the parser converts to raw tricks (level + 6).
-    // Source line: 'NS: 4/5C 1D 3H 5S 5NT' — the '4/5C' slash means
-    // N makes 4-level clubs (10 tricks) and S makes 5-level clubs (11 tricks).
-    // Other strains share a single value: 1D = 7, 3H = 9, 5S = 11, 5NT = 11.
+    // ACBL Live emits the DD section in two structurally-distinct forms:
+    //   • Plain text "4/5♣ 1♦ 3♥ 5♠ 5NT" → contract-level form (1–7),
+    //     converts to raw tricks via `level + 6`.
+    //   • <div class="reverse">♣2</div> → raw-trick form (0–6), used
+    //     when the side can't make a 1-level contract; the digit is the
+    //     actual trick count, NOT a level.
+    //
+    // Board 1 NS row is plain text (level form): '4/5♣ 1♦ 3♥ 5♠ 5NT'.
+    // The '4/5' slash means N makes 4-level (10 tricks), S makes 5-level
+    // (11 tricks); other strains share one value.
     expect(board.double_dummy.N).toEqual({ C: 10, D: 7, H: 9, S: 11, NT: 11 })
     expect(board.double_dummy.S).toEqual({ C: 11, D: 7, H: 9, S: 11, NT: 11 })
-    // Source line: 'EW: C2 D6 H3 S2 NT2' — no slash form, both E and W
-    // make the same level for every strain. Convert: 2→8, 6→12, 3→9, 2→8, 2→8.
-    expect(board.double_dummy.E).toEqual({ C: 8, D: 12, H: 9, S: 8, NT: 8 })
-    expect(board.double_dummy.W).toEqual({ C: 8, D: 12, H: 9, S: 8, NT: 8 })
+    // Board 1 EW row is entirely in <div class="reverse"> wrappers
+    // (raw-trick form): ♣2, ♦6, ♥3, ♠2, NT2. Digits stay as-is.
+    // Sanity check: NS+EW per strain ≈ 13 (clubs 10+2=12 / 11+2=13,
+    // diamonds 7+6=13, etc.) — matches DD-trick conservation.
+    expect(board.double_dummy.E).toEqual({ C: 2, D: 6, H: 3, S: 2, NT: 2 })
+    expect(board.double_dummy.W).toEqual({ C: 2, D: 6, H: 3, S: 2, NT: 2 })
 
     // Self-consistency: par 5NT-NS = 11 tricks, and N.NT == S.NT == 11.
     expect(board.par[0].score).toBe(460)
