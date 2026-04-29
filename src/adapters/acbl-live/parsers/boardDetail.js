@@ -363,7 +363,11 @@ function parsePairsCell(cell, section) {
     ew_pair: {
       number: pickPairNumber(halves[1]),
       section,
-      players: [parsePlayerSpan(nameEls[2]), parsePlayerSpan(nameEls[3])],
+      // ACBL Live's board-detail HTML lists EW players in [W, E] order; the
+      // analyzer (and the BWS+PBN file-load path) expects PBN-canonical
+      // [E, W]. Reverse here to match. Confirmed by side-by-side comparison
+      // — same asymmetry as the club adapter's pair_summaries.
+      players: [parsePlayerSpan(nameEls[3]), parsePlayerSpan(nameEls[2])],
     },
   }
 }

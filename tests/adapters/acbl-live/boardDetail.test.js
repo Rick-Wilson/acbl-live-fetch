@@ -111,7 +111,9 @@ describe('parseBoardDetail (acbl-live, event 2604321 / board 1)', () => {
     expect(userRow.score).toBe(420)
     expect(userRow.ew_pair.number).toBe(4)
     expect(userRow.ew_pair.section).toBe('A')
-    expect(userRow.ew_pair.players.map((p) => p.name)).toEqual(['Rick Wilson', 'Andrew Rowberg'])
+    // The source HTML lists EW players in [W, E] order; the parser reverses
+    // to PBN-canonical [E, W]. Confirmed against the BWS+PBN file-load path.
+    expect(userRow.ew_pair.players.map((p) => p.name)).toEqual(['Andrew Rowberg', 'Rick Wilson'])
   })
 
   it('result rows include matchpoints, percentage, and pair player names', () => {
@@ -124,7 +126,8 @@ describe('parseBoardDetail (acbl-live, event 2604321 / board 1)', () => {
     expect(first.ns_pair.number).toBe(10)
     expect(first.ns_pair.players.map((p) => p.name)).toEqual(['Weilong Shen', 'Vasisht Ganesh'])
     expect(first.ew_pair.number).toBe(6)
-    expect(first.ew_pair.players.map((p) => p.name)).toEqual(['Arthur Mirin', 'Padmini Sokkappa'])
+    // EW reversed from source [W, E] to canonical [E, W].
+    expect(first.ew_pair.players.map((p) => p.name)).toEqual(['Padmini Sokkappa', 'Arthur Mirin'])
   })
 
   it('includes a non-empty handviewer URL pointing at bridgebase.com', () => {
