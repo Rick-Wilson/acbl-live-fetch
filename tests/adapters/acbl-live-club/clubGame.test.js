@@ -96,9 +96,12 @@ describe('parseClubGame (Livermore Bridge Club, 2026-04-20)', () => {
       // to "Firstname Lastname" to match the tournament adapter and the
       // analyzer's downstream UI.
       expect(r.ns_pair.players.map((p) => p.name)).toEqual(['Wayne Vondera', 'Lynn Gast'])
+      // The source emits the EW pair's players in [W, E] order; the parser
+      // reverses to PBN-canonical [E, W]. Confirmed against the same game
+      // loaded via BWS+PBN.
       expect(r.ew_pair.players.map((p) => p.name)).toEqual([
-        'Arthur Mirin',
         'Dan Bergmann',
+        'Arthur Mirin',
       ])
     })
 

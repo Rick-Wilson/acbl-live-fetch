@@ -86,6 +86,11 @@ function buildSession(session, data) {
   }
 }
 
+function reverseEwPlayers(pair) {
+  if (!pair || !Array.isArray(pair.players) || pair.players.length !== 2) return pair
+  return { ...pair, players: [pair.players[1], pair.players[0]] }
+}
+
 function synthesizePair(number, sectionName) {
   // Used when the pair index doesn't carry an entry for a pair_number that
   // appears on a result row. Players aren't recoverable in this case, but
@@ -313,7 +318,13 @@ function buildResult(br, sectionName, pairIndex, top, bboGameLinks, boardNumber)
   // isn't in the index — e.g., a sit-out / phantom pair, or pair_summaries
   // is missing entries — synthesize a minimal Pair with empty players.
   const ns = pairIndex.get(`${sectionName}|NS|${nsNum}`) ?? synthesizePair(nsNum, sectionName)
-  const ew = pairIndex.get(`${sectionName}|EW|${ewNum}`) ?? synthesizePair(ewNum, sectionName)
+  const ewRaw = pairIndex.get(`${sectionName}|EW|${ewNum}`) ?? synthesizePair(ewNum, sectionName)
+  // my.acbl.org's pair_summaries[].players is in [N, S] order for NS pairs
+  // (matches PBN [North]/[South] tags) but in [W, E] order for EW pairs.
+  // The analyzer's seat convention (and PBN's [East]/[West] tags) is [E, W],
+  // so reverse the EW pair's players. Confirmed against a side-by-side
+  // comparison with the same game loaded via BWS+PBN files.
+  const ew = reverseEwPlayers(ewRaw)
 
   const contract = parseContract(br.contract)
 
