@@ -28,23 +28,34 @@ export function matchesUrl(url) {
   }
 }
 
-// Event IDs in ACBL Live URLs are usually all digits ('2501') but older events
-// use a mixed alphanumeric form ('17OP') — confirmed against sanction 2601343
-// in January 2026. Keep the second URL segment (event_id) permissive.
+// URL segments are usually all digits for sectional/regional events
+// (sanction '2604321', event '2501') but mixed alphanumerics show up in the
+// wild for older events ('17OP') and for NABC tournaments where the sanction
+// is 'NABC261' or similar. Keep both the first segment (sanction) and the
+// second (event_id) permissive.
+const SANCTION_PAT = '[A-Za-z0-9]+'
 const EVENT_ID_PAT = '[A-Za-z0-9]+'
 
 export function classifyPage(url) {
   if (!matchesUrl(url)) return 'unknown'
   const path = new URL(url).pathname
   if (
-    new RegExp(`^/event/\\d+/${EVENT_ID_PAT}/\\d+/scores/[A-Z]+/[NESW]/\\d+/?$`).test(path)
+    new RegExp(
+      `^/event/${SANCTION_PAT}/${EVENT_ID_PAT}/\\d+/scores/[A-Z]+/[NESW]/\\d+/?$`
+    ).test(path)
   ) {
     return 'pair-scorecard'
   }
-  if (new RegExp(`^/event/\\d+/${EVENT_ID_PAT}/\\d+/board-detail/[A-Z]+/?$`).test(path)) {
+  if (
+    new RegExp(
+      `^/event/${SANCTION_PAT}/${EVENT_ID_PAT}/\\d+/board-detail/[A-Z]+/?$`
+    ).test(path)
+  ) {
     return 'board-detail'
   }
-  if (new RegExp(`^/event/\\d+/${EVENT_ID_PAT}/\\d+/summary/?$`).test(path)) {
+  if (
+    new RegExp(`^/event/${SANCTION_PAT}/${EVENT_ID_PAT}/\\d+/summary/?$`).test(path)
+  ) {
     return 'event-summary'
   }
   if (/^\/player-results\/\d+\/?$/.test(path)) {

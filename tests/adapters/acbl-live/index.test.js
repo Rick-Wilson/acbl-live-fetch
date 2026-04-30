@@ -67,6 +67,14 @@ describe('classifyPage', () => {
     )
   })
 
+  it('classifies pair-scorecard URLs with alphanumeric sanction (NABC events)', () => {
+    // NABC tournaments use a sanction like 'NABC261' instead of a numeric
+    // ID. Section can also be multi-letter (e.g., 'PP' for Power Pairs).
+    expect(
+      classifyPage('https://live.acbl.org/event/NABC261/08FP/2/scores/PP/E/1')
+    ).toBe('pair-scorecard')
+  })
+
   it('classifies board-detail URLs', () => {
     expect(classifyPage('https://live.acbl.org/event/2604321/2501/2/board-detail/A')).toBe(
       'board-detail'

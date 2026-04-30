@@ -56,7 +56,9 @@ https://tournaments.acbl.org/schedule.php?sanction={sanction}
 
 This naming gets confusing because ACBL Live's URL tree uses `event` for the tournament and elides the word "tournament" entirely. Code in this repo uses `sanction` / `event_id` / `session_number` consistently to match the schema; only the URL strings keep the misleading `event` segment.
 
-`direction` is `N` or `E` (for N-S pair or E-W pair). `section` is a single uppercase letter (`A`, `B`, ...).
+`direction` is `N` or `E` (for N-S pair or E-W pair). `section` is one or more uppercase letters (`A`, `B`, ..., `PP`, ...). NABC events use multi-letter section codes like `PP` for Power Pairs.
+
+`sanction` is usually all digits for sectional / regional events but **NABC tournaments use a sanction like `NABC261`** (mixed alphanumeric). Both `sanction` and `event_id` URL segments must be parsed as `[A-Za-z0-9]+`, not `\d+`.
 
 ## Board-detail page structure
 
