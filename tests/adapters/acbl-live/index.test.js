@@ -115,13 +115,64 @@ describe('extractSession', () => {
   // Silence per-phase timing logs in tests; the SW console gets them in real use.
   const silentLog = () => {}
 
-  it('rejects non-pair-scorecard URLs (player-history is Phase 3)', async () => {
+  it('rejects player-history URLs (Phase 3)', async () => {
     await expect(
       extractSession('https://live.acbl.org/player-results/3506177', {
         fetch: vi.fn(),
         log: silentLog,
       })
-    ).rejects.toThrow(/pair-scorecard/i)
+    ).rejects.toThrow(/pair-scorecard or event-summary/i)
+  })
+
+  it('extracts from a summary URL by finding a scorecard link and nulling user_pair', async () => {
+    const SUMMARY_URL = 'https://live.acbl.org/event/2604321/2501/2/summary'
+    // Minimal summary HTML that links to a pair scorecard. The orchestrator
+    // should pick this link and run the standard extraction against it,
+    // then blank out user_pair / user_result_index across the tree.
+    const summaryHtml = `<html><body>
+      <h1>Event summary</h1>
+      <a href="/event/2604321/2501/2/scores/A/E/4">Section A • EW pair 4</a>
+    </body></html>`
+    const fetchFn = vi.fn(async (url) => {
+      if (url === SUMMARY_URL) return ok(summaryHtml)
+      if (url === SCORECARD_URL) return ok(scorecardHtml)
+      if (url === SESSION_1_URL) return ok(session1ScorecardHtml)
+      if (url.includes('/board-detail/')) return ok(board1Html)
+      throw new Error(`unexpected URL: ${url}`)
+    })
+
+    const out = await extractSession(SUMMARY_URL, { fetch: fetchFn, log: silentLog })
+
+    // Standard envelope shape preserved.
+    expect(out.schema_version).toBe('1.0')
+    expect(out.tournaments[0].sanction).toBe('2604321')
+    expect(out.tournaments[0].events[0].sessions).toHaveLength(2)
+
+    // No user pair was selected via this entry path — every session's
+    // user_pair is null and every board's user_result_index is null.
+    for (const session of out.tournaments[0].events[0].sessions) {
+      expect(session.user_pair).toBeNull()
+      for (const board of session.boards) {
+        expect(board.user_result_index).toBeNull()
+      }
+    }
+
+    // The summary URL itself was fetched, plus the scorecard URL we found
+    // inside it (and its sibling sessions and board-details).
+    const seen = fetchFn.mock.calls.map((c) => c[0])
+    expect(seen).toContain(SUMMARY_URL)
+    expect(seen).toContain(SCORECARD_URL)
+  })
+
+  it('throws cleanly when a summary page has no pair-scorecard links', async () => {
+    const SUMMARY_URL = 'https://live.acbl.org/event/2604321/2501/2/summary'
+    const fetchFn = vi.fn(async (url) => {
+      if (url === SUMMARY_URL) return ok('<html><body>no links here</body></html>')
+      throw new Error(`unexpected URL: ${url}`)
+    })
+    await expect(
+      extractSession(SUMMARY_URL, { fetch: fetchFn, log: silentLog })
+    ).rejects.toThrow(/pair-scorecard link/i)
   })
 
   // The fixture's session-select dropdown lists session 1 and session 2. The

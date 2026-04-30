@@ -34,7 +34,7 @@ Player history:           https://live.acbl.org/player-results/3506177
 
 `event_id` is usually all digits (e.g., `2501`) for recent events, but older events use a mixed alphanumeric form (e.g., `17OP` — confirmed on sanction 2601343 from January 2026). URL parsers must accept `[A-Za-z0-9]+`, not just `\d+`. `sanction` and `session_number` remain numeric.
 
-The `/summary` path is an event-session overview (not per-pair). The extension recognizes it but doesn't extract from it; the user navigates from there to a pair scorecard.
+The `/summary` path is an event-session overview (not per-pair). The extension treats it as a valid entry point: it fetches the summary page, finds any `/scores/{section}/{direction}/{pair}` link inside, and runs the standard pair-scorecard extraction against that URL. The resulting envelope has `user_pair: null` on every session and `user_result_index: null` on every board, since no specific pair was selected.
 
 ### URL-segment naming caveat
 

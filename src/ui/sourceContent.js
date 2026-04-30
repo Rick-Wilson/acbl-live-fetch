@@ -11,7 +11,13 @@ const BUTTON_ID = 'bridge-classroom-analyze-btn'
 // Page types that trigger injection — one per supported source. Each adapter
 // owns a different hostname today, so the classifyPage calls are mutually
 // exclusive.
-const INJECT_PAGE_TYPES = new Set(['pair-scorecard', 'club-game-result'])
+//   * pair-scorecard    — live.acbl.org per-pair page (the canonical entry)
+//   * event-summary     — live.acbl.org event-level page; the user often
+//                         lands here. We fetch the summary, find a pair
+//                         scorecard link, and run the standard extraction
+//                         (with user_pair: null since no pair is implied).
+//   * club-game-result  — my.acbl.org club-game page
+const INJECT_PAGE_TYPES = new Set(['pair-scorecard', 'event-summary', 'club-game-result'])
 
 export function shouldInject(url) {
   return INJECT_PAGE_TYPES.has(classifyLive(url)) || INJECT_PAGE_TYPES.has(classifyClub(url))

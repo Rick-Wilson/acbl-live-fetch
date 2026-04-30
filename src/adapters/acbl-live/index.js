@@ -76,9 +76,19 @@ export async function extractSession(url, options = {}) {
   } = options
 
   const pageType = classifyPage(url)
+
+  // The user often lands on /summary first. Resolve to a pair-scorecard URL
+  // by parsing any /scores/... link out of the summary HTML, then run the
+  // standard extraction. Since no user pair was selected, blank user_pair
+  // and user_result_index in the result so the analyzer treats this as an
+  // event-wide extraction.
+  if (pageType === 'event-summary') {
+    return extractFromSummary(url, options)
+  }
+
   if (pageType !== 'pair-scorecard') {
     throw new Error(
-      `extractSession requires a pair-scorecard URL; got '${pageType}' for ${url}. ` +
+      `extractSession requires a pair-scorecard or event-summary URL; got '${pageType}' for ${url}. ` +
         `Player-history support is a Phase 3 feature.`
     )
   }
@@ -288,6 +298,83 @@ function defaultLog(phase, data) {
   // Pass `log: () => {}` in options to silence.
   // eslint-disable-next-line no-console
   console.info(`[acbl-live] ${phase}`, data)
+}
+
+// --- summary-page entry point -------------------------------------------------
+
+async function extractFromSummary(summaryUrl, options) {
+  const {
+    fetch,
+    signal,
+    concurrency = DEFAULT_CONCURRENCY,
+    delayMs = 0,
+    maxRetries,
+    log = defaultLog,
+  } = options
+  const fetchOpts = { fetch, signal, concurrency: 1, delayMs, maxRetries }
+
+  // 1. Fetch the summary page.
+  const phaseStart = Date.now()
+  const fetched = await fetchAll([summaryUrl], fetchOpts)
+  const html = fetched.get(summaryUrl)
+  if (html instanceof Error) throw html
+  log('summary.fetchPage', { ms: Date.now() - phaseStart })
+
+  // 2. Find any pair-scorecard link in the page. The summary lists per-pair
+  //    rankings, each linking to /scores/{section}/{direction}/{pair}. We
+  //    don't care which pair we pick — the standard extractor will fan out
+  //    across every section and session anyway.
+  const scorecardUrl = findScorecardUrlInSummary(html, summaryUrl)
+  if (!scorecardUrl) {
+    throw new Error(
+      `Could not find any pair-scorecard link on summary page ${summaryUrl}`
+    )
+  }
+  log('summary.foundScorecard', { url: scorecardUrl })
+
+  // 3. Recurse into the standard extraction with that URL. Since the second
+  //    invocation sees a pair-scorecard URL, it follows the existing
+  //    sessions / sections / boards path.
+  const envelope = await extractSession(scorecardUrl, {
+    ...options,
+    concurrency,
+  })
+
+  // 4. Null out user_pair and user_result_index across the tree — no user
+  //    was selected via this entry path. session_score / session_percentage
+  //    / carryover lived under user_pair, so they vanish too. This matches
+  //    the schema's "user_pair is present only if a pair scorecard
+  //    initiated this session's extraction".
+  for (const tournament of envelope.tournaments ?? []) {
+    for (const event of tournament.events ?? []) {
+      for (const session of event.sessions ?? []) {
+        session.user_pair = null
+        for (const board of session.boards ?? []) {
+          board.user_result_index = null
+        }
+      }
+    }
+  }
+  return envelope
+}
+
+function findScorecardUrlInSummary(html, baseUrl) {
+  const doc = new DOMParser().parseFromString(html, 'text/html')
+  // Iterate every anchor with an /scores/ href and pick the first one that
+  // matches the pair-scorecard URL pattern via classifyPage. Defensive
+  // because the summary page may also have unrelated /scores/ links.
+  for (const a of doc.querySelectorAll('a[href*="/scores/"]')) {
+    const href = a.getAttribute('href')
+    if (!href) continue
+    let abs
+    try {
+      abs = new URL(href, baseUrl).toString()
+    } catch {
+      continue
+    }
+    if (classifyPage(abs) === 'pair-scorecard') return abs
+  }
+  return null
 }
 
 // --- user identification + cross-session tracking -----------------------------

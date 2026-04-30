@@ -13,6 +13,14 @@ describe('shouldInject', () => {
     expect(shouldInject('https://live.acbl.org/event/2604321/2501/2/scores/A/E/4')).toBe(true)
   })
 
+  it('returns true on event-summary URLs (orchestrator resolves to a scorecard)', () => {
+    expect(shouldInject('https://live.acbl.org/event/NABC261/08FP/2/summary')).toBe(true)
+  })
+
+  it('returns true on club-game-result URLs', () => {
+    expect(shouldInject('https://my.acbl.org/club-results/details/1430335')).toBe(true)
+  })
+
   it('returns false on board-detail and player-history pages', () => {
     expect(shouldInject('https://live.acbl.org/event/2604321/2501/2/board-detail/A')).toBe(false)
     expect(shouldInject('https://live.acbl.org/player-results/3506177')).toBe(false)
