@@ -21,9 +21,12 @@ describe('shouldInject', () => {
     expect(shouldInject('https://my.acbl.org/club-results/details/1430335')).toBe(true)
   })
 
-  it('returns false on board-detail and player-history pages', () => {
+  it('returns false on board-detail pages', () => {
     expect(shouldInject('https://live.acbl.org/event/2604321/2501/2/board-detail/A')).toBe(false)
-    expect(shouldInject('https://live.acbl.org/player-results/3506177')).toBe(false)
+  })
+
+  it('returns true on player-history pages', () => {
+    expect(shouldInject('https://live.acbl.org/player-results/3506177')).toBe(true)
   })
 
   it('returns false on unrelated origins', () => {
@@ -183,11 +186,11 @@ describe('injectButton', () => {
     expect(h4.nextElementSibling).toBe(btn)
   })
 
-  it('does nothing on non-scorecard pages', () => {
-    document.body.innerHTML = '<h1>Apr 25</h1><h4>4EW</h4>'
+  it('does nothing on board-detail pages', () => {
+    document.body.innerHTML = '<h1>Board 1</h1>'
     const btn = injectButton({
       document,
-      location: { href: 'https://live.acbl.org/player-results/123' },
+      location: { href: 'https://live.acbl.org/event/2604321/2501/2/board-detail/A' },
       sendMessage: vi.fn(),
     })
     expect(btn).toBeNull()

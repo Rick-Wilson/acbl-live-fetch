@@ -19,6 +19,11 @@
       "run_at": "document_idle"
     },
     {
+      "matches": ["https://www.bridgebase.com/v3/*"],
+      "js": ["src/ui/bboLobbyContent.js"],
+      "run_at": "document_idle"
+    },
+    {
       "matches": ["https://club-game-analysis.bridge-classroom.com/analyze*"],
       "js": ["src/ui/analyzerContent.js"],
       "run_at": "document_start"

@@ -9,6 +9,7 @@ import acblLiveClubAdapter from '../adapters/acbl-live-club/index.js'
 import bboAdapter from '../adapters/bbo/index.js'
 import { parseClubResultsList } from '../adapters/acbl-live-club/parsers/clubResultsList.js'
 import { parseBboHistoryList } from '../adapters/bbo/parsers/historyList.js'
+import { parsePlayerResults } from '../adapters/acbl-live/parsers/playerResults.js'
 
 // Adapter registry. The first adapter whose matchesUrl(url) returns true
 // owns that URL. Order matters when adapters could overlap; today they
@@ -45,8 +46,9 @@ export async function handleMessage(msg, deps) {
   }
   if (msg.type === 'extract-session') return runExtraction(msg.url, deps)
   if (msg.type === 'consume-pending-session') return consumePending(msg.sid, deps)
-  if (msg.type === 'extract-batch') return runBatchExtraction(msg.listUrl, deps, msg.since ?? null)
+  if (msg.type === 'extract-batch') return runBatchExtraction(msg.listUrl, deps, msg.since ?? null, msg.max ?? null)
   if (msg.type === 'consume-pending-batch') return consumePendingBatch(msg.key, deps)
+  if (msg.type === 'get-bbo-username') return getBboUsername(deps)
   return {
     type: 'extraction-error',
     error: { code: 'unknown-message-type', message: `Unknown message type '${msg.type}'` },
@@ -70,6 +72,7 @@ export async function runExtraction(url, deps) {
   const sid = crypto.randomUUID()
   const key = `${PENDING_PREFIX}${sid}`
   await storage.set({ [key]: { stored_at: Date.now(), envelope } })
+  await cacheBboUsername(url, storage)
   await tabs.create({ url: `${ANALYZER_URL}#sid=${sid}` })
   return { type: 'extraction-complete', sid }
 }
@@ -110,7 +113,7 @@ async function uploadEnvelope(envelope, fetchFn) {
   return json.session_id
 }
 
-export async function runBatchExtraction(listUrl, deps, since = null) {
+export async function runBatchExtraction(listUrl, deps, since = null, max = null) {
   const { storage, tabs, crypto, fetch: fetchFn = globalThis.fetch, signal, extract = dispatchExtract } = deps
   if (typeof listUrl !== 'string' || !listUrl) {
     return { type: 'extraction-error', error: { code: 'bad-request', message: 'Missing list URL' } }
@@ -120,14 +123,18 @@ export async function runBatchExtraction(listUrl, deps, since = null) {
   // BBO listing pages require session credentials; ACBL pages do not.
   let eventList
   try {
-    const isBbo = new URL(listUrl).hostname === 'www.bridgebase.com'
-    const listFetch = isBbo
+    const host = new URL(listUrl).hostname
+    const listFetch = host === 'www.bridgebase.com'
       ? (u) => fetchFn(u, { credentials: 'include' }).then((r) => r.text())
       : (u) => fetchFn(u).then((r) => r.text())
     const html = await listFetch(listUrl)
-    eventList = isBbo
-      ? parseBboHistoryList(html)
-      : parseClubResultsList(html, new URL(listUrl).origin)
+    if (host === 'www.bridgebase.com') {
+      eventList = parseBboHistoryList(html)
+    } else if (host === 'live.acbl.org') {
+      eventList = parsePlayerResults(html)
+    } else {
+      eventList = parseClubResultsList(html, new URL(listUrl).origin)
+    }
   } catch (err) {
     return { type: 'extraction-error', error: { code: classifyError(err), message: err?.message ?? 'Failed to fetch event list' } }
   }
@@ -139,7 +146,8 @@ export async function runBatchExtraction(listUrl, deps, since = null) {
     return { type: 'extraction-error', error: { code: 'bad-request', message: 'No events found in the selected date range' } }
   }
 
-  const urls = filtered.map((e) => e.url)
+  const allUrls = filtered.map((e) => e.url)
+  const urls = max != null ? allUrls.slice(0, max) : allUrls
   const key = crypto.randomUUID()
   const storageKey = `${PENDING_BATCH_PREFIX}${key}`
   const total = urls.length
@@ -189,6 +197,24 @@ export async function consumePendingBatch(key, deps) {
   }
   await storage.remove(storageKey)
   return { type: 'pending-batch', items: entry.items, total: entry.total, errors: entry.errors }
+}
+
+export const BBO_USERNAME_KEY = 'bbo-username'
+
+export async function getBboUsername(deps) {
+  const { storage } = deps
+  const result = await storage.get(BBO_USERNAME_KEY)
+  return { username: result?.[BBO_USERNAME_KEY] ?? null }
+}
+
+async function cacheBboUsername(url, storage) {
+  try {
+    const u = new URL(url)
+    if (u.hostname === 'webutil.bridgebase.com') {
+      const username = u.searchParams.get('u') ?? u.searchParams.get('U')
+      if (username) await storage.set({ [BBO_USERNAME_KEY]: username })
+    }
+  } catch { /* non-fatal */ }
 }
 
 export async function sweepExpired(deps) {

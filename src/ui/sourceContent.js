@@ -20,6 +20,7 @@ const BUTTON_ID = 'bridge-classroom-analyze-btn'
 const INJECT_PAGE_TYPES = new Set([
   'pair-scorecard',
   'event-summary',
+  'player-history',
   'club-game-result',
   'club-results-list',
   'tournament-view',
@@ -150,11 +151,12 @@ export function watchBatchProgress(key, setState, storage) {
 const DATE_PICKER_ID = 'bridge-classroom-date-picker'
 
 const BATCH_PRESETS = [
-  { label: 'Last month',    months: 1 },
-  { label: 'Last 3 months', months: 3 },
-  { label: 'Last 6 months', months: 6 },
-  { label: 'Last year',     months: 12 },
-  { label: 'All time',      months: null },
+  { label: 'Most recent',   months: 1,    max: 1 },
+  { label: 'Last month',    months: 1,    max: null },
+  { label: 'Last 3 months', months: 3,    max: null },
+  { label: 'Last 6 months', months: 6,    max: null },
+  { label: 'Last year',     months: 12,   max: null },
+  { label: 'All time',      months: null, max: null },
 ]
 
 // Construct the BBO history listing URL from a tview URL and a month count.
@@ -231,7 +233,7 @@ export function buildDatePicker(doc, onSelect, onSingleGame = null) {
   }
 
   for (const preset of BATCH_PRESETS) {
-    picker.appendChild(makeItem(preset.label, false, () => onSelect(preset.months)))
+    picker.appendChild(makeItem(preset.label, false, () => onSelect(preset.months, preset.max ?? null)))
   }
   return picker
 }
@@ -307,26 +309,21 @@ export function setupClickDelegation(deps) {
     const btn = e.target.closest(`#${BUTTON_ID}`)
     if (!btn || btn.disabled) return
 
-    const isBatch = classifyClub(location.href) === 'club-results-list'
+    const isBatch = classifyClub(location.href) === 'club-results-list' ||
+      classifyLive(location.href) === 'player-history'
 
     const isBboBatch = classifyBbo(location.href) === 'tournament-view'
-
-    if (isBatch && btn.textContent === buttonStates().idle.label) {
-      btn.textContent = 'Fetch History'
-    } else if (!isBatch && btn.textContent === 'Fetch History') {
-      btn.textContent = buttonStates().idle.label
-    }
 
     if (isBatch || isBboBatch) {
       const existing = doc.getElementById(DATE_PICKER_ID)
       if (existing) { existing.remove(); return }
 
-      const startBatch = (listUrl, since) => {
+      const startBatch = (listUrl, since, max = null) => {
         handleClick({
           url: location.href,
           sendMessage,
           setState: (state, msg) => applyState(btn, state, msg),
-          buildMessage: () => ({ type: 'extract-batch', listUrl, since }),
+          buildMessage: () => ({ type: 'extract-batch', listUrl, since, max }),
           onBatchStarted: (key, total) => {
             applyState(btn, 'progress', `Fetching 0 of ${total}…`)
             // eslint-disable-next-line no-undef
@@ -346,19 +343,19 @@ export function setupClickDelegation(deps) {
         })
       } : null
 
-      const picker = buildDatePicker(doc, (months) => {
+      const picker = buildDatePicker(doc, (months, max) => {
         picker.remove()
         doc.removeEventListener('click', closeOnOutside)
         if (isBboBatch) {
           // BBO: construct the history listing URL; server handles date filtering.
           const listUrl = bboHistoryUrl(location.href, months)
           if (!listUrl) { applyState(btn, 'error', 'Could not extract BBO username from URL'); return }
-          startBatch(listUrl, null)
+          startBatch(listUrl, null, max)
         } else {
           // ACBL club: pass listing URL + client-side since date.
           const since = months != null ? new Date() : null
           if (since) since.setMonth(since.getMonth() - months)
-          startBatch(location.href, since ? since.toISOString().slice(0, 10) : null)
+          startBatch(location.href, since ? since.toISOString().slice(0, 10) : null, max)
         }
       }, onSingleGame)
 
@@ -410,6 +407,31 @@ if (typeof globalThis.chrome !== 'undefined' || typeof globalThis.browser !== 'u
     // Delegation is set up after initial injection so a throw here can't
     // prevent the button from appearing.
     setupClickDelegation(opts)
+
+    // Auto-trigger: if the app opened this page with #bc-analyze, extract
+    // immediately without requiring the user to click the button.
+    if (window.location.hash.includes('bc-analyze')) {
+      history.replaceState(null, '', window.location.pathname + window.location.search)
+      const autoUrl = window.location.href // clean URL, hash already stripped
+      // Poll until the button is injected (may need to wait for Vue/SPA mount),
+      // then show progress states as if the user had clicked it.
+      const tryAutoAnalyze = () => {
+        const btn = document.getElementById(BUTTON_ID)
+        if (!btn) { setTimeout(tryAutoAnalyze, 100); return }
+        applyState(btn, 'extracting')
+        browser.runtime.sendMessage({ type: 'extract-session', url: autoUrl })
+          .then((response) => {
+            if (response?.type === 'extraction-complete') {
+              applyState(btn, 'success')
+              setTimeout(() => applyState(btn, 'idle'), 2000)
+            } else {
+              applyState(btn, 'error', response?.error?.message ?? 'extraction failed')
+            }
+          })
+          .catch((err) => applyState(btn, 'error', err?.message ?? 'message error'))
+      }
+      tryAutoAnalyze()
+    }
 
     // SPAs (e.g., my.acbl.org's Vue page) mount after document_idle and may
     // wipe the body when they render. Watch for our button disappearing and
