@@ -27,9 +27,8 @@ export function matchesUrl(url) {
 export function classifyPage(url) {
   if (!matchesUrl(url)) return 'unknown'
   const path = new URL(url).pathname
-  if (/^\/club-results\/details\/\d+\/?$/.test(path)) {
-    return 'club-game-result'
-  }
+  if (/^\/club-results\/details\/\d+\/?$/.test(path)) return 'club-game-result'
+  if (/^\/club-results\/\d+\/?$/.test(path)) return 'club-results-list'
   return 'unknown'
 }
 
@@ -85,6 +84,7 @@ export async function extractSession(url, options = {}) {
     schema_version: SCHEMA_VERSION,
     source: SOURCE_NAME,
     fetched_at: now(),
+    source_url: url,
     tournaments: [tournament],
   }
 }

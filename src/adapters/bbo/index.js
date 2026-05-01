@@ -65,7 +65,12 @@ export async function extractSession(url, options = {}) {
     )
   }
 
-  const fetchOpts = { fetch, signal, concurrency, delayMs, maxRetries }
+  // BBO's hands.php and traveller pages require the user's session cookie to
+  // return the full game HTML. Wrap fetch with credentials:'include' so the
+  // SW sends the browser's stored BBO cookies (host_permissions allows this).
+  const fetchFn = fetch ?? globalThis.fetch
+  const credentialedFetch = (url, opts) => fetchFn(url, { ...opts, credentials: 'include' })
+  const fetchOpts = { fetch: credentialedFetch, signal, concurrency, delayMs, maxRetries }
   let t0 = Date.now()
   let phaseStart = t0
 
@@ -160,6 +165,7 @@ export async function extractSession(url, options = {}) {
     schema_version: SCHEMA_VERSION,
     source: SOURCE_NAME,
     fetched_at: now(),
+    source_url: url,
     tournaments: [tournament],
   }
 }
@@ -265,17 +271,21 @@ function buildResult(row, scoring, rowIndex) {
     ns_pair: {
       number: syntheticPairNumber,
       section: null,
+      strat: null,
+      strat_ranks: [],
       players: [
-        { name: row.players.N, acbl_id: null, external_ids: { bbo: row.players.N } },
-        { name: row.players.S, acbl_id: null, external_ids: { bbo: row.players.S } },
+        { name: row.players.N, acbl_id: null, external_ids: { bbo: row.players.N }, masterpoints_earned: [] },
+        { name: row.players.S, acbl_id: null, external_ids: { bbo: row.players.S }, masterpoints_earned: [] },
       ],
     },
     ew_pair: {
       number: syntheticPairNumber,
       section: null,
+      strat: null,
+      strat_ranks: [],
       players: [
-        { name: row.players.E, acbl_id: null, external_ids: { bbo: row.players.E } },
-        { name: row.players.W, acbl_id: null, external_ids: { bbo: row.players.W } },
+        { name: row.players.E, acbl_id: null, external_ids: { bbo: row.players.E }, masterpoints_earned: [] },
+        { name: row.players.W, acbl_id: null, external_ids: { bbo: row.players.W }, masterpoints_earned: [] },
       ],
     },
     auction: null,

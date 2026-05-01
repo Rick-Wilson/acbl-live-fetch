@@ -267,6 +267,7 @@ export async function extractSession(url, options = {}) {
     schema_version: SCHEMA_VERSION,
     source: SOURCE_NAME,
     fetched_at: now(),
+    source_url: url,
     tournaments: [tournament],
   }
 }
@@ -345,6 +346,10 @@ async function extractFromSummary(summaryUrl, options) {
   //    / carryover lived under user_pair, so they vanish too. This matches
   //    the schema's "user_pair is present only if a pair scorecard
   //    initiated this session's extraction".
+  // source_url should reflect the page the user was on, not the internal
+  // scorecard URL the extractor resolved to.
+  envelope.source_url = summaryUrl
+
   for (const tournament of envelope.tournaments ?? []) {
     for (const event of tournament.events ?? []) {
       for (const session of event.sessions ?? []) {

@@ -7,6 +7,9 @@
 // Protocol details: docs/handoff-protocol.md.
 
 export const PENDING_SESSION_KEY = 'pending-session'
+export const PENDING_BATCH_KEY = 'pending-batch'
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export function parseSid(hash) {
   if (typeof hash !== 'string') return null
@@ -15,17 +18,61 @@ export function parseSid(hash) {
   const params = new URLSearchParams(fragment)
   const sid = params.get('sid')
   if (!sid) return null
-  // Light validation — UUIDv4-ish: 8-4-4-4-12 hex chars. Anything else,
-  // ignore so we don't end up making round-trips for stray fragments.
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sid)) {
-    return null
-  }
+  // Light validation — UUIDv4-ish: 8-4-4-4-12 hex chars.
+  if (!UUID_RE.test(sid)) return null
   return sid
+}
+
+export function parseBatchKey(hash) {
+  if (typeof hash !== 'string') return null
+  const fragment = hash.startsWith('#') ? hash.slice(1) : hash
+  if (!fragment) return null
+  const params = new URLSearchParams(fragment)
+  const key = params.get('batch')
+  if (!key) return null
+  if (!UUID_RE.test(key)) return null
+  return key
 }
 
 export async function runHandoff(deps) {
   const { location, history, sessionStorage, sendMessage } = deps
-  const sid = parseSid(location?.hash)
+  const hash = location?.hash
+
+  // Always clear the fragment so reloads don't re-trigger consumption.
+  const clearFragment = () => {
+    try {
+      history.replaceState(null, '', location.pathname + (location.search ?? ''))
+    } catch {
+      // non-fatal in test contexts
+    }
+  }
+
+  const batchKey = parseBatchKey(hash)
+  if (batchKey) {
+    let response
+    try {
+      response = await sendMessage({ type: 'consume-pending-batch', key: batchKey })
+    } catch (err) {
+      return { state: 'send-failed', error: err?.message ?? String(err) }
+    }
+    clearFragment()
+    if (!response || typeof response !== 'object') return { state: 'malformed-response' }
+    if (response.type !== 'pending-batch') {
+      return { state: 'no-session', reason: response.reason ?? 'unknown' }
+    }
+    try {
+      sessionStorage.setItem(PENDING_BATCH_KEY, JSON.stringify({
+        items: response.items,
+        total: response.total,
+        errors: response.errors,
+      }))
+    } catch (err) {
+      return { state: 'storage-failed', error: err?.message ?? String(err) }
+    }
+    return { state: 'batch-written', key: batchKey, count: response.items?.length ?? 0 }
+  }
+
+  const sid = parseSid(hash)
   if (!sid) return { state: 'no-sid' }
 
   let response
@@ -34,13 +81,7 @@ export async function runHandoff(deps) {
   } catch (err) {
     return { state: 'send-failed', error: err?.message ?? String(err) }
   }
-
-  // Always clear the fragment so reloads don't re-trigger consumption.
-  try {
-    history.replaceState(null, '', location.pathname + (location.search ?? ''))
-  } catch {
-    // history may not be available in some test contexts; non-fatal.
-  }
+  clearFragment()
 
   if (!response || typeof response !== 'object') {
     return { state: 'malformed-response' }

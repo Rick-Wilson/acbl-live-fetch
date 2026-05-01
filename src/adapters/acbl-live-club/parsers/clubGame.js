@@ -95,10 +95,7 @@ function synthesizePair(number, sectionName) {
   // Used when the pair index doesn't carry an entry for a pair_number that
   // appears on a result row. Players aren't recoverable in this case, but
   // the analyzer needs at minimum a Pair-shaped object with the number.
-  if (number == null) {
-    return { number: null, section: sectionName, players: [] }
-  }
-  return { number, section: sectionName, players: [] }
+  return { number: number ?? null, section: sectionName, strat: null, strat_ranks: [], players: [] }
 }
 
 function buildPairIndex(session) {
@@ -117,9 +114,12 @@ function buildPairIndex(session) {
       const direction = normalizeDirection(ps.direction)
       const number = parseIntOrNull(ps.pair_number)
       if (number == null) continue
+      const stratRaw = parseIntOrNull(ps.strat)
       const pair = {
         number,
         section: section.name,
+        strat: stratRaw,
+        strat_ranks: parseStratRanks(ps.strat_place),
         players: (ps.players ?? []).map(toPlayer),
       }
       if (direction) {
@@ -150,7 +150,21 @@ function toPlayer(p) {
     name: normalizePlayerName(p?.name),
     acbl_id: looksLikeAcblId ? rawId : null,
     external_ids: {},
+    masterpoints_earned: parseMasterpoints(p?.awards_score),
   }
+}
+
+function parseMasterpoints(awardsScore) {
+  if (!Array.isArray(awardsScore) || awardsScore.length === 0) return []
+  const out = []
+  for (const award of awardsScore) {
+    for (const pigment of award.pigment ?? []) {
+      const amount = parseFloatOrNull(pigment.amount)
+      if (amount == null || amount <= 0) continue
+      out.push({ amount, color: pigment.color ?? 'Unknown' })
+    }
+  }
+  return out
 }
 
 function normalizePlayerName(name) {
@@ -428,6 +442,18 @@ function parseFloatOrNull(v) {
   if (v == null || v === '') return null
   const n = Number.parseFloat(v)
   return Number.isNaN(n) ? null : n
+}
+
+function parseStratRanks(stratPlace) {
+  if (!Array.isArray(stratPlace) || stratPlace.length === 0) return []
+  const out = []
+  for (const sp of stratPlace) {
+    const strat = parseIntOrNull(sp.strat_number)
+    const rank = parseIntOrNull(sp.rank)
+    if (strat == null || rank == null) continue
+    out.push({ strat, rank, scope: sp.type ?? 'Unknown' })
+  }
+  return out
 }
 
 function parseAcblBoardTop(v) {

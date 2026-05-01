@@ -358,11 +358,15 @@ function parsePairsCell(cell, section) {
     ns_pair: {
       number: pickPairNumber(halves[0]),
       section,
+      strat: null,
+      strat_ranks: [],
       players: [parsePlayerSpan(nameEls[0]), parsePlayerSpan(nameEls[1])],
     },
     ew_pair: {
       number: pickPairNumber(halves[1]),
       section,
+      strat: null,
+      strat_ranks: [],
       // ACBL Live's board-detail HTML lists EW players in [W, E] order; the
       // analyzer (and the BWS+PBN file-load path) expects PBN-canonical
       // [E, W]. Reverse here to match. Confirmed by side-by-side comparison
@@ -381,7 +385,7 @@ function parsePlayerSpan(span) {
   const name = collapse(span.textContent)
   const rawId = span.getAttribute('data-acbl')
   const acbl_id = rawId && rawId.trim() !== '' ? String(rawId).trim() : null
-  return { name, acbl_id, external_ids: {} }
+  return { name, acbl_id, external_ids: {}, masterpoints_earned: [] }
 }
 
 function collapse(text) {

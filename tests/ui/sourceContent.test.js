@@ -125,23 +125,31 @@ describe('injectButton', () => {
   const SCORECARD_URL = 'https://live.acbl.org/event/1/2/3/scores/A/E/4'
   const CLUB_URL = 'https://my.acbl.org/club-results/details/1430335'
 
-  it('uses an overlay (position:fixed) strategy on my.acbl.org club pages', () => {
-    document.body.innerHTML = '<h1>JavaScript is not enabled, please check your browser settings.</h1>'
+  it('injects into ul.navbar-nav on my.acbl.org once Vue has mounted', () => {
+    document.body.innerHTML =
+      '<nav><div class="container"><ul class="navbar-nav d-flex flex-row gap-5"><li><a href="/login">Login</a></li></ul></div></nav>'
     const btn = injectButton({
       document,
       location: { href: CLUB_URL },
       sendMessage: vi.fn(),
     })
     expect(btn).not.toBeNull()
-    expect(btn.style.position).toBe('fixed')
-    expect(btn.style.top).toBeTruthy()
-    expect(btn.style.right).toBeTruthy()
-    // The static-HTML noscript h1 is left alone — not wrapped in a flex row,
-    // because the button doesn't depend on it.
-    const h1 = document.querySelector('h1')
-    expect(h1.parentElement).toBe(document.body)
-    // Button is appended directly to body (not nested under the h1's parent).
-    expect(btn.parentElement).toBe(document.body)
+    // Button is inside a new <li> appended to the navbar ul — not fixed.
+    expect(btn.style.position).toBe('')
+    const ul = document.querySelector('ul.navbar-nav')
+    expect(btn.parentElement.tagName).toBe('LI')
+    expect(btn.parentElement.parentElement).toBe(ul)
+    expect(ul.children).toHaveLength(2)
+  })
+
+  it('returns null on my.acbl.org when Vue has not yet mounted the navbar', () => {
+    document.body.innerHTML = '<div id="app"></div>'
+    const btn = injectButton({
+      document,
+      location: { href: CLUB_URL },
+      sendMessage: vi.fn(),
+    })
+    expect(btn).toBeNull()
   })
 
   it('wraps the h1 in a flex row and right-justifies the button', () => {

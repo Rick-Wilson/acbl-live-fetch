@@ -191,24 +191,33 @@ Always from N-S perspective. `+980` = N-S won 980. `-100` = N-S lost 100 (E-W ga
 {
   "number": 10,                   // pair number within the section (or null if unknown)
   "section": "A",                 // optional, if known
-  "players": [Player, Player],
-  "strat": "B",                   // stratification tier — "A", "B", "C", etc.; null if not stratified
-  "masterpoints": {               // award earned for this session; null if not yet awarded or unknown
-    "amount": 0.31,
-    "color": "black"              // "black" | "silver" | "red" | "gold" | "platinum"
-  }
+  "strat": 1,                     // strat tier the pair played in (1-based integer); null if not available
+  "strat_ranks": [                // their placements; can span multiple strats (lower-strat players
+                                  //   can also place within higher strats); empty array if no awards
+    { "strat": 1, "rank": 1, "scope": "Section" },
+    { "strat": 1, "rank": 3, "scope": "Event" }
+  ],
+  "players": [Player, Player]
 }
 ```
+
+Adapters that don't have strat/placement data (ACBL Live tournament, BBO) emit `strat: null` and `strat_ranks: []`.
 
 ## Player
 
 ```jsonc
 {
   "name": "Weilong Shen",
-  "acbl_id": "4833511", // null if not an ACBL member
-  "external_ids": {}, // future: BBO username, etc.
+  "acbl_id": "4833511",           // null if not an ACBL member
+  "external_ids": {},             // future: BBO username, etc.
+  "masterpoints_earned": [        // masterpoints awarded for this session, broken down by pigment color;
+                                  //   empty array if none awarded or data not available
+    { "amount": 2.42, "color": "Black" }
+  ]
 }
 ```
+
+`masterpoints_earned` is per-player (not per-pair) because ACBL awards are individual. Both players in a pair typically earn the same amount. Adapters without award data emit `[]`. Color values match ACBL pigment names: `"Black"`, `"Red"`, `"Silver"`, `"Gold"`, `"Platinum"`, etc.
 
 ## Schema versioning
 

@@ -145,6 +145,7 @@ describe('extractSession', () => {
 
     // Standard envelope shape preserved.
     expect(out.schema_version).toBe('1.0')
+    expect(out.source_url).toBe(SUMMARY_URL)
     expect(out.tournaments[0].sanction).toBe('2604321')
     expect(out.tournaments[0].events[0].sessions).toHaveLength(2)
 
@@ -207,6 +208,7 @@ describe('extractSession', () => {
     expect(out.schema_version).toBe('1.0')
     expect(out.source).toBe('acbl-live')
     expect(out.fetched_at).toBe(fixedNow)
+    expect(out.source_url).toBe(SCORECARD_URL)
     expect(out.tournaments).toHaveLength(1)
 
     // Tournament

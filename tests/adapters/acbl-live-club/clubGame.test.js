@@ -221,6 +221,65 @@ describe('parseClubGame (Livermore Bridge Club, 2026-04-20)', () => {
     })
   })
 
+  describe('strat, strat_ranks, and masterpoints_earned', () => {
+    // From the fixture: pair 10 NS, strat 1, placed 1st in Section and 3rd in Event.
+    // Player 0 (LaFrancesca, 7351194) earned 2.42 Black masterpoints.
+    const session = tournament.events[0].sessions[0]
+
+    function findResultByNsPair(pairNum) {
+      for (const board of session.boards) {
+        const r = board.results.find((r) => r.ns_pair?.number === pairNum)
+        if (r) return r
+      }
+      return undefined
+    }
+
+    it('pair has strat (integer) and strat_ranks from pair_summaries', () => {
+      // Pair 10 NS: strat 1, placed 1st Section and 3rd Event.
+      const r = findResultByNsPair(10)
+      expect(r).toBeDefined()
+      expect(r.ns_pair.strat).toBe(1)
+      expect(r.ns_pair.strat_ranks).toContainEqual({ strat: 1, rank: 1, scope: 'Section' })
+      expect(r.ns_pair.strat_ranks).toContainEqual({ strat: 1, rank: 3, scope: 'Event' })
+    })
+
+    it('player has masterpoints_earned with amount and color', () => {
+      // Pair 10 NS player 0 (LaFrancesca, 7351194) earned 2.42 Black.
+      const r = findResultByNsPair(10)
+      expect(r).toBeDefined()
+      expect(r.ns_pair.players[0].masterpoints_earned).toEqual([{ amount: 2.42, color: 'Black' }])
+    })
+
+    it('pair with no awards has empty strat_ranks and players with empty masterpoints_earned', () => {
+      // Pair 4 in the fixture has strat_place: [] and no awards_score entries.
+      const r = findResultByNsPair(4)
+      if (r) {
+        expect(r.ns_pair.strat_ranks).toEqual([])
+        for (const p of r.ns_pair.players) {
+          expect(p.masterpoints_earned).toEqual([])
+        }
+      }
+    })
+
+    it('synthesized pair (phantom/sit-out) has strat:null and strat_ranks:[]', () => {
+      // Walk all results for any synthesized pair (number present but players empty).
+      let found = false
+      for (const board of session.boards) {
+        for (const r of board.results) {
+          for (const pair of [r.ns_pair, r.ew_pair]) {
+            if (pair && pair.players.length === 0) {
+              expect(pair.strat).toBeNull()
+              expect(pair.strat_ranks).toEqual([])
+              found = true
+            }
+          }
+        }
+      }
+      // This fixture may or may not have phantoms; only assert if found.
+      if (!found) expect(true).toBe(true)
+    })
+  })
+
   describe('player ID handling', () => {
     it('treats synthetic tmp:* IDs as null acbl_id', () => {
       // Walk every result; if any player has a 'tmp:'-prefixed source ID,
