@@ -6,7 +6,7 @@ import {
   sweepExpired,
   PENDING_PREFIX,
   PENDING_TTL_MS,
-  ANALYZER_URL,
+  DEFAULT_ANALYZER_URL,
 } from '../../src/background/handlers.js'
 
 function makeStorage(initial = {}) {
@@ -63,7 +63,7 @@ describe('runExtraction', () => {
     expect(stored.envelope).toBe(envelope)
     expect(typeof stored.stored_at).toBe('number')
 
-    expect(tabs.create).toHaveBeenCalledWith({ url: `${ANALYZER_URL}#sid=abc-123` })
+    expect(tabs.create).toHaveBeenCalledWith({ url: `${DEFAULT_ANALYZER_URL}#sid=abc-123` })
   })
 
   it('returns extraction-error on extractor failure (no tab opened)', async () => {

@@ -52,6 +52,29 @@ The first concrete task is in `START_HERE.md`. Do not skip it — it sets up the
 - **Player IDs may be missing** for unregistered players. Handle the absence of `data-acbl` gracefully (`acbl_id: null`).
 - **HTML changes.** When ACBL Live updates their HTML, parsers should fail loudly with specific error messages, not produce silently-wrong data. Validate structural assumptions.
 
+## Development: targeting a local analyzer
+
+The extension opens the analyzer at a runtime-configurable URL (default: `https://game-analysis.bridge-classroom.org/analyze`). To point it at a local dev server instead, open the background service worker console in `chrome://extensions` and run:
+
+```js
+chrome.storage.local.set({ devAnalyzerUrl: 'http://localhost:3001/analyze' })
+```
+
+To revert to production:
+
+```js
+chrome.storage.local.remove('devAnalyzerUrl')
+```
+
+The manifest already includes `http://localhost:3001/*` in `host_permissions` and the content script `matches`, so no rebuild is needed when switching. Run the local analyzer with:
+
+```bash
+cd /Users/rick/Development/GitHub/Bridge-Game-Analysis
+python3 -m http.server 3001
+```
+
+The local server serves the static SPA; extension-path analysis is fully client-side. BWS+PBN file upload still calls the production backend (`game-parser.bridge-craftwork.com`).
+
 ## When unsure
 
 - Prefer asking before making architecture changes that span multiple files.

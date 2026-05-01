@@ -33,8 +33,17 @@ async function dispatchExtract(url, options) {
 export const PENDING_PREFIX = 'pending-sessions:'
 export const PENDING_BATCH_PREFIX = 'pending-batch:'
 export const PENDING_TTL_MS = 60 * 60 * 1000 // 1 hour
-export const ANALYZER_URL = 'https://game-analysis.bridge-classroom.org/analyze'
-export const UPLOAD_URL = 'https://game-analysis.bridge-classroom.org/api/upload-normalized'
+export const DEFAULT_ANALYZER_URL = 'https://game-analysis.bridge-classroom.org/analyze'
+// Batch uploads go to the parser backend, not the static frontend.
+export const UPLOAD_URL = 'https://game-parser.bridge-craftwork.com/api/upload-normalized'
+
+/** Returns the analyzer URL, allowing a dev override stored via:
+ *    chrome.storage.local.set({ devAnalyzerUrl: 'http://localhost:3001/analyze' })
+ *  Clear with: chrome.storage.local.remove('devAnalyzerUrl') */
+export async function getAnalyzerUrl(storage) {
+  const result = await storage.get('devAnalyzerUrl')
+  return result?.devAnalyzerUrl ?? DEFAULT_ANALYZER_URL
+}
 export const BATCH_ITEM_DELAY_MS = 1000 // pause between games to avoid rate-limiting my.acbl.org
 
 export async function handleMessage(msg, deps) {
@@ -73,7 +82,8 @@ export async function runExtraction(url, deps) {
   const key = `${PENDING_PREFIX}${sid}`
   await storage.set({ [key]: { stored_at: Date.now(), envelope } })
   await cacheBboUsername(url, storage)
-  await tabs.create({ url: `${ANALYZER_URL}#sid=${sid}` })
+  const analyzerUrl = await getAnalyzerUrl(storage)
+  await tabs.create({ url: `${analyzerUrl}#sid=${sid}` })
   return { type: 'extraction-complete', sid }
 }
 
@@ -153,6 +163,7 @@ export async function runBatchExtraction(listUrl, deps, since = null, max = null
   const total = urls.length
 
   await storage.set({ [storageKey]: { stored_at: Date.now(), total, completed: 0, items: [], errors: [], done: false } })
+  const analyzerUrl = await getAnalyzerUrl(storage)
 
   // Return the key immediately so the UI can start showing progress, then
   // continue processing in the background (network requests keep the SW alive).
@@ -172,7 +183,7 @@ export async function runBatchExtraction(listUrl, deps, since = null, max = null
       if (!signal?.aborted) await new Promise((r) => setTimeout(r, BATCH_ITEM_DELAY_MS))
     }
     await storage.set({ [storageKey]: { stored_at: Date.now(), total, completed: total, items, errors, done: true } })
-    await tabs.create({ url: `${ANALYZER_URL}#batch=${key}` })
+    await tabs.create({ url: `${analyzerUrl}#batch=${key}` })
   }
 
   doWork().catch(() => {

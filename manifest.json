@@ -24,7 +24,11 @@
       "run_at": "document_idle"
     },
     {
-      "matches": ["https://game-analysis.bridge-classroom.org/analyze*"],
+      "matches": [
+        "https://game-analysis.bridge-classroom.org/analyze*",
+        "https://game-analysis.bridge-classroom.com/analyze*",
+        "http://localhost:3001/analyze*"
+      ],
       "js": ["src/ui/analyzerContent.js"],
       "run_at": "document_start"
     }
@@ -34,6 +38,8 @@
     "https://live.acbl.org/*",
     "https://my.acbl.org/*",
     "https://game-analysis.bridge-classroom.org/*",
+    "https://game-analysis.bridge-classroom.com/*",
+    "http://localhost:3001/*",
     "https://webutil.bridgebase.com/*",
     "https://www.bridgebase.com/*"
   ]
