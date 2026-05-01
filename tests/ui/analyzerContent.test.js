@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { parseSid, runHandoff, PENDING_SESSION_KEY } from '../../src/ui/analyzerContent.js'
+import { parseSid, runHandoff, PENDING_SESSION_KEY, PENDING_BATCH_KEY, HANDOFF_ERROR_KEY } from '../../src/ui/analyzerContent.js'
 
 const VALID = '11111111-2222-4333-8444-555555555555'
 
@@ -107,5 +107,56 @@ describe('runHandoff', () => {
       })
       expect(result.state).toBe('malformed-response')
     }
+  })
+
+  it('returns storage-failed and writes error key when sessionStorage is full (single-game)', async () => {
+    const envelope = { schema_version: '1.0', source: 'acbl-live' }
+    const sendMessage = vi.fn(async () => ({ type: 'pending-session', envelope }))
+    const sessionStorage = makeStorage()
+    const storageError = new Error('QuotaExceededError')
+    sessionStorage.setItem.mockImplementation((k) => {
+      if (k === PENDING_SESSION_KEY) throw storageError
+    })
+    const dispatchEvent = vi.fn()
+
+    const result = await runHandoff({
+      location: makeLocation(`#sid=${VALID}`),
+      history: makeHistory(),
+      sessionStorage,
+      sendMessage,
+      dispatchEvent,
+    })
+
+    expect(result).toEqual({ state: 'storage-failed', error: storageError.message })
+    expect(sessionStorage.setItem).toHaveBeenCalledWith(HANDOFF_ERROR_KEY, storageError.message)
+    expect(dispatchEvent).toHaveBeenCalled()
+  })
+
+  it('returns storage-failed and writes error key when sessionStorage is full (batch)', async () => {
+    const sendMessage = vi.fn(async () => ({
+      type: 'pending-batch',
+      items: [{ compressed: 'abc', source_url: 'https://example.com' }],
+      total: 1,
+      errors: [],
+    }))
+    const sessionStorage = makeStorage()
+    const storageError = new Error('QuotaExceededError')
+    sessionStorage.setItem.mockImplementation((k) => {
+      if (k === PENDING_BATCH_KEY) throw storageError
+    })
+    const dispatchEvent = vi.fn()
+    const batchKey = '22222222-2222-4333-8444-555555555555'
+
+    const result = await runHandoff({
+      location: makeLocation(`#batch=${batchKey}`),
+      history: makeHistory(),
+      sessionStorage,
+      sendMessage,
+      dispatchEvent,
+    })
+
+    expect(result).toEqual({ state: 'storage-failed', error: storageError.message })
+    expect(sessionStorage.setItem).toHaveBeenCalledWith(HANDOFF_ERROR_KEY, storageError.message)
+    expect(dispatchEvent).toHaveBeenCalled()
   })
 })

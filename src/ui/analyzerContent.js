@@ -8,6 +8,7 @@
 
 export const PENDING_SESSION_KEY = 'pending-session'
 export const PENDING_BATCH_KEY = 'pending-batch'
+export const HANDOFF_ERROR_KEY = 'bridge-handoff-error'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -35,7 +36,7 @@ export function parseBatchKey(hash) {
 }
 
 export async function runHandoff(deps) {
-  const { location, history, sessionStorage, sendMessage } = deps
+  const { location, history, sessionStorage, sendMessage, dispatchEvent = globalThis.window?.dispatchEvent.bind(globalThis.window) } = deps
   const hash = location?.hash
 
   // Always clear the fragment so reloads don't re-trigger consumption.
@@ -67,7 +68,10 @@ export async function runHandoff(deps) {
         errors: response.errors,
       }))
     } catch (err) {
-      return { state: 'storage-failed', error: err?.message ?? String(err) }
+      const msg = err?.message ?? String(err)
+      try { sessionStorage.setItem(HANDOFF_ERROR_KEY, msg) } catch {}
+      try { dispatchEvent?.(new CustomEvent('bridge-classroom-handoff')) } catch {}
+      return { state: 'storage-failed', error: msg }
     }
     return { state: 'batch-written', key: batchKey, count: response.items?.length ?? 0 }
   }
@@ -96,7 +100,10 @@ export async function runHandoff(deps) {
   try {
     sessionStorage.setItem(PENDING_SESSION_KEY, JSON.stringify(response.envelope))
   } catch (err) {
-    return { state: 'storage-failed', error: err?.message ?? String(err) }
+    const msg = err?.message ?? String(err)
+    try { sessionStorage.setItem(HANDOFF_ERROR_KEY, msg) } catch {}
+    try { dispatchEvent?.(new CustomEvent('bridge-classroom-handoff')) } catch {}
+    return { state: 'storage-failed', error: msg }
   }
   return { state: 'written', sid }
 }

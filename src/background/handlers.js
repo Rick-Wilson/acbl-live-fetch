@@ -43,6 +43,26 @@ export async function getAnalyzerUrl(storage) {
 }
 export const BATCH_ITEM_DELAY_MS = 1000 // pause between games to avoid rate-limiting my.acbl.org
 
+async function compressEnvelope(envelope) {
+  const stream = new CompressionStream('gzip')
+  const writer = stream.writable.getWriter()
+  writer.write(new TextEncoder().encode(JSON.stringify(envelope)))
+  writer.close()
+  const chunks = []
+  const reader = stream.readable.getReader()
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    chunks.push(value)
+  }
+  const out = new Uint8Array(chunks.reduce((n, c) => n + c.length, 0))
+  let off = 0
+  for (const c of chunks) { out.set(c, off); off += c.length }
+  let s = ''
+  for (let i = 0; i < out.length; i++) s += String.fromCharCode(out[i])
+  return btoa(s)
+}
+
 export async function handleMessage(msg, deps) {
   if (!msg || typeof msg.type !== 'string') {
     return {
@@ -157,7 +177,8 @@ export async function runBatchExtraction(listUrl, deps, since = null, max = null
       if (signal?.aborted) break
       try {
         const envelope = await extract(url, { fetch: fetchFn, signal })
-        items.push({ envelope, source_url: url })
+        const compressed = await compressEnvelope(envelope)
+        items.push({ compressed, source_url: url })
       } catch (err) {
         errors.push({ url, error: err?.message ?? 'failed' })
       }
