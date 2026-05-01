@@ -9,7 +9,12 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://live.acbl.org/*", "https://my.acbl.org/*"],
+      "matches": [
+        "https://live.acbl.org/*",
+        "https://my.acbl.org/*",
+        "https://webutil.bridgebase.com/v2/tview.php*",
+        "https://www.bridgebase.com/myhands/hands.php*"
+      ],
       "js": ["src/ui/sourceContent.js"],
       "run_at": "document_idle"
     },
@@ -23,6 +28,8 @@
   "host_permissions": [
     "https://live.acbl.org/*",
     "https://my.acbl.org/*",
-    "https://club-game-analysis.bridge-classroom.com/*"
+    "https://club-game-analysis.bridge-classroom.com/*",
+    "https://webutil.bridgebase.com/*",
+    "https://www.bridgebase.com/*"
   ]
 }

@@ -5,6 +5,7 @@
 
 import { classifyPage as classifyLive } from '../adapters/acbl-live/index.js'
 import { classifyPage as classifyClub } from '../adapters/acbl-live-club/index.js'
+import { classifyPage as classifyBbo } from '../adapters/bbo/index.js'
 
 const BUTTON_ID = 'bridge-classroom-analyze-btn'
 
@@ -12,15 +13,24 @@ const BUTTON_ID = 'bridge-classroom-analyze-btn'
 // owns a different hostname today, so the classifyPage calls are mutually
 // exclusive.
 //   * pair-scorecard    — live.acbl.org per-pair page (the canonical entry)
-//   * event-summary     — live.acbl.org event-level page; the user often
-//                         lands here. We fetch the summary, find a pair
-//                         scorecard link, and run the standard extraction
-//                         (with user_pair: null since no pair is implied).
+//   * event-summary     — live.acbl.org event-level page
 //   * club-game-result  — my.acbl.org club-game page
-const INJECT_PAGE_TYPES = new Set(['pair-scorecard', 'event-summary', 'club-game-result'])
+//   * tournament-view   — webutil.bridgebase.com/v2/tview.php
+//   * hands-list        — www.bridgebase.com/myhands/hands.php?tourney=
+const INJECT_PAGE_TYPES = new Set([
+  'pair-scorecard',
+  'event-summary',
+  'club-game-result',
+  'tournament-view',
+  'hands-list',
+])
 
 export function shouldInject(url) {
-  return INJECT_PAGE_TYPES.has(classifyLive(url)) || INJECT_PAGE_TYPES.has(classifyClub(url))
+  return (
+    INJECT_PAGE_TYPES.has(classifyLive(url)) ||
+    INJECT_PAGE_TYPES.has(classifyClub(url)) ||
+    INJECT_PAGE_TYPES.has(classifyBbo(url))
+  )
 }
 
 export function buttonStates() {
@@ -76,10 +86,12 @@ export function pickInjectionStrategy(url) {
   // shell, then Vue mounts and replaces it. An in-flow injection anchored to
   // the static <h1> would get clobbered. Use a fixed-position overlay button
   // there so it doesn't depend on the page's DOM structure.
-  // live.acbl.org is server-rendered; use the in-flow strategy that puts the
-  // button on the date row.
+  // BBO pages (bridgebase.com) have no obvious h1 anchor; use overlay too.
+  // live.acbl.org is server-rendered; use the in-flow strategy.
   try {
-    return new URL(url).hostname === 'my.acbl.org' ? 'overlay' : 'inline'
+    const host = new URL(url).hostname
+    if (host === 'my.acbl.org' || host.endsWith('bridgebase.com')) return 'overlay'
+    return 'inline'
   } catch {
     return 'inline'
   }

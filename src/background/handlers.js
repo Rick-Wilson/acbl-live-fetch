@@ -6,11 +6,12 @@
 
 import acblLiveAdapter from '../adapters/acbl-live/index.js'
 import acblLiveClubAdapter from '../adapters/acbl-live-club/index.js'
+import bboAdapter from '../adapters/bbo/index.js'
 
 // Adapter registry. The first adapter whose matchesUrl(url) returns true
 // owns that URL. Order matters when adapters could overlap; today they
 // don't (different hostnames), but list more-specific ones first.
-export const ADAPTERS = [acblLiveClubAdapter, acblLiveAdapter]
+export const ADAPTERS = [acblLiveClubAdapter, acblLiveAdapter, bboAdapter]
 
 export function pickAdapter(url) {
   return ADAPTERS.find((a) => a.matchesUrl(url)) ?? null

@@ -61,21 +61,19 @@ export async function runHandoff(deps) {
 }
 
 // Entry point — only runs when loaded as a content script. The polyfill is
-// imported lazily (via dynamic import + .then) so test imports of this module
+// import lazily (via dynamic import + .then) so test imports of this module
 // don't pull in extension APIs that don't exist in jsdom, and so we avoid
 // top-level await (not available in our build target).
 if (typeof globalThis.chrome !== 'undefined' || typeof globalThis.browser !== 'undefined') {
-  import('webextension-polyfill')
-    .then(({ default: browser }) =>
-      runHandoff({
-        location: window.location,
-        history: window.history,
-        sessionStorage: window.sessionStorage,
-        sendMessage: (msg) => browser.runtime.sendMessage(msg),
-      })
-    )
-    .catch(() => {
-      // Swallow — there's nothing user-facing to do; the SPA falls back to
-      // its empty state.
+  import('webextension-polyfill').then(({ default: browser }) => {
+    runHandoff({
+      location: window.location,
+      history: window.history,
+      sessionStorage: window.sessionStorage,
+      sendMessage: (msg) => browser.runtime.sendMessage(msg),
     })
+  }).catch(() => {
+    // Swallow — there's nothing user-facing to do; the SPA falls back to
+    // its empty state.
+  })
 }
