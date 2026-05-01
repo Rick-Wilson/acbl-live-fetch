@@ -9,6 +9,7 @@ Every adapter emits this JSON schema regardless of source. The downstream analyz
   "schema_version": "1.0",
   "source": "acbl-live",          // "acbl-live" | "club-game-bws" | "bbo" | ...
   "fetched_at": "2026-04-26T18:30:00Z",
+  "source_url": "https://liveresults.acbl.org/...",  // URL scraped from; omitted for file uploads
   "tournaments": [Tournament, ...]
 }
 ```
@@ -190,7 +191,12 @@ Always from N-S perspective. `+980` = N-S won 980. `-100` = N-S lost 100 (E-W ga
 {
   "number": 10,                   // pair number within the section (or null if unknown)
   "section": "A",                 // optional, if known
-  "players": [Player, Player]
+  "players": [Player, Player],
+  "strat": "B",                   // stratification tier — "A", "B", "C", etc.; null if not stratified
+  "masterpoints": {               // award earned for this session; null if not yet awarded or unknown
+    "amount": 0.31,
+    "color": "black"              // "black" | "silver" | "red" | "gold" | "platinum"
+  }
 }
 ```
 
