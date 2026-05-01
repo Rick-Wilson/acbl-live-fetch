@@ -43,6 +43,11 @@ export async function getAnalyzerUrl(storage) {
 }
 export const BATCH_ITEM_DELAY_MS = 1000 // pause between games to avoid rate-limiting my.acbl.org
 
+function isQuotaError(err) {
+  const msg = (err?.message ?? '').toLowerCase()
+  return msg.includes('quota') || err?.name === 'QuotaExceededError'
+}
+
 async function compressEnvelope(envelope) {
   const stream = new CompressionStream('gzip')
   const writer = stream.writable.getWriter()
@@ -182,8 +187,14 @@ export async function runBatchExtraction(listUrl, deps, since = null, max = null
       } catch (err) {
         errors.push({ url, error: err?.message ?? 'failed' })
       }
-      await storage.set({ [storageKey]: { stored_at: Date.now(), total, completed: items.length + errors.length, items, errors, done: false } })
-      if (!signal?.aborted) await new Promise((r) => setTimeout(r, BATCH_ITEM_DELAY_MS))
+      let storageQuotaHit = false
+      try {
+        await storage.set({ [storageKey]: { stored_at: Date.now(), total, completed: items.length + errors.length, items, errors, done: false } })
+      } catch (err) {
+        if (isQuotaError(err)) { storageQuotaHit = true }
+      }
+      if (storageQuotaHit || signal?.aborted) break
+      await new Promise((r) => setTimeout(r, BATCH_ITEM_DELAY_MS))
     }
     await storage.set({ [storageKey]: { stored_at: Date.now(), total, completed: total, items, errors, done: true } })
     await tabs.create({ url: `${analyzerUrl}#batch=${key}` })
