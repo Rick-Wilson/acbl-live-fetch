@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "ACBL Live Fetch",
   "version": "0.2.2",
-  "description": "One-click extraction of bridge results from supported sites for analysis at bridge-classroom.com.",
+  "description": "One-click extraction of bridge results from supported sites for analysis at bridge-classroom.org.",
   "background": {
     "service_worker": "src/background.js",
     "type": "module"
@@ -24,7 +24,7 @@
       "run_at": "document_idle"
     },
     {
-      "matches": ["https://club-game-analysis.bridge-classroom.com/analyze*"],
+      "matches": ["https://game-analysis.bridge-classroom.org/analyze*"],
       "js": ["src/ui/analyzerContent.js"],
       "run_at": "document_start"
     }
@@ -33,7 +33,7 @@
   "host_permissions": [
     "https://live.acbl.org/*",
     "https://my.acbl.org/*",
-    "https://club-game-analysis.bridge-classroom.com/*",
+    "https://game-analysis.bridge-classroom.org/*",
     "https://webutil.bridgebase.com/*",
     "https://www.bridgebase.com/*"
   ]

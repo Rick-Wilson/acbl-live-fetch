@@ -33,8 +33,8 @@ async function dispatchExtract(url, options) {
 export const PENDING_PREFIX = 'pending-sessions:'
 export const PENDING_BATCH_PREFIX = 'pending-batch:'
 export const PENDING_TTL_MS = 60 * 60 * 1000 // 1 hour
-export const ANALYZER_URL = 'https://club-game-analysis.bridge-classroom.com/analyze'
-export const UPLOAD_URL = 'https://club-game-analysis.bridge-classroom.com/api/upload-normalized'
+export const ANALYZER_URL = 'https://game-analysis.bridge-classroom.org/analyze'
+export const UPLOAD_URL = 'https://game-analysis.bridge-classroom.org/api/upload-normalized'
 export const BATCH_ITEM_DELAY_MS = 1000 // pause between games to avoid rate-limiting my.acbl.org
 
 export async function handleMessage(msg, deps) {

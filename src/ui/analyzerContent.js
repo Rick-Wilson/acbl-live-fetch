@@ -1,5 +1,5 @@
 // Bridge content script. Runs at document_start on
-// club-game-analysis.bridge-classroom.com/analyze*.
+// game-analysis.bridge-classroom.org/analyze*.
 // Reads `#sid=<uuid>` from the URL fragment, asks the service worker to hand
 // over the pending session, and writes it into window.sessionStorage under
 // the key the SPA will read on mount.
