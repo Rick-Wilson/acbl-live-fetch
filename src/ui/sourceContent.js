@@ -157,7 +157,25 @@ const BATCH_PRESETS = [
   { label: 'All time',      months: null },
 ]
 
-export function buildDatePicker(doc, onSelect) {
+// Construct the BBO history listing URL from a tview URL and a month count.
+// The listing page uses Unix timestamp range params; server-side filtering
+// means we don't need a client-side `since` filter.
+export function bboHistoryUrl(tviewUrl, months) {
+  try {
+    const u = new URL(tviewUrl)
+    const username = u.searchParams.get('u') ?? u.searchParams.get('U')
+    if (!username) return null
+    const endTime = Math.floor(Date.now() / 1000)
+    const startTime = months != null
+      ? endTime - months * 30 * 24 * 3600
+      : 1262304000 // 2010-01-01 — covers all of BBO history
+    return `https://www.bridgebase.com/myhands/hands.php?username=${encodeURIComponent(username)}&start_time=${startTime}&end_time=${endTime}`
+  } catch {
+    return null
+  }
+}
+
+export function buildDatePicker(doc, onSelect, onSingleGame = null) {
   const picker = doc.createElement('div')
   picker.id = DATE_PICKER_ID
   Object.assign(picker.style, {
@@ -170,13 +188,14 @@ export function buildDatePicker(doc, onSelect) {
     borderRadius: '4px',
     boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
     zIndex: '2147483647',
-    minWidth: '160px',
+    minWidth: '180px',
     overflow: 'hidden',
   })
-  for (const preset of BATCH_PRESETS) {
+
+  const makeItem = (label, bold, onClick) => {
     const item = doc.createElement('button')
     item.type = 'button'
-    item.textContent = preset.label
+    item.textContent = label
     Object.assign(item.style, {
       display: 'block',
       width: '100%',
@@ -188,12 +207,31 @@ export function buildDatePicker(doc, onSelect) {
       cursor: 'pointer',
       fontSize: '14px',
       color: '#333',
+      fontWeight: bold ? 'bold' : 'normal',
       boxSizing: 'border-box',
     })
     item.addEventListener('mouseover', () => { item.style.background = '#f5f5f5' })
     item.addEventListener('mouseout', () => { item.style.background = 'none' })
-    item.addEventListener('click', (e) => { e.stopPropagation(); onSelect(preset.months) })
-    picker.appendChild(item)
+    item.addEventListener('click', (e) => { e.stopPropagation(); onClick() })
+    return item
+  }
+
+  if (onSingleGame) {
+    picker.appendChild(makeItem('Analyze this game', true, onSingleGame))
+    const divider = doc.createElement('div')
+    Object.assign(divider.style, {
+      padding: '4px 16px',
+      fontSize: '11px',
+      color: '#888',
+      background: '#f9f9f9',
+      borderBottom: '1px solid #eee',
+    })
+    divider.textContent = 'Fetch history:'
+    picker.appendChild(divider)
+  }
+
+  for (const preset of BATCH_PRESETS) {
+    picker.appendChild(makeItem(preset.label, false, () => onSelect(preset.months)))
   }
   return picker
 }
@@ -271,40 +309,65 @@ export function setupClickDelegation(deps) {
 
     const isBatch = classifyClub(location.href) === 'club-results-list'
 
+    const isBboBatch = classifyBbo(location.href) === 'tournament-view'
+
     if (isBatch && btn.textContent === buttonStates().idle.label) {
       btn.textContent = 'Fetch History'
     } else if (!isBatch && btn.textContent === 'Fetch History') {
       btn.textContent = buttonStates().idle.label
     }
 
-    if (isBatch) {
+    if (isBatch || isBboBatch) {
       const existing = doc.getElementById(DATE_PICKER_ID)
       if (existing) { existing.remove(); return }
 
-      const picker = buildDatePicker(doc, (months) => {
-        picker.remove()
-        doc.removeEventListener('click', closeOnOutside)
-        const since = months != null ? new Date() : null
-        if (since) since.setMonth(since.getMonth() - months)
+      const startBatch = (listUrl, since) => {
         handleClick({
           url: location.href,
           sendMessage,
           setState: (state, msg) => applyState(btn, state, msg),
-          buildMessage: (url) => ({
-            type: 'extract-batch',
-            listUrl: url,
-            since: since ? since.toISOString().slice(0, 10) : null,
-          }),
+          buildMessage: () => ({ type: 'extract-batch', listUrl, since }),
           onBatchStarted: (key, total) => {
             applyState(btn, 'progress', `Fetching 0 of ${total}…`)
             // eslint-disable-next-line no-undef
             watchBatchProgress(key, (state, msg) => applyState(btn, state, msg), chrome.storage.local)
           },
         })
-      })
+      }
 
-      const anchor = btn.parentElement ?? btn
-      anchor.style.position = 'relative'
+      const onSingleGame = isBboBatch ? () => {
+        picker.remove()
+        doc.removeEventListener('click', closeOnOutside)
+        handleClick({
+          url: location.href,
+          sendMessage,
+          setState: (state, msg) => applyState(btn, state, msg),
+          buildMessage: (url) => ({ type: 'extract-session', url }),
+        })
+      } : null
+
+      const picker = buildDatePicker(doc, (months) => {
+        picker.remove()
+        doc.removeEventListener('click', closeOnOutside)
+        if (isBboBatch) {
+          // BBO: construct the history listing URL; server handles date filtering.
+          const listUrl = bboHistoryUrl(location.href, months)
+          if (!listUrl) { applyState(btn, 'error', 'Could not extract BBO username from URL'); return }
+          startBatch(listUrl, null)
+        } else {
+          // ACBL club: pass listing URL + client-side since date.
+          const since = months != null ? new Date() : null
+          if (since) since.setMonth(since.getMonth() - months)
+          startBatch(location.href, since ? since.toISOString().slice(0, 10) : null)
+        }
+      }, onSingleGame)
+
+      // For fixed-position overlay buttons (BBO), anchor the picker to the
+      // button itself so it appears below it. For in-flow buttons, anchor to
+      // the parent so the picker is positioned within the layout.
+      const isOverlay = btn.style.position === 'fixed'
+      const anchor = isOverlay ? btn : (btn.parentElement ?? btn)
+      if (!isOverlay) anchor.style.position = 'relative'
       anchor.appendChild(picker)
 
       function closeOnOutside(e2) {

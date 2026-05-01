@@ -8,6 +8,7 @@ import acblLiveAdapter from '../adapters/acbl-live/index.js'
 import acblLiveClubAdapter from '../adapters/acbl-live-club/index.js'
 import bboAdapter from '../adapters/bbo/index.js'
 import { parseClubResultsList } from '../adapters/acbl-live-club/parsers/clubResultsList.js'
+import { parseBboHistoryList } from '../adapters/bbo/parsers/historyList.js'
 
 // Adapter registry. The first adapter whose matchesUrl(url) returns true
 // owns that URL. Order matters when adapters could overlap; today they
@@ -116,11 +117,17 @@ export async function runBatchExtraction(listUrl, deps, since = null) {
   }
 
   // Fetch and parse the listing page to get the ordered event URL list.
+  // BBO listing pages require session credentials; ACBL pages do not.
   let eventList
   try {
-    const html = await fetchFn(listUrl).then((r) => r.text())
-    const origin = new URL(listUrl).origin
-    eventList = parseClubResultsList(html, origin)
+    const isBbo = new URL(listUrl).hostname === 'www.bridgebase.com'
+    const listFetch = isBbo
+      ? (u) => fetchFn(u, { credentials: 'include' }).then((r) => r.text())
+      : (u) => fetchFn(u).then((r) => r.text())
+    const html = await listFetch(listUrl)
+    eventList = isBbo
+      ? parseBboHistoryList(html)
+      : parseClubResultsList(html, new URL(listUrl).origin)
   } catch (err) {
     return { type: 'extraction-error', error: { code: classifyError(err), message: err?.message ?? 'Failed to fetch event list' } }
   }
