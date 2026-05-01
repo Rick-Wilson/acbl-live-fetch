@@ -165,7 +165,9 @@ export async function runBatchExtraction(listUrl, deps, since = null, max = null
   }
 
   const allUrls = filtered.map((e) => e.url)
-  const urls = max != null ? allUrls.slice(0, max) : allUrls
+  // Slice first, then reverse so we process oldest-first. The SPA's FIFO
+  // event cache (max 10) will then naturally retain the most recent events.
+  const urls = (max != null ? allUrls.slice(0, max) : allUrls).slice().reverse()
   const key = crypto.randomUUID()
   const storageKey = `${PENDING_BATCH_PREFIX}${key}`
   const total = urls.length
