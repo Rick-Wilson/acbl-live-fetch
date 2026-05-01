@@ -34,9 +34,6 @@ export const PENDING_PREFIX = 'pending-sessions:'
 export const PENDING_BATCH_PREFIX = 'pending-batch:'
 export const PENDING_TTL_MS = 60 * 60 * 1000 // 1 hour
 export const DEFAULT_ANALYZER_URL = 'https://game-analysis.bridge-classroom.org/analyze'
-// Batch uploads go to the parser backend, not the static frontend.
-export const UPLOAD_URL = 'https://game-parser.bridge-craftwork.com/api/upload-normalized'
-
 /** Returns the analyzer URL, allowing a dev override stored via:
  *    chrome.storage.local.set({ devAnalyzerUrl: 'http://localhost:3001/analyze' })
  *  Clear with: chrome.storage.local.remove('devAnalyzerUrl') */
@@ -108,20 +105,6 @@ export async function consumePending(sid, deps) {
   return { type: 'pending-session', envelope: entry.envelope }
 }
 
-async function uploadEnvelope(envelope, fetchFn) {
-  const res = await fetchFn(UPLOAD_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(envelope),
-  })
-  if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(`upload failed: ${res.status}${text ? ` — ${text}` : ''}`)
-  }
-  const json = await res.json()
-  if (typeof json.session_id !== 'string') throw new Error('upload response missing session_id')
-  return json.session_id
-}
 
 export async function runBatchExtraction(listUrl, deps, since = null, max = null) {
   const { storage, tabs, crypto, fetch: fetchFn = globalThis.fetch, signal, extract = dispatchExtract } = deps
@@ -174,8 +157,7 @@ export async function runBatchExtraction(listUrl, deps, since = null, max = null
       if (signal?.aborted) break
       try {
         const envelope = await extract(url, { fetch: fetchFn, signal })
-        const session_id = await uploadEnvelope(envelope, fetchFn)
-        items.push({ session_id, source_url: url })
+        items.push({ envelope, source_url: url })
       } catch (err) {
         errors.push({ url, error: err?.message ?? 'failed' })
       }
