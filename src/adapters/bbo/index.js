@@ -248,9 +248,24 @@ function assembleBoard(handsListBoard, travellerData, scoring) {
 function buildResult(row, scoring, rowIndex) {
   const { contract, declarer, tricks } = parseResultText(row.resultText)
 
-  // EW Points is EW perspective (positive = EW gained).
-  // Normalize to NS perspective: score_ns = -ewPoints.
-  const score = row.ewPoints != null ? -row.ewPoints : null
+  // BBO labels the column "EW Points" but the sign is unreliable for
+  // NS-declared contracts (BBO appears to emit |amount| there rather than a
+  // consistently EW-perspective signed value). Derive the NS-perspective
+  // sign from declarer + made/down so the score is correct regardless:
+  //   - declarer is NS and made the contract → NS gained (positive)
+  //   - declarer is NS and went down         → NS lost   (negative)
+  //   - declarer is EW and made              → NS lost   (negative)
+  //   - declarer is EW and went down         → NS gained (positive)
+  let score = null
+  if (row.ewPoints != null) {
+    const magnitude = Math.abs(row.ewPoints)
+    const contractLevel = contract ? Number.parseInt(contract, 10) : null
+    const declarerIsNS = declarer === 'N' || declarer === 'S'
+    const made = tricks != null && contractLevel != null && tricks >= contractLevel + 6
+    // For passed-out boards (no declarer / contract) magnitude is 0, sign moot.
+    const nsGained = declarer == null ? false : (declarerIsNS ? made : !made)
+    score = nsGained ? magnitude : -magnitude
+  }
 
   // Comparison score: IMP or matchpoints earned by EW at this table.
   // Positive = EW outperformed the field average on this board.
