@@ -114,6 +114,15 @@ export async function runHandoff(deps) {
 // top-level await (not available in our build target).
 if (typeof globalThis.chrome !== 'undefined' || typeof globalThis.browser !== 'undefined') {
   import('webextension-polyfill').then(({ default: browser }) => {
+    // Track which analyzer host the user is currently using so future
+    // extension launches stay on the same domain (.com vs .org). The user
+    // doesn't need to choose — visiting the analyzer is the implicit signal.
+    const host = window.location.hostname
+    if (host === 'game-analysis.bridge-classroom.org' ||
+        host === 'game-analysis.bridge-classroom.com') {
+      browser.storage.local.set({ preferredAnalyzerHost: host }).catch(() => {})
+    }
+
     runHandoff({
       location: window.location,
       history: window.history,

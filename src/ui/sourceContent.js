@@ -408,6 +408,59 @@ if (typeof globalThis.chrome !== 'undefined' || typeof globalThis.browser !== 'u
     // prevent the button from appearing.
     setupClickDelegation(opts)
 
+    // BBO batch listing: if the lobby opened this hands.php page to collect
+    // the tournament URL list, parse the DOM and return the results rather
+    // than injecting a button. The browser's full auth flow means the page
+    // renders with the real game data.
+    if (window.location.hostname === 'www.bridgebase.com' &&
+        window.location.pathname === '/myhands/hands.php') {
+      browser.storage.local.get('bbo-batch-pending').then((result) => {
+        if (!result?.['bbo-batch-pending']) return
+
+        // BBO returns a timezone-detection redirect page on the first request
+        // (its body onload="get_tz()" submits a form to navigate to the real
+        // page). If we land on this redirect page, do nothing — let the
+        // browser auto-navigate. The next page load will re-run this content
+        // script with the pending flag still set so we can parse the real data.
+        if (document.querySelector('form[name="tz_form"]')) return
+
+        // Poll for tournament rows. We only get here on the real (post-redirect)
+        // page, so they should appear quickly. Allow up to 10 seconds for
+        // slow renders.
+        const POLL_INTERVAL = 250
+        const POLL_DEADLINE = Date.now() + 10000
+        const tryParse = () => {
+          const rows = document.querySelectorAll('tr.tourneySummary')
+          if (rows.length === 0 && Date.now() < POLL_DEADLINE) {
+            setTimeout(tryParse, POLL_INTERVAL)
+            return
+          }
+          if (rows.length === 0) {
+            // Timed out without finding data. Don't consume the pending flag
+            // or store an empty result — leave it for a retry / future load.
+            return
+          }
+          const urls = []
+          for (const row of rows) {
+            const a = row.querySelector('td.tourneyName a')
+            const href = a?.getAttribute('href') ?? a?.getAttribute('HREF')
+            if (href) {
+              urls.push(href.startsWith('http') ? href : `https://www.bridgebase.com${href}`)
+            }
+          }
+          // hands.php lists oldest-first (chronological by date header);
+          // reverse to newest-first so callers can slice(0, max) for "Most recent".
+          urls.reverse()
+          // Now that we have data, consume the pending flag and store result.
+          browser.storage.local.remove('bbo-batch-pending').catch(() => {})
+          browser.storage.local.set({ 'bbo-batch-result': { urls, timestamp: Date.now() } })
+            .then(() => browser.runtime.sendMessage({ type: 'close-current-tab' }).catch(() => {}))
+            .catch(() => {})
+        }
+        tryParse()
+      }).catch(() => {})
+    }
+
     // Auto-trigger: if the app opened this page with #bc-analyze, extract
     // immediately without requiring the user to click the button.
     if (window.location.hash.includes('bc-analyze')) {

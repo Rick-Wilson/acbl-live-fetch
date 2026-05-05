@@ -9,12 +9,30 @@ import baseManifest from './manifest.json' with { type: 'json' }
 const BROWSER = process.env.BROWSER ?? 'chrome'
 
 const PER_BROWSER_OVERRIDES = {
+  // Chrome and Edge use the base Chromium MV3 manifest unchanged.
   chrome: {},
   edge: {},
-  // Firefox / Safari overrides will land here when those targets are first
-  // published. Today they fall back to the Chrome manifest, which is good
-  // enough for local smoke-testing on those browsers.
-  firefox: {},
+
+  // Firefox MV3 requires a unique extension id under browser_specific_settings.
+  // It also uses the event-page background.scripts form rather than
+  // background.service_worker (the @crxjs/vite-plugin firefox build path
+  // requires this).
+  firefox: {
+    background: {
+      scripts: ['src/background.js'],
+    },
+    browser_specific_settings: {
+      gecko: {
+        id: 'acbl-live-fetch@bridge-classroom.org',
+        strict_min_version: '121.0',
+      },
+    },
+  },
+
+  // Safari accepts the Chrome MV3 manifest as-is at the build level. Final
+  // distribution to the Mac/iOS App Store requires running the build through
+  // Xcode's `safari-web-extension-converter`, which wraps it in a native app
+  // shell. The dist/safari/ output is the source for that conversion step.
   safari: {},
 }
 

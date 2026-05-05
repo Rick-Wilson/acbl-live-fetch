@@ -33,7 +33,7 @@
       "run_at": "document_start"
     }
   ],
-  "permissions": ["storage", "tabs"],
+  "permissions": ["storage", "tabs", "scripting"],
   "host_permissions": [
     "https://live.acbl.org/*",
     "https://my.acbl.org/*",

@@ -31,7 +31,45 @@ const deps = () => ({
   fetch: globalThis.fetch.bind(globalThis),
 })
 
-browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  // open-bbo-batch-tab: open the BBO hands.php listing so the browser handles
+  // authentication properly (timezone redirect, session cookies). Our content
+  // script on that tab will parse the DOM and store the results.
+  //
+  // We use a minimized window rather than a new tab so the user doesn't see
+  // the page flash in their current window. The window opens behind the
+  // current one, runs the content script, and closes itself.
+  if (message?.type === 'open-bbo-batch-tab') {
+    browser.windows.create({
+      url: message.url,
+      state: 'minimized',
+      focused: false,
+      type: 'normal',
+    }).catch(() => {})
+    sendResponse({ type: 'tab-opened' })
+    return true
+  }
+
+  // close-current-tab: called by the hands.php content script after it has
+  // parsed and stored the batch URLs. Closes the entire window if the tab
+  // is the only one in its window (which it is for our minimized helper).
+  if (message?.type === 'close-current-tab') {
+    const tabId = sender?.tab?.id
+    const windowId = sender?.tab?.windowId
+    if (tabId && windowId != null) {
+      // Prefer closing the window since open-bbo-batch-tab created a dedicated
+      // minimized window for this fetch.
+      browser.windows.remove(windowId).catch(() => {
+        // Fallback: just close the tab.
+        browser.tabs.remove(tabId).catch(() => {})
+      })
+    } else if (tabId) {
+      browser.tabs.remove(tabId).catch(() => {})
+    }
+    sendResponse({ type: 'tab-closed' })
+    return true
+  }
+
   handleMessage(message, deps())
     .then(sendResponse)
     .catch((err) => {

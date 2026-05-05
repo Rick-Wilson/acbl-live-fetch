@@ -34,12 +34,24 @@ export const PENDING_PREFIX = 'pending-sessions:'
 export const PENDING_BATCH_PREFIX = 'pending-batch:'
 export const PENDING_TTL_MS = 60 * 60 * 1000 // 1 hour
 export const DEFAULT_ANALYZER_URL = 'https://game-analysis.bridge-classroom.org/analyze'
-/** Returns the analyzer URL, allowing a dev override stored via:
- *    chrome.storage.local.set({ devAnalyzerUrl: 'http://localhost:3001/analyze' })
- *  Clear with: chrome.storage.local.remove('devAnalyzerUrl') */
+const KNOWN_ANALYZER_HOSTS = new Set([
+  'game-analysis.bridge-classroom.org',
+  'game-analysis.bridge-classroom.com',
+])
+/** Returns the analyzer URL. Resolution order:
+ *  1. devAnalyzerUrl (manual override for local dev — set via:
+ *       chrome.storage.local.set({ devAnalyzerUrl: 'http://localhost:3001/analyze' })
+ *     clear with: chrome.storage.local.remove('devAnalyzerUrl'))
+ *  2. preferredAnalyzerHost (auto-tracked: whenever the user visits the
+ *     analyzer on .com or .org, analyzerContent.js writes that host here so
+ *     subsequent launches stay on the same domain)
+ *  3. DEFAULT_ANALYZER_URL (.org) */
 export async function getAnalyzerUrl(storage) {
-  const result = await storage.get('devAnalyzerUrl')
-  return result?.devAnalyzerUrl ?? DEFAULT_ANALYZER_URL
+  const result = await storage.get(['devAnalyzerUrl', 'preferredAnalyzerHost'])
+  if (result?.devAnalyzerUrl) return result.devAnalyzerUrl
+  const host = result?.preferredAnalyzerHost
+  if (host && KNOWN_ANALYZER_HOSTS.has(host)) return `https://${host}/analyze`
+  return DEFAULT_ANALYZER_URL
 }
 export const BATCH_ITEM_DELAY_MS = 1000 // pause between games to avoid rate-limiting my.acbl.org
 
@@ -77,7 +89,7 @@ export async function handleMessage(msg, deps) {
   }
   if (msg.type === 'extract-session') return runExtraction(msg.url, deps)
   if (msg.type === 'consume-pending-session') return consumePending(msg.sid, deps)
-  if (msg.type === 'extract-batch') return runBatchExtraction(msg.listUrl, deps, msg.since ?? null, msg.max ?? null)
+  if (msg.type === 'extract-batch') return runBatchExtraction(msg.listUrl, deps, msg.since ?? null, msg.max ?? null, msg.urls ?? null)
   if (msg.type === 'consume-pending-batch') return consumePendingBatch(msg.key, deps)
   if (msg.type === 'get-bbo-username') return getBboUsername(deps)
   return {
@@ -131,40 +143,51 @@ export async function consumePending(sid, deps) {
 }
 
 
-export async function runBatchExtraction(listUrl, deps, since = null, max = null) {
+export async function runBatchExtraction(listUrl, deps, since = null, max = null, directUrls = null) {
   const { storage, tabs, crypto, fetch: fetchFn = globalThis.fetch, signal, extract = dispatchExtract } = deps
-  if (typeof listUrl !== 'string' || !listUrl) {
-    return { type: 'extraction-error', error: { code: 'bad-request', message: 'Missing list URL' } }
-  }
 
-  // Fetch and parse the listing page to get the ordered event URL list.
-  // BBO listing pages require session credentials; ACBL pages do not.
-  let eventList
-  try {
-    const host = new URL(listUrl).hostname
-    const listFetch = host === 'www.bridgebase.com'
-      ? (u) => fetchFn(u, { credentials: 'include' }).then((r) => r.text())
-      : (u) => fetchFn(u).then((r) => r.text())
-    const html = await listFetch(listUrl)
-    if (host === 'www.bridgebase.com') {
-      eventList = parseBboHistoryList(html)
-    } else if (host === 'live.acbl.org') {
-      eventList = parsePlayerResults(html)
-    } else {
-      eventList = parseClubResultsList(html, new URL(listUrl).origin)
+  let allUrls
+  if (Array.isArray(directUrls)) {
+    // Pre-parsed URL list supplied by the content script (BBO lobby case):
+    // the SW cannot fetch BBO pages with session cookies, so the content script
+    // fetches same-origin and passes the extracted tview URLs directly.
+    allUrls = directUrls
+  } else {
+    if (typeof listUrl !== 'string' || !listUrl) {
+      return { type: 'extraction-error', error: { code: 'bad-request', message: 'Missing list URL' } }
     }
-  } catch (err) {
-    return { type: 'extraction-error', error: { code: classifyError(err), message: err?.message ?? 'Failed to fetch event list' } }
+
+    // Fetch and parse the listing page to get the ordered event URL list.
+    let eventList
+    try {
+      const host = new URL(listUrl).hostname
+      const listFetch = host === 'www.bridgebase.com'
+        ? (u) => fetchFn(u, { credentials: 'include' }).then((r) => r.text())
+        : (u) => fetchFn(u).then((r) => r.text())
+      const html = await listFetch(listUrl)
+      if (host === 'www.bridgebase.com') {
+        eventList = parseBboHistoryList(html)
+      } else if (host === 'live.acbl.org') {
+        eventList = parsePlayerResults(html)
+      } else {
+        eventList = parseClubResultsList(html, new URL(listUrl).origin)
+      }
+    } catch (err) {
+      return { type: 'extraction-error', error: { code: classifyError(err), message: err?.message ?? 'Failed to fetch event list' } }
+    }
+
+    // Filter by date if requested. date_sort is a Unix timestamp in seconds.
+    const sinceTs = since ? Math.floor(new Date(since).getTime() / 1000) : null
+    const filtered = sinceTs ? eventList.filter((e) => e.date_sort >= sinceTs) : eventList
+    if (filtered.length === 0) {
+      return { type: 'extraction-error', error: { code: 'bad-request', message: 'No events found in the selected date range' } }
+    }
+    allUrls = filtered.map((e) => e.url)
   }
 
-  // Filter by date if requested. date_sort is a Unix timestamp in seconds.
-  const sinceTs = since ? Math.floor(new Date(since).getTime() / 1000) : null
-  const filtered = sinceTs ? eventList.filter((e) => e.date_sort >= sinceTs) : eventList
-  if (filtered.length === 0) {
+  if (allUrls.length === 0) {
     return { type: 'extraction-error', error: { code: 'bad-request', message: 'No events found in the selected date range' } }
   }
-
-  const allUrls = filtered.map((e) => e.url)
   // Slice first, then reverse so we process oldest-first. The SPA's FIFO
   // event cache (max 10) will then naturally retain the most recent events.
   const urls = (max != null ? allUrls.slice(0, max) : allUrls).slice().reverse()

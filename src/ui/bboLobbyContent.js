@@ -42,6 +42,31 @@ async function resolveUsername(sendMessage) {
   return null
 }
 
+// Open the hands.php listing in a minimized browser window so the browser
+// handles BBO's auth + timezone redirect properly. The hands.php content
+// script parses the rendered DOM and stores the URLs in extension storage,
+// which we read back here. Returns an array of tview URLs (newest-first).
+async function openTabAndCollect(sendMessage, storage, listUrl) {
+  await storage.set({ 'bbo-batch-pending': { listUrl, timestamp: Date.now() } })
+  await sendMessage({ type: 'open-bbo-batch-tab', url: listUrl })
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      storage.onChanged.removeListener(listener)
+      storage.remove('bbo-batch-pending').catch(() => {})
+      reject(new Error('Timed out loading BBO game list'))
+    }, 15000)
+    function listener(changes) {
+      if (!changes['bbo-batch-result']) return
+      clearTimeout(timer)
+      storage.onChanged.removeListener(listener)
+      const result = changes['bbo-batch-result'].newValue
+      storage.remove('bbo-batch-result').catch(() => {})
+      resolve(result?.urls ?? [])
+    }
+    storage.onChanged.addListener(listener)
+  })
+}
+
 // ── Date-range picker ────────────────────────────────────────────────────────
 
 function buildPicker(onSelect) { // onSelect(months, max)
@@ -111,17 +136,17 @@ function buildButton() {
 
 function setState(btn, state, msg) {
   const labels = {
-    idle: 'Fetch History',
+    idle: 'Analyze in Bridge Classroom',
     working: msg ?? 'Fetching…',
     success: 'Done — opening analyzer…',
   }
-  btn.textContent = labels[state] ?? 'Fetch History'
+  btn.textContent = labels[state] ?? labels.idle
   btn.disabled = state !== 'idle' && state !== 'error'
   if (state === 'error') {
     btn.textContent = `Error: ${msg ?? 'failed'}`
     btn.style.background = '#c62828'
     setTimeout(() => {
-      btn.textContent = 'Fetch History'
+      btn.textContent = labels.idle
       btn.style.background = '#1a73e8'
       btn.disabled = false
     }, 3000)
@@ -150,34 +175,48 @@ export function injectHistoryButton(sendMessage, storage) {
 
       const username = await resolveUsername(sendMessage)
       if (!username) {
-        setState(btn, 'error', 'Could not find BBO username — open a game result first')
+        setState(btn, 'error', 'Could not find BBO username')
         return
       }
 
       const endTime = Math.floor(Date.now() / 1000)
       const startTime = months != null
         ? endTime - months * 30 * 24 * 3600
-        : 1262304000 // 2010-01-01
+        : 1262304000
       const listUrl = `https://www.bridgebase.com/myhands/hands.php?username=${encodeURIComponent(username)}&start_time=${startTime}&end_time=${endTime}`
 
+      // Step 1: get the list of tournament URLs by opening hands.php in a
+      // minimized window, letting the browser handle BBO's auth + timezone
+      // redirect, and reading the rendered DOM. This is the only consistently
+      // reliable path; SW fetches can't carry BBO's session cookies.
+      setState(btn, 'working', 'Loading game list…')
+      let urls
+      try {
+        urls = await openTabAndCollect(sendMessage, storage, listUrl)
+      } catch (err) {
+        setState(btn, 'error', err?.message ?? 'Failed to load game list')
+        return
+      }
+      if (!urls.length) {
+        setState(btn, 'error', 'No tournaments found in this date range')
+        return
+      }
+      if (max != null) urls = urls.slice(0, max)
+
+      // Step 2: kick off the batch.
       setState(btn, 'working', 'Starting…')
       let response
       try {
-        response = await sendMessage({ type: 'extract-batch', listUrl, since: null, max })
+        response = await sendMessage({ type: 'extract-batch', urls, since: null, max: null })
       } catch (err) {
         setState(btn, 'error', err?.message)
         return
       }
-      if (!response || typeof response !== 'object') {
-        setState(btn, 'error', 'unexpected response')
-        return
-      }
-      if (response.type === 'extraction-error') {
+      if (response?.type === 'extraction-error') {
         setState(btn, 'error', response.error?.message)
         return
       }
-      if (response.type === 'batch-started') {
-        // Watch progress via storage.
+      if (response?.type === 'batch-started') {
         const key = `pending-batch:${response.key}`
         const listener = (changes) => {
           const entry = changes[key]?.newValue

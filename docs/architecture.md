@@ -204,7 +204,11 @@ npm run build:safari   → dist/safari/
 npm run build:all      → all four
 ```
 
-The base `manifest.json` is Chrome-compatible (Manifest V3, `service_worker`). Per-browser manifest overrides live in `vite.config.js` under `PER_BROWSER_OVERRIDES`. They're empty today — every target uses the Chrome manifest unmodified — but the structure is in place for when Firefox / Safari quirks force divergence (e.g., Firefox MV3's `background.scripts` event-page form, Safari's `browser_specific_settings`).
+The base `manifest.json` is Chrome-compatible (Manifest V3, `service_worker`). Per-browser manifest overrides live in `vite.config.js` under `PER_BROWSER_OVERRIDES`:
+
+- **Chrome / Edge** — no overrides; the base Chromium MV3 manifest is used unchanged.
+- **Firefox** — adds `browser_specific_settings.gecko.id` (required) and replaces `background.service_worker` with `background.scripts: ['src/background.js']` (the form `@crxjs/vite-plugin` requires for Firefox builds). `strict_min_version: 121.0` ensures full MV3 service-worker support at runtime.
+- **Safari** — uses the base manifest. Distribution to the Mac/iOS App Store requires running `dist/safari/` through Xcode's `safari-web-extension-converter`, which wraps it in a native app shell.
 
 Source files use `browser.*` via `webextension-polyfill`:
 
@@ -212,7 +216,7 @@ Source files use `browser.*` via `webextension-polyfill`:
 - Service worker imports it directly at the top.
 - Content scripts dynamic-import it inside the entry-point branch — keeps test imports of those modules clean (no extension-API dependency surfaces during `vitest run`).
 
-Today only Chrome is published. Firefox / Safari are local-smoke-test targets until they're explicitly QA'd.
+Today only Chrome is published. Firefox / Edge / Safari builds are produced for local smoke-testing until they're explicitly QA'd.
 
 ## Future considerations
 
