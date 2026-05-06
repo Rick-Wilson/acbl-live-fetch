@@ -16,7 +16,13 @@ import { parseTraveller, parseResultText } from './parsers/traveller.js'
 export const SCHEMA_VERSION = '1.0'
 export const SOURCE_NAME = 'bbo'
 
-const DEFAULT_CONCURRENCY = 4
+// BBO seems to rate-limit traveller fetches when too many fire in parallel:
+// some return real game HTML, others return BBO's timezone-redirect page,
+// even within the same already-warmed session. Empirically, concurrency=2
+// with a 200ms delay between requests gives ~12/12 success on speedball
+// tournaments, while concurrency=4 was returning 1-5/12.
+const DEFAULT_CONCURRENCY = 2
+const DEFAULT_DELAY_MS = 200
 
 export function matchesUrl(url) {
   try {
@@ -51,7 +57,7 @@ export async function extractSession(url, options = {}) {
     fetch,
     signal,
     concurrency = DEFAULT_CONCURRENCY,
-    delayMs = 0,
+    delayMs = DEFAULT_DELAY_MS,
     maxRetries,
     now = () => new Date().toISOString(),
     log = defaultLog,
@@ -97,6 +103,33 @@ export async function extractSession(url, options = {}) {
     : new Map()
   log('phase3.fetchTravellers', { ms: Date.now() - phaseStart, fetches: travellerUrls.length })
   phaseStart = Date.now()
+
+  // ── Phase 3b: retry travellers whose HTML doesn't parse ─────────────────────
+  // BBO sometimes returns its timezone-redirect page instead of the real
+  // traveller HTML when too many requests fire close together. Identify
+  // those, wait briefly, and retry sequentially with a longer delay.
+  const failedUrls = []
+  for (const handsListBoard of handsList.boards) {
+    const tHtml = travellerMap.get(handsListBoard.travellerUrl)
+    if (!tHtml || tHtml instanceof Error) {
+      failedUrls.push(handsListBoard.travellerUrl)
+      continue
+    }
+    try { parseTraveller(tHtml) } catch { failedUrls.push(handsListBoard.travellerUrl) }
+  }
+  if (failedUrls.length > 0) {
+    log('phase3b.retryFailedTravellers', { count: failedUrls.length })
+    await new Promise((r) => setTimeout(r, 500))
+    const retryMap = await fetchAll(failedUrls, { ...fetchOpts, concurrency: 1, delayMs: 400 })
+    for (const url of failedUrls) {
+      const html = retryMap.get(url)
+      if (html && !(html instanceof Error)) {
+        try { parseTraveller(html); travellerMap.set(url, html) } catch { /* still bad — leave original */ }
+      }
+    }
+    log('phase3b.retryFailedTravellers.done', { ms: Date.now() - phaseStart })
+    phaseStart = Date.now()
+  }
 
   // ── Phase 4: assemble boards ─────────────────────────────────────────────────
   const warnings = []
