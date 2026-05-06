@@ -68,6 +68,30 @@ export function buildButton(doc) {
   return btn
 }
 
+export const CANCEL_BUTTON_ID = 'bridge-classroom-cancel-btn'
+
+export function buildCancelButton(doc) {
+  const cx = doc.createElement('button')
+  cx.id = CANCEL_BUTTON_ID
+  cx.type = 'button'
+  cx.textContent = '✕'
+  cx.title = 'Cancel'
+  Object.assign(cx.style, {
+    display: 'none', // hidden until a batch is running
+    marginLeft: '4px',
+    padding: '8px 10px',
+    background: '#c62828',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '4px',
+    fontSize: '14px',
+    cursor: 'pointer',
+    flexShrink: '0',
+    lineHeight: '1',
+  })
+  return cx
+}
+
 export function applyState(btn, state, message) {
   const states = buttonStates()
   let next
@@ -128,7 +152,7 @@ export async function handleClick(deps) {
   setState('error', response.error?.message ?? 'extraction failed')
 }
 
-export function watchBatchProgress(key, setState, storage) {
+export function watchBatchProgress(key, setState, storage, onComplete) {
   // Watches storage for progress updates written by the SW after each game.
   // `storage` must be the chrome.storage.local object.
   const storageKey = `pending-batch:${key}`
@@ -139,8 +163,13 @@ export function watchBatchProgress(key, setState, storage) {
     if (!entry) return
     if (entry.done) {
       storage.onChanged.removeListener(listener)
-      setState('success')
-      setTimeout(() => setState('idle'), 2000)
+      onComplete?.(entry)
+      if (entry.cancelled) {
+        setState('error', `Cancelled (${entry.items?.length ?? 0} of ${entry.total} fetched)`)
+      } else {
+        setState('success')
+        setTimeout(() => setState('idle'), 2000)
+      }
     } else {
       setState('progress', `Fetching ${entry.completed} of ${entry.total}…`)
     }
@@ -244,6 +273,7 @@ export function injectButton(deps) {
   const existing = doc.getElementById(BUTTON_ID)
   if (existing) return existing
   const btn = buildButton(doc)
+  const cancelBtn = buildCancelButton(doc)
 
   // Click handling is done via document-level delegation (see setupClickDelegation)
   // so that Cloudflare Rocket Loader's DOM cloning doesn't strip the listener.
@@ -255,6 +285,7 @@ export function injectButton(deps) {
     if (!ul) return null
     const li = doc.createElement('li')
     li.appendChild(btn)
+    li.appendChild(cancelBtn)
     ul.appendChild(li)
     return btn
   }
@@ -270,8 +301,19 @@ export function injectButton(deps) {
       zIndex: '2147483647',
       boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)',
     })
+    Object.assign(cancelBtn.style, {
+      position: 'fixed',
+      // Position cancel button just to the left of the main button.
+      top: '12px',
+      right: '8px',
+      zIndex: '2147483647',
+      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)',
+      marginLeft: '0',
+      transform: 'translateX(-100%) translateX(-4px)',
+    })
     if (!doc.body) return null
     doc.body.appendChild(btn)
+    doc.body.appendChild(cancelBtn)
     return btn
   }
 
@@ -280,6 +322,7 @@ export function injectButton(deps) {
   if (!anchor) return null
   if (anchor === doc.body) {
     anchor.appendChild(btn)
+    anchor.appendChild(cancelBtn)
   } else if (anchor.tagName === 'H1') {
     // Wrap the h1 in a flex row and put the button on the right edge —
     // same vertical row, no added page height.
@@ -292,8 +335,13 @@ export function injectButton(deps) {
     })
     anchor.parentElement.insertBefore(wrapper, anchor)
     wrapper.appendChild(anchor)
-    wrapper.appendChild(btn)
+    const btnGroup = doc.createElement('div')
+    btnGroup.style.display = 'flex'
+    btnGroup.appendChild(btn)
+    btnGroup.appendChild(cancelBtn)
+    wrapper.appendChild(btnGroup)
   } else {
+    anchor.insertAdjacentElement('afterend', cancelBtn)
     anchor.insertAdjacentElement('afterend', btn)
   }
   return btn
@@ -305,6 +353,19 @@ export function injectButton(deps) {
 // handle it; otherwise ignored.
 export function setupClickDelegation(deps) {
   const { document: doc, location, sendMessage } = deps
+
+  // Cancel button: when an active batch is running, clicking the X sends
+  // cancel-batch to the SW. activeBatchKey is set on batch-started and
+  // cleared when watchBatchProgress sees the batch finish (done or cancelled).
+  let activeBatchKey = null
+  doc.addEventListener('click', (e) => {
+    const cx = e.target.closest(`#${CANCEL_BUTTON_ID}`)
+    if (!cx || !activeBatchKey) return
+    cx.disabled = true
+    cx.textContent = '…'
+    sendMessage({ type: 'cancel-batch', key: activeBatchKey }).catch(() => {})
+  })
+
   doc.addEventListener('click', (e) => {
     const btn = e.target.closest(`#${BUTTON_ID}`)
     if (!btn || btn.disabled) return
@@ -313,6 +374,15 @@ export function setupClickDelegation(deps) {
       classifyLive(location.href) === 'player-history'
 
     const isBboBatch = classifyBbo(location.href) === 'tournament-view'
+
+    const showCancel = () => {
+      const cx = doc.getElementById(CANCEL_BUTTON_ID)
+      if (cx) { cx.disabled = false; cx.textContent = '✕'; cx.style.display = 'inline-block' }
+    }
+    const hideCancel = () => {
+      const cx = doc.getElementById(CANCEL_BUTTON_ID)
+      if (cx) cx.style.display = 'none'
+    }
 
     if (isBatch || isBboBatch) {
       const existing = doc.getElementById(DATE_PICKER_ID)
@@ -325,9 +395,17 @@ export function setupClickDelegation(deps) {
           setState: (state, msg) => applyState(btn, state, msg),
           buildMessage: () => ({ type: 'extract-batch', listUrl, since, max }),
           onBatchStarted: (key, total) => {
+            activeBatchKey = key
+            showCancel()
             applyState(btn, 'progress', `Fetching 0 of ${total}…`)
             // eslint-disable-next-line no-undef
-            watchBatchProgress(key, (state, msg) => applyState(btn, state, msg), chrome.storage.local)
+            watchBatchProgress(
+              key,
+              (state, msg) => applyState(btn, state, msg),
+              // eslint-disable-next-line no-undef
+              chrome.storage.local,
+              () => { activeBatchKey = null; hideCancel() },
+            )
           },
         })
       }

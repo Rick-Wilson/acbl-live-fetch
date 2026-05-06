@@ -53,7 +53,19 @@ export async function getAnalyzerUrl(storage) {
   if (host && KNOWN_ANALYZER_HOSTS.has(host)) return `https://${host}/analyze`
   return DEFAULT_ANALYZER_URL
 }
-export const BATCH_ITEM_DELAY_MS = 1000 // pause between games to avoid rate-limiting my.acbl.org
+// Per-host pause between batch items to avoid rate-limiting. ACBL needs more
+// breathing room than BBO (we got a 403 on my.acbl.org with no delay; BBO has
+// been fine at 250ms). Defaults to 1s for unknown hosts.
+export function batchItemDelayMs(url) {
+  try {
+    const host = new URL(url).hostname
+    if (host === 'webutil.bridgebase.com' || host === 'www.bridgebase.com') return 250
+    return 1000
+  } catch {
+    return 1000
+  }
+}
+export const CANCEL_BATCH_PREFIX = 'cancel-batch:'
 
 function isQuotaError(err) {
   const msg = (err?.message ?? '').toLowerCase()
@@ -91,6 +103,7 @@ export async function handleMessage(msg, deps) {
   if (msg.type === 'consume-pending-session') return consumePending(msg.sid, deps)
   if (msg.type === 'extract-batch') return runBatchExtraction(msg.listUrl, deps, msg.since ?? null, msg.max ?? null, msg.urls ?? null)
   if (msg.type === 'consume-pending-batch') return consumePendingBatch(msg.key, deps)
+  if (msg.type === 'cancel-batch') return cancelBatch(msg.key, deps)
   if (msg.type === 'get-bbo-username') return getBboUsername(deps)
   return {
     type: 'extraction-error',
@@ -200,11 +213,21 @@ export async function runBatchExtraction(listUrl, deps, since = null, max = null
 
   // Return the key immediately so the UI can start showing progress, then
   // continue processing in the background (network requests keep the SW alive).
+  const cancelKey = `${CANCEL_BATCH_PREFIX}${key}`
+  const isCancelled = async () => {
+    try {
+      const r = await storage.get(cancelKey)
+      return !!r?.[cancelKey]
+    } catch { return false }
+  }
+
   const doWork = async () => {
     const items = []
     const errors = []
+    let cancelled = false
     for (const url of urls) {
       if (signal?.aborted) break
+      if (await isCancelled()) { cancelled = true; break }
       try {
         const envelope = await extract(url, { fetch: fetchFn, signal })
         const compressed = await compressEnvelope(envelope)
@@ -219,10 +242,16 @@ export async function runBatchExtraction(listUrl, deps, since = null, max = null
         if (isQuotaError(err)) { storageQuotaHit = true }
       }
       if (storageQuotaHit || signal?.aborted) break
-      await new Promise((r) => setTimeout(r, BATCH_ITEM_DELAY_MS))
+      if (await isCancelled()) { cancelled = true; break }
+      await new Promise((r) => setTimeout(r, batchItemDelayMs(url)))
     }
-    await storage.set({ [storageKey]: { stored_at: Date.now(), total, completed: total, items, errors, done: true } })
-    await tabs.create({ url: `${analyzerUrl}#batch=${key}` })
+    await storage.set({ [storageKey]: { stored_at: Date.now(), total, completed: items.length + errors.length, items, errors, done: true, cancelled } })
+    // Clean up the cancel flag if it was set.
+    await storage.remove(cancelKey).catch(() => {})
+    // Don't open the analyzer if the batch was cancelled with no items.
+    if (!cancelled || items.length > 0) {
+      await tabs.create({ url: `${analyzerUrl}#batch=${key}` })
+    }
   }
 
   doWork().catch(() => {
@@ -249,6 +278,18 @@ export async function consumePendingBatch(key, deps) {
   return { type: 'pending-batch', items: entry.items, total: entry.total, errors: entry.errors }
 }
 
+// Cancel an in-progress batch. The batch loop checks for this flag between
+// items (and after each network operation) and breaks out cleanly, finalizing
+// whatever items it has so far.
+export async function cancelBatch(key, deps) {
+  const { storage } = deps
+  if (typeof key !== 'string' || !key) {
+    return { type: 'cancel-error', error: { code: 'bad-request', message: 'Missing batch key' } }
+  }
+  await storage.set({ [`${CANCEL_BATCH_PREFIX}${key}`]: true })
+  return { type: 'cancel-acknowledged', key }
+}
+
 export const BBO_USERNAME_KEY = 'bbo-username'
 
 export async function getBboUsername(deps) {
@@ -272,6 +313,9 @@ export async function sweepExpired(deps) {
   const all = await storage.get(null)
   const toRemove = []
   for (const [key, value] of Object.entries(all ?? {})) {
+    // Always sweep stale cancel-batch flags — they're meant to live only as
+    // long as the batch they're cancelling.
+    if (key.startsWith(CANCEL_BATCH_PREFIX)) { toRemove.push(key); continue }
     if (!key.startsWith(PENDING_PREFIX) && !key.startsWith(PENDING_BATCH_PREFIX)) continue
     const storedAt = value?.stored_at
     if (typeof storedAt !== 'number' || Date.now() - storedAt > PENDING_TTL_MS) {

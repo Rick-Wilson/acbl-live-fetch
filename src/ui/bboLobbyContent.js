@@ -5,6 +5,7 @@
 // same hands.php listing URL that the tview-page picker uses.
 
 const BUTTON_ID = 'bridge-classroom-history-btn'
+const CANCEL_ID = 'bridge-classroom-history-cancel'
 const PICKER_ID = 'bridge-classroom-history-picker'
 
 const PRESETS = [
@@ -134,6 +135,28 @@ function buildButton() {
   return btn
 }
 
+function buildCancelButton() {
+  const cx = document.createElement('button')
+  cx.id = CANCEL_ID
+  cx.type = 'button'
+  cx.textContent = '✕'
+  cx.title = 'Cancel'
+  Object.assign(cx.style, {
+    display: 'none', // hidden until a batch is running
+    margin: '4px 0 4px 4px',
+    padding: '6px 10px',
+    background: '#c62828',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '4px',
+    fontSize: '19px',
+    fontWeight: '500',
+    cursor: 'pointer',
+    lineHeight: '1',
+  })
+  return cx
+}
+
 function setState(btn, state, msg) {
   const labels = {
     idle: 'Analyze in Bridge Classroom',
@@ -163,6 +186,17 @@ export function injectHistoryButton(sendMessage, storage) {
   if (!listClass) return
 
   const btn = buildButton()
+  const cancelBtn = buildCancelButton()
+
+  // The cancel button appears only while a batch is in flight. It sets a
+  // cancel flag in storage that the SW's batch loop checks between items.
+  let activeBatchKey = null
+  cancelBtn.addEventListener('click', async () => {
+    if (!activeBatchKey) return
+    cancelBtn.disabled = true
+    cancelBtn.textContent = '…'
+    await sendMessage({ type: 'cancel-batch', key: activeBatchKey }).catch(() => {})
+  })
 
   btn.addEventListener('click', () => {
     if (btn.disabled) return
@@ -217,14 +251,25 @@ export function injectHistoryButton(sendMessage, storage) {
         return
       }
       if (response?.type === 'batch-started') {
+        activeBatchKey = response.key
+        cancelBtn.disabled = false
+        cancelBtn.textContent = '✕'
+        cancelBtn.style.display = 'inline-block'
         const key = `pending-batch:${response.key}`
         const listener = (changes) => {
           const entry = changes[key]?.newValue
           if (!entry) return
           if (entry.done) {
             storage.onChanged.removeListener(listener)
-            setState(btn, 'success')
-            setTimeout(() => setState(btn, 'idle'), 3000)
+            cancelBtn.style.display = 'none'
+            activeBatchKey = null
+            if (entry.cancelled) {
+              setState(btn, 'idle')
+              setState(btn, 'error', `Cancelled (${entry.items?.length ?? 0} of ${entry.total} fetched)`)
+            } else {
+              setState(btn, 'success')
+              setTimeout(() => setState(btn, 'idle'), 3000)
+            }
           } else {
             setState(btn, 'working', `Fetching ${entry.completed} of ${entry.total}…`)
           }
@@ -253,6 +298,7 @@ export function injectHistoryButton(sendMessage, storage) {
     padding: '4px 0',
   })
   wrapper.appendChild(btn)
+  wrapper.appendChild(cancelBtn)
 
   const header = listClass.querySelector('celled-rectangle.headerClass')
   if (header) {

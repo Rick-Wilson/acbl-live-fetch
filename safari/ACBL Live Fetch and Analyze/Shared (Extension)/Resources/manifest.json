@@ -1,0 +1,99 @@
+{
+  "manifest_version": 3,
+  "name": "ACBL Live Fetch",
+  "version": "0.2.2",
+  "description": "One-click extraction of bridge results from supported sites for analysis at bridge-classroom.org.",
+  "background": {
+    "service_worker": "service-worker-loader.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "js": [
+        "assets/sourceContent.js-loader-CvFB0Uw9.js"
+      ],
+      "matches": [
+        "https://live.acbl.org/*",
+        "https://my.acbl.org/*",
+        "https://webutil.bridgebase.com/v2/tview.php*",
+        "https://www.bridgebase.com/myhands/hands.php*"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "js": [
+        "assets/bboLobbyContent.js-loader-DvFeRjts.js"
+      ],
+      "matches": [
+        "https://www.bridgebase.com/v3/*"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "js": [
+        "assets/analyzerContent.js-loader-BYlIb0VB.js"
+      ],
+      "matches": [
+        "https://game-analysis.bridge-classroom.org/analyze*",
+        "https://game-analysis.bridge-classroom.com/analyze*",
+        "http://localhost:3001/analyze*"
+      ],
+      "run_at": "document_start"
+    }
+  ],
+  "permissions": [
+    "storage",
+    "tabs",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://live.acbl.org/*",
+    "https://my.acbl.org/*",
+    "https://game-analysis.bridge-classroom.org/*",
+    "https://game-analysis.bridge-classroom.com/*",
+    "http://localhost:3001/*",
+    "https://webutil.bridgebase.com/*",
+    "https://www.bridgebase.com/*"
+  ],
+  "web_accessible_resources": [
+    {
+      "matches": [
+        "https://live.acbl.org/*",
+        "https://my.acbl.org/*",
+        "https://webutil.bridgebase.com/*",
+        "https://www.bridgebase.com/*"
+      ],
+      "resources": [
+        "assets/preload-helper-ckwbz45p.js",
+        "assets/index-xorZz522.js",
+        "assets/browser-polyfill-C8sOovTA.js",
+        "assets/sourceContent.js-473IQ7AU.js"
+      ],
+      "use_dynamic_url": false
+    },
+    {
+      "matches": [
+        "https://www.bridgebase.com/*"
+      ],
+      "resources": [
+        "assets/preload-helper-ckwbz45p.js",
+        "assets/browser-polyfill-C8sOovTA.js",
+        "assets/bboLobbyContent.js-CIo3-YKo.js"
+      ],
+      "use_dynamic_url": false
+    },
+    {
+      "matches": [
+        "http://localhost:3001/*",
+        "https://game-analysis.bridge-classroom.com/*",
+        "https://game-analysis.bridge-classroom.org/*"
+      ],
+      "resources": [
+        "assets/preload-helper-ckwbz45p.js",
+        "assets/browser-polyfill-C8sOovTA.js",
+        "assets/analyzerContent.js-PTt2cVJ8.js"
+      ],
+      "use_dynamic_url": false
+    }
+  ]
+}

@@ -169,9 +169,11 @@ describe('injectButton', () => {
     expect(wrapper.tagName).toBe('DIV')
     expect(wrapper.style.display).toBe('flex')
     expect(wrapper.style.justifyContent).toBe('space-between')
-    // h1 still leftmost, button rightmost — no extra row added.
+    // h1 leftmost; button + cancel-X grouped on the right edge.
     expect(wrapper.firstElementChild).toBe(h1)
-    expect(wrapper.lastElementChild).toBe(btn)
+    const btnGroup = wrapper.lastElementChild
+    expect(btnGroup.tagName).toBe('DIV')
+    expect(btnGroup.contains(btn)).toBe(true)
   })
 
   it('falls back to inserting after h4 when no h1 is present', () => {
