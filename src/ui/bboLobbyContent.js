@@ -46,7 +46,8 @@ async function resolveUsername(sendMessage) {
 // Open the hands.php listing in a minimized browser window so the browser
 // handles BBO's auth + timezone redirect properly. The hands.php content
 // script parses the rendered DOM and stores the URLs in extension storage,
-// which we read back here. Returns an array of tview URLs (newest-first).
+// which we read back here. Returns { urls, invalidInput }: urls is newest-first;
+// invalidInput is true when BBO rejected the date range (>~30 days).
 async function openTabAndCollect(sendMessage, storage, listUrl) {
   await storage.set({ 'bbo-batch-pending': { listUrl, timestamp: Date.now() } })
   await sendMessage({ type: 'open-bbo-batch-tab', url: listUrl })
@@ -62,10 +63,41 @@ async function openTabAndCollect(sendMessage, storage, listUrl) {
       storage.onChanged.removeListener(listener)
       const result = changes['bbo-batch-result'].newValue
       storage.remove('bbo-batch-result').catch(() => {})
-      resolve(result?.urls ?? [])
+      resolve({ urls: result?.urls ?? [], invalidInput: !!result?.invalidInput })
     }
     storage.onChanged.addListener(listener)
   })
+}
+
+// BBO's hands.php rejects ranges over ~30 days. Chunk longer ranges into
+// 28-day windows (newest-first) and combine. Stops early if a chunk hits
+// "Invalid input" (shouldn't happen at this size) or returns empty (no
+// games before this point — common at the bottom of "All time").
+async function openTabAndCollectChunked({ sendMessage, storage, username, startTime, endTime, onProgress }) {
+  const CHUNK_SECONDS = 28 * 24 * 3600
+  const out = []
+  const seen = new Set()
+  let chunkEnd = endTime
+  let chunkIndex = 0
+  while (chunkEnd > startTime) {
+    const chunkStart = Math.max(startTime, chunkEnd - CHUNK_SECONDS)
+    chunkIndex++
+    onProgress?.(chunkIndex)
+    const url = `https://www.bridgebase.com/myhands/hands.php?username=${encodeURIComponent(username)}&start_time=${chunkStart}&end_time=${chunkEnd}`
+    const { urls, invalidInput } = await openTabAndCollect(sendMessage, storage, url)
+    if (invalidInput) {
+      // Shouldn't happen at 28 days; if it does, halve and retry once.
+      // For now, just stop.
+      break
+    }
+    for (const u of urls) {
+      if (!seen.has(u)) { seen.add(u); out.push(u) }
+    }
+    chunkEnd = chunkStart
+    // Small breath between chunks so we don't hammer BBO.
+    if (chunkEnd > startTime) await new Promise((r) => setTimeout(r, 250))
+  }
+  return out
 }
 
 // ── Date-range picker ────────────────────────────────────────────────────────
@@ -217,16 +249,22 @@ export function injectHistoryButton(sendMessage, storage) {
       const startTime = months != null
         ? endTime - months * 30 * 24 * 3600
         : 1262304000
-      const listUrl = `https://www.bridgebase.com/myhands/hands.php?username=${encodeURIComponent(username)}&start_time=${startTime}&end_time=${endTime}`
 
       // Step 1: get the list of tournament URLs by opening hands.php in a
       // minimized window, letting the browser handle BBO's auth + timezone
-      // redirect, and reading the rendered DOM. This is the only consistently
-      // reliable path; SW fetches can't carry BBO's session cookies.
+      // redirect, and reading the rendered DOM. BBO rejects date ranges >
+      // ~30 days, so chunk into 28-day windows newest-first.
       setState(btn, 'working', 'Loading game list…')
       let urls
       try {
-        urls = await openTabAndCollect(sendMessage, storage, listUrl)
+        urls = await openTabAndCollectChunked({
+          sendMessage,
+          storage,
+          username,
+          startTime,
+          endTime,
+          onProgress: (i) => setState(btn, 'working', `Loading game list (chunk ${i})…`),
+        })
       } catch (err) {
         setState(btn, 'error', err?.message ?? 'Failed to load game list')
         return

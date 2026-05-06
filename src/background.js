@@ -36,16 +36,30 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // authentication properly (timezone redirect, session cookies). Our content
   // script on that tab will parse the DOM and store the results.
   //
-  // We use a minimized window rather than a new tab so the user doesn't see
-  // the page flash in their current window. The window opens behind the
-  // current one, runs the content script, and closes itself.
+  // We open the helper window far off-screen (and minimized) so the user
+  // doesn't see flashes when BBO's redirect chain (timezone -> hands.php ->
+  // possibly login flow) navigates and may unminimize the window on some
+  // platforms. The window closes itself after parsing.
   if (message?.type === 'open-bbo-batch-tab') {
     browser.windows.create({
       url: message.url,
-      state: 'minimized',
+      type: 'popup',
       focused: false,
-      type: 'normal',
-    }).catch(() => {})
+      state: 'minimized',
+      top: -2000,
+      left: -2000,
+      width: 200,
+      height: 200,
+    }).catch(() => {
+      // Some platforms may reject `state: 'minimized'` with off-screen
+      // coords; fall back to a basic minimized normal window.
+      browser.windows.create({
+        url: message.url,
+        type: 'normal',
+        focused: false,
+        state: 'minimized',
+      }).catch(() => {})
+    })
     sendResponse({ type: 'tab-opened' })
     return true
   }

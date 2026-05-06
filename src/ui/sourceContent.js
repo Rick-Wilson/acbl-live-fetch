@@ -502,6 +502,17 @@ if (typeof globalThis.chrome !== 'undefined' || typeof globalThis.browser !== 'u
         // script with the pending flag still set so we can parse the real data.
         if (document.querySelector('form[name="tz_form"]')) return
 
+        // BBO rejects date ranges over ~30 days with an "Invalid input" page.
+        // Detect that and return an empty list (caller chunks if needed).
+        const bodyText = document.body?.textContent ?? ''
+        if (/Invalid input/i.test(bodyText)) {
+          browser.storage.local.remove('bbo-batch-pending').catch(() => {})
+          browser.storage.local.set({ 'bbo-batch-result': { urls: [], invalidInput: true, timestamp: Date.now() } })
+            .then(() => browser.runtime.sendMessage({ type: 'close-current-tab' }).catch(() => {}))
+            .catch(() => {})
+          return
+        }
+
         // Poll for tournament rows. We only get here on the real (post-redirect)
         // page, so they should appear quickly. Allow up to 10 seconds for
         // slow renders.
@@ -514,8 +525,12 @@ if (typeof globalThis.chrome !== 'undefined' || typeof globalThis.browser !== 'u
             return
           }
           if (rows.length === 0) {
-            // Timed out without finding data. Don't consume the pending flag
-            // or store an empty result — leave it for a retry / future load.
+            // No tournaments in this date range — that's a valid result, not
+            // an error. Return empty list so the caller knows to move on.
+            browser.storage.local.remove('bbo-batch-pending').catch(() => {})
+            browser.storage.local.set({ 'bbo-batch-result': { urls: [], timestamp: Date.now() } })
+              .then(() => browser.runtime.sendMessage({ type: 'close-current-tab' }).catch(() => {}))
+              .catch(() => {})
             return
           }
           const urls = []

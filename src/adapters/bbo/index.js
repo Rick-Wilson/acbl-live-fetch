@@ -105,20 +105,28 @@ export async function extractSession(url, options = {}) {
 
   for (const handsListBoard of handsList.boards) {
     const tHtml = travellerMap.get(handsListBoard.travellerUrl)
-    if (!tHtml || tHtml instanceof Error) {
+    let travellerData = null
+    if (tHtml && !(tHtml instanceof Error)) {
+      try {
+        travellerData = parseTraveller(tHtml)
+      } catch (err) {
+        partial = true
+        warnings.push(`board ${handsListBoard.number}: traveller parse failed (${err.message})`)
+      }
+    } else if (tHtml instanceof Error) {
       partial = true
-      const reason = !tHtml ? 'no traveller URL' : tHtml.message
-      warnings.push(`board ${handsListBoard.number}: traveller fetch failed (${reason})`)
-      continue
+      warnings.push(`board ${handsListBoard.number}: traveller fetch failed (${tHtml.message})`)
+    } else {
+      partial = true
+      warnings.push(`board ${handsListBoard.number}: no traveller URL`)
     }
 
-    let travellerData
-    try {
-      travellerData = parseTraveller(tHtml)
-    } catch (err) {
-      partial = true
-      warnings.push(`board ${handsListBoard.number}: traveller parse failed (${err.message})`)
-      continue
+    // If we couldn't get the per-table traveller, synthesize one from the
+    // hands list so the board still appears with the user's own result.
+    // We lose other tables' rows, but the user's data (deal, contract,
+    // result, MP/IMP comparison, auction, play) is all in the hands list.
+    if (!travellerData) {
+      travellerData = syntheticTravellerFromHandsList(handsListBoard)
     }
 
     boards.push(assembleBoard(handsListBoard, travellerData, handsList.scoring))
@@ -210,6 +218,24 @@ function buildUserPair(handsList) {
     session_score: sessionScore,
     session_percentage: scoring === 'matchpoints' ? sessionScore : null,
     carryover: null,
+  }
+}
+
+// Build a single-row "traveller" from just the hands-list board. Used as a
+// fallback when the per-table traveller fetch / parse fails (BBO sometimes
+// rejects the SW's session for traveller URLs even when the hands list itself
+// succeeded). The single row is the user's own table, so userResultIndex=0.
+// Other tables' results will be missing, but the board is no longer dropped.
+function syntheticTravellerFromHandsList(handsListBoard) {
+  return {
+    userResultIndex: 0,
+    results: [{
+      players: handsListBoard.players,
+      resultText: handsListBoard.resultText,
+      ewPoints: handsListBoard.ewPoints,
+      comparisonScore: handsListBoard.comparisonScore,
+      handviewerUrl: handsListBoard.handviewerUrl,
+    }],
   }
 }
 
