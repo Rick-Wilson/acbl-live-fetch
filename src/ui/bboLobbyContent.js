@@ -73,13 +73,14 @@ async function openTabAndCollect(sendMessage, storage, listUrl) {
 // 28-day windows (newest-first) and combine. Stops early if a chunk hits
 // "Invalid input" (shouldn't happen at this size) or returns empty (no
 // games before this point — common at the bottom of "All time").
-async function openTabAndCollectChunked({ sendMessage, storage, username, startTime, endTime, onProgress }) {
+async function openTabAndCollectChunked({ sendMessage, storage, username, startTime, endTime, onProgress, isCancelled }) {
   const CHUNK_SECONDS = 28 * 24 * 3600
   const out = []
   const seen = new Set()
   let chunkEnd = endTime
   let chunkIndex = 0
   while (chunkEnd > startTime) {
+    if (isCancelled && (await isCancelled())) break
     const chunkStart = Math.max(startTime, chunkEnd - CHUNK_SECONDS)
     chunkIndex++
     onProgress?.(chunkIndex)
@@ -99,6 +100,8 @@ async function openTabAndCollectChunked({ sendMessage, storage, username, startT
   }
   return out
 }
+
+const LISTING_CANCEL_KEY = 'bbo-listing-cancel'
 
 // ── Date-range picker ────────────────────────────────────────────────────────
 
@@ -220,14 +223,20 @@ export function injectHistoryButton(sendMessage, storage) {
   const btn = buildButton()
   const cancelBtn = buildCancelButton()
 
-  // The cancel button appears only while a batch is in flight. It sets a
-  // cancel flag in storage that the SW's batch loop checks between items.
+  // The cancel button appears in two phases:
+  //   1. Listing phase — sets bbo-listing-cancel so the chunked loop breaks.
+  //   2. Batch phase   — sends cancel-batch with the active batch key.
   let activeBatchKey = null
+  let listingActive = false
   cancelBtn.addEventListener('click', async () => {
-    if (!activeBatchKey) return
     cancelBtn.disabled = true
     cancelBtn.textContent = '…'
-    await sendMessage({ type: 'cancel-batch', key: activeBatchKey }).catch(() => {})
+    if (listingActive) {
+      await storage.set({ [LISTING_CANCEL_KEY]: true }).catch(() => {})
+    }
+    if (activeBatchKey) {
+      await sendMessage({ type: 'cancel-batch', key: activeBatchKey }).catch(() => {})
+    }
   })
 
   btn.addEventListener('click', () => {
@@ -255,6 +264,13 @@ export function injectHistoryButton(sendMessage, storage) {
       // redirect, and reading the rendered DOM. BBO rejects date ranges >
       // ~30 days, so chunk into 28-day windows newest-first.
       setState(btn, 'working', 'Loading game list…')
+      // Show cancel-X for the listing phase too — long ranges (Last year,
+      // All time) can take many minutes here before the batch even starts.
+      await storage.remove(LISTING_CANCEL_KEY).catch(() => {})
+      listingActive = true
+      cancelBtn.disabled = false
+      cancelBtn.textContent = '✕'
+      cancelBtn.style.display = 'inline-block'
       let urls
       try {
         urls = await openTabAndCollectChunked({
@@ -264,12 +280,28 @@ export function injectHistoryButton(sendMessage, storage) {
           startTime,
           endTime,
           onProgress: (i) => setState(btn, 'working', `Loading game list (chunk ${i})…`),
+          isCancelled: async () => {
+            const r = await storage.get(LISTING_CANCEL_KEY).catch(() => null)
+            return !!r?.[LISTING_CANCEL_KEY]
+          },
         })
       } catch (err) {
+        listingActive = false
+        cancelBtn.style.display = 'none'
         setState(btn, 'error', err?.message ?? 'Failed to load game list')
         return
       }
+      listingActive = false
+      // Check if user cancelled during listing.
+      const listingCancelled = (await storage.get(LISTING_CANCEL_KEY).catch(() => null))?.[LISTING_CANCEL_KEY]
+      await storage.remove(LISTING_CANCEL_KEY).catch(() => {})
+      if (listingCancelled) {
+        cancelBtn.style.display = 'none'
+        setState(btn, 'error', `Cancelled during listing (${urls.length} found)`)
+        return
+      }
       if (!urls.length) {
+        cancelBtn.style.display = 'none'
         setState(btn, 'error', 'No tournaments found in this date range')
         return
       }
@@ -364,5 +396,192 @@ if (typeof globalThis.chrome !== 'undefined' || typeof globalThis.browser !== 'u
 
     // Also try immediately in case the panel is already rendered.
     tryInject()
+
+    // Developer-only: bulk-export tournament history. Triggered three ways:
+    //   1. URL hash:    https://www.bridgebase.com/v3/app/lv#bcdev-mega
+    //   2. Query param: https://www.bridgebase.com/v3/app/lv?bcdev=mega
+    //   3. Hash added after load (Angular may strip it on initial bootstrap)
+    // Optional `:since=YYYY-MM-DD` after `mega` in either form.
+    let megaTriggered = false
+    function checkMegaTrigger() {
+      if (megaTriggered) return
+      const hash = window.location.hash
+      const params = new URLSearchParams(window.location.search)
+      const hashTrigger = hash.startsWith('#bcdev-mega') ? hash : null
+      const queryTrigger = params.get('bcdev') === 'mega' || params.get('bcdev')?.startsWith('mega:')
+        ? '#bcdev-' + params.get('bcdev')
+        : null
+      const trigger = hashTrigger || queryTrigger
+      if (!trigger) return
+      megaTriggered = true
+      // eslint-disable-next-line no-console
+      console.log('[acbl-fetch] mega-export triggered via', hashTrigger ? 'hash' : 'query')
+      // Strip both forms so a reload doesn't re-trigger.
+      try {
+        const cleanSearch = new URLSearchParams(window.location.search)
+        cleanSearch.delete('bcdev')
+        const search = cleanSearch.toString() ? `?${cleanSearch.toString()}` : ''
+        history.replaceState(null, '', window.location.pathname + search)
+      } catch {}
+      runMegaExport(sendMessage, storage, trigger).catch((e) => showMegaStatus(`Failed: ${e?.message ?? e}`))
+    }
+    // eslint-disable-next-line no-console
+    console.log('[acbl-fetch] lobby ready; hash=', window.location.hash, 'search=', window.location.search)
+    checkMegaTrigger()
+    // Re-check on hashchange (user types fragment after load, Angular may consume initial).
+    window.addEventListener('hashchange', checkMegaTrigger)
+    // Also re-check after a delay in case the hash was stripped by Angular bootstrap.
+    setTimeout(checkMegaTrigger, 1000)
+    setTimeout(checkMegaTrigger, 3000)
   }).catch(() => {})
+}
+
+// ── Dev: bulk-export entire BBO history ──────────────────────────────────────
+async function runMegaExport(sendMessage, storage, hash) {
+  // Parse optional `since=YYYY-MM-DD` from the hash; default to 2024-01-01
+  // (the earliest date BBO retains, per user observation).
+  let sinceTs = Math.floor(new Date('2024-01-01T00:00:00Z').getTime() / 1000)
+  const sinceMatch = hash.match(/since=(\d{4}-\d{2}-\d{2})/)
+  if (sinceMatch) {
+    const t = Math.floor(new Date(`${sinceMatch[1]}T00:00:00Z`).getTime() / 1000)
+    if (!Number.isNaN(t)) sinceTs = t
+  }
+
+  const username = await resolveUsername(sendMessage)
+  if (!username) {
+    showMegaStatus('Could not resolve BBO username')
+    return
+  }
+
+  showMegaStatus(`Mega export starting (since ${new Date(sinceTs * 1000).toISOString().slice(0, 10)})…`)
+  showMegaCancelButton(async () => {
+    await storage.set({ [LISTING_CANCEL_KEY]: true }).catch(() => {})
+    await storage.set({ 'dev-bulk-cancel': true }).catch(() => {})
+    showMegaStatus('Cancelling…')
+  })
+
+  // Step 1: get all tournament URLs via chunked listing.
+  await storage.remove(LISTING_CANCEL_KEY).catch(() => {})
+  let urls
+  try {
+    urls = await openTabAndCollectChunked({
+      sendMessage,
+      storage,
+      username,
+      startTime: sinceTs,
+      endTime: Math.floor(Date.now() / 1000),
+      onProgress: (i) => showMegaStatus(`Fetching listing chunk ${i}…`),
+      isCancelled: async () => {
+        const r = await storage.get(LISTING_CANCEL_KEY).catch(() => null)
+        return !!r?.[LISTING_CANCEL_KEY]
+      },
+    })
+  } catch (err) {
+    showMegaStatus(`Listing failed: ${err?.message ?? err}`)
+    hideMegaCancelButton()
+    return
+  }
+  if (!urls.length) {
+    showMegaStatus('No tournaments found in date range')
+    hideMegaCancelButton()
+    return
+  }
+  const listingCancelled = (await storage.get(LISTING_CANCEL_KEY).catch(() => null))?.[LISTING_CANCEL_KEY]
+  await storage.remove(LISTING_CANCEL_KEY).catch(() => {})
+  if (listingCancelled) {
+    showMegaStatus(`Cancelled during listing (${urls.length} URLs collected; not extracting)`)
+    hideMegaCancelButton()
+    return
+  }
+  showMegaStatus(`Found ${urls.length} tournaments. Starting bulk extract…`)
+
+  // Step 2: fire bulk extract in the SW. It returns immediately with
+  // dev-bulk-started; progress is tracked via storage.
+  const filename = `bbo-history-${username}-${new Date().toISOString().slice(0, 10)}.json`
+  await sendMessage({ type: 'dev-bulk-extract', urls, filename })
+
+  // Watch progress.
+  const listener = (changes) => {
+    const p = changes['dev-bulk-progress']?.newValue
+    if (!p) return
+    if (p.done) {
+      storage.onChanged.removeListener(listener)
+      const elapsed = Math.round((p.finishedAt - p.startedAt) / 1000)
+      const status = p.cancelled ? 'Cancelled' : 'Done'
+      showMegaStatus(`${status} — ${p.completed - p.errors}/${p.total} fetched in ${elapsed}s. Save dialog should appear.`)
+      hideMegaCancelButton()
+    } else {
+      showMegaStatus(`Bulk extract: ${p.completed}/${p.total} (${p.errors} errors)`)
+    }
+  }
+  storage.onChanged.addListener(listener)
+}
+
+function ensureMegaBanner() {
+  const id = 'bridge-classroom-mega-status'
+  let el = document.getElementById(id)
+  if (!el) {
+    el = document.createElement('div')
+    el.id = id
+    Object.assign(el.style, {
+      position: 'fixed',
+      top: '12px',
+      left: '12px',
+      zIndex: '2147483647',
+      background: '#1a73e8',
+      color: '#fff',
+      padding: '8px 14px',
+      borderRadius: '4px',
+      fontSize: '14px',
+      fontWeight: '500',
+      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
+      maxWidth: '500px',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px',
+    })
+    const text = document.createElement('span')
+    text.id = id + '-text'
+    el.appendChild(text)
+    document.body.appendChild(el)
+  }
+  return el
+}
+
+function showMegaStatus(msg) {
+  ensureMegaBanner()
+  const text = document.getElementById('bridge-classroom-mega-status-text')
+  if (text) text.textContent = `[bcdev-mega] ${msg}`
+  // eslint-disable-next-line no-console
+  console.log(`[acbl-fetch] mega-export: ${msg}`)
+}
+
+function showMegaCancelButton(onClick) {
+  const banner = ensureMegaBanner()
+  const id = 'bridge-classroom-mega-cancel'
+  let cx = document.getElementById(id)
+  if (!cx) {
+    cx = document.createElement('button')
+    cx.id = id
+    cx.type = 'button'
+    cx.textContent = '✕'
+    cx.title = 'Cancel mega export'
+    Object.assign(cx.style, {
+      padding: '4px 10px',
+      background: '#c62828',
+      color: '#fff',
+      border: 'none',
+      borderRadius: '4px',
+      fontSize: '14px',
+      fontWeight: '700',
+      cursor: 'pointer',
+      lineHeight: '1',
+    })
+    banner.appendChild(cx)
+  }
+  cx.onclick = onClick
+}
+
+function hideMegaCancelButton() {
+  document.getElementById('bridge-classroom-mega-cancel')?.remove()
 }

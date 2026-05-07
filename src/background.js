@@ -23,6 +23,7 @@ if (typeof globalThis.DOMParser === 'undefined') {
 
 import browser from 'webextension-polyfill'
 import { handleMessage, sweepExpired } from './background/handlers.js'
+import bboAdapter from './adapters/bbo/index.js'
 
 const deps = () => ({
   storage: browser.storage.local,
@@ -32,6 +33,70 @@ const deps = () => ({
 })
 
 browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  // dev-bulk-extract: developer-only bulk extraction triggered via the
+  // `#bcdev-mega` URL hash on the BBO lobby. Iterates a list of tournament
+  // URLs, runs each through the BBO adapter (with credentialed fetches),
+  // accumulates the envelopes in memory, and downloads the aggregate as a
+  // single JSON file. Bypasses the analyzer entirely — this is for offline
+  // analysis of long-range history (years), too big for sessionStorage.
+  // Intentionally not surfaced in the production UI.
+  if (message?.type === 'dev-bulk-extract') {
+    const urls = Array.isArray(message.urls) ? message.urls : []
+    const filename = message.filename ?? `bbo-history-${new Date().toISOString().slice(0, 10)}.json`
+    const progressKey = 'dev-bulk-progress'
+    const cancelKey = 'dev-bulk-cancel'
+    sendResponse({ type: 'dev-bulk-started', total: urls.length })
+    ;(async () => {
+      const envelopes = []
+      const errors = []
+      const startedAt = Date.now()
+      await browser.storage.local.set({ [progressKey]: { total: urls.length, completed: 0, errors: 0, done: false, startedAt } })
+      await browser.storage.local.remove(cancelKey).catch(() => {})
+      let cancelled = false
+      for (let i = 0; i < urls.length; i++) {
+        const cancelCheck = await browser.storage.local.get(cancelKey).catch(() => null)
+        if (cancelCheck?.[cancelKey]) { cancelled = true; break }
+        const url = urls[i]
+        try {
+          // Call the BBO adapter directly to skip runExtraction's analyzer-tab
+          // opening — we don't want a tab per game in bulk mode.
+          const env = await bboAdapter.extractSession(url, {
+            fetch: globalThis.fetch.bind(globalThis),
+            log: () => {},
+          })
+          envelopes.push(env)
+        } catch (err) {
+          errors.push({ url, error: err?.message ?? String(err) })
+        }
+        await browser.storage.local.set({ [progressKey]: { total: urls.length, completed: i + 1, errors: errors.length, done: false, startedAt } })
+        // Brief pause between tournaments to be nice to BBO.
+        await new Promise((r) => setTimeout(r, 250))
+      }
+      // Build the output file. Wrap envelopes in a small header so the file
+      // self-describes (counts, generation timestamp, source URL ranges).
+      const output = {
+        generated_at: new Date().toISOString(),
+        envelope_count: envelopes.length,
+        error_count: errors.length,
+        cancelled,
+        errors,
+        envelopes,
+      }
+      const blob = new Blob([JSON.stringify(output, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      try {
+        await browser.downloads.download({ url, filename, saveAs: true })
+      } catch (err) {
+        // Swallow — the user may have cancelled the save dialog.
+      }
+      // Cannot revoke immediately on Chrome — downloads may still be reading
+      // from the blob. Leave it; the SW shutdown will clean up.
+      await browser.storage.local.set({ [progressKey]: { total: urls.length, completed: urls.length, errors: errors.length, done: true, cancelled, startedAt, finishedAt: Date.now() } })
+      await browser.storage.local.remove(cancelKey).catch(() => {})
+    })().catch(() => {})
+    return true
+  }
+
   // open-bbo-batch-tab: open the BBO hands.php listing so the browser handles
   // authentication properly (timezone redirect, session cookies). Our content
   // script on that tab will parse the DOM and store the results.
