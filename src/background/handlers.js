@@ -174,8 +174,10 @@ export async function runBatchExtraction(listUrl, deps, since = null, max = null
     let eventList
     try {
       const host = new URL(listUrl).hostname
-      // my.acbl.org started requiring authentication in May 2026, so the
-      // club listing also needs credentials. BBO already needed them.
+      // my.acbl.org started requiring authentication in May 2026; BBO has
+      // always needed it. The SW's smartFetch in background.js already
+      // routes my.acbl.org through a same-origin tab so cookies attach;
+      // here we still pass credentials:'include' for the BBO path.
       const needsCredentials = host === 'www.bridgebase.com' || host === 'my.acbl.org'
       const listFetch = needsCredentials
         ? (u) => fetchFn(u, { credentials: 'include' }).then((r) => r.text())

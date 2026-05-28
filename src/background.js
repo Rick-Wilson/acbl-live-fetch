@@ -25,11 +25,103 @@ import browser from 'webextension-polyfill'
 import { handleMessage, sweepExpired } from './background/handlers.js'
 import bboAdapter from './adapters/bbo/index.js'
 
+// Fetch via chrome.scripting.executeScript inside a same-origin tab so
+// SameSite=Lax cookies attach. As of May 2026, my.acbl.org rejects direct SW
+// fetches (HTTP 403) even with credentials:'include' and host_permissions —
+// because the SW is cross-site, Chrome doesn't attach Lax cookies. Running
+// the fetch from inside a my.acbl.org tab's main world IS same-site, so the
+// browser's cookie jar applies normally.
+async function fetchViaTab(url) {
+  const origin = new URL(url).origin
+  const matchPattern = origin + '/*'
+  const tabs = await browser.tabs.query({ url: matchPattern })
+  let tabId
+  let openedTempWindow = null
+  if (tabs.length > 0) {
+    tabId = tabs[0].id
+  } else {
+    // No same-origin tab is open. Open a minimal background window pointing
+    // at the origin's root, wait for load, use it, then close it.
+    const win = await browser.windows.create({
+      url: origin + '/',
+      type: 'popup',
+      focused: false,
+      state: 'minimized',
+      top: -2000,
+      left: -2000,
+      width: 200,
+      height: 200,
+    }).catch(() => null) || await browser.windows.create({
+      url: origin + '/',
+      type: 'normal',
+      focused: false,
+      state: 'minimized',
+    })
+    openedTempWindow = win.id
+    tabId = win.tabs?.[0]?.id
+    // Wait for the tab to finish loading (max 15s).
+    await Promise.race([
+      new Promise((resolve) => {
+        const listener = (id, info) => {
+          if (id === tabId && info.status === 'complete') {
+            browser.tabs.onUpdated.removeListener(listener)
+            resolve()
+          }
+        }
+        browser.tabs.onUpdated.addListener(listener)
+      }),
+      new Promise((resolve) => setTimeout(resolve, 15000)),
+    ])
+  }
+  try {
+    const results = await browser.scripting.executeScript({
+      target: { tabId },
+      world: 'MAIN',
+      func: (u) =>
+        fetch(u, { credentials: 'include' }).then(async (r) => ({
+          ok: r.ok,
+          status: r.status,
+          statusText: r.statusText,
+          body: await r.text(),
+        })),
+      args: [url],
+    })
+    const r = results?.[0]?.result
+    if (!r) throw new Error('executeScript returned no result')
+    return {
+      ok: r.ok,
+      status: r.status,
+      statusText: r.statusText,
+      text: async () => r.body,
+      headers: { get: () => null },
+    }
+  } finally {
+    if (openedTempWindow != null) {
+      browser.windows.remove(openedTempWindow).catch(() => {})
+    }
+  }
+}
+
+// Hosts whose SameSite=Lax cookies block SW direct fetches.
+const TAB_FETCH_HOSTS = new Set(['my.acbl.org'])
+
+async function smartFetch(url, opts) {
+  try {
+    const host = new URL(url).hostname
+    if (TAB_FETCH_HOSTS.has(host)) {
+      return fetchViaTab(url, opts)
+    }
+  } catch {
+    /* fall through to direct fetch */
+  }
+  return globalThis.fetch(url, opts)
+}
+
 const deps = () => ({
   storage: browser.storage.local,
   tabs: browser.tabs,
   crypto: globalThis.crypto,
-  fetch: globalThis.fetch.bind(globalThis),
+  fetch: smartFetch,
 })
 
 browser.runtime.onMessage.addListener((message, sender, sendResponse) => {

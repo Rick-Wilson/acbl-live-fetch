@@ -57,6 +57,10 @@ export async function extractSession(url, options = {}) {
   // anonymous fetches now return 403 + a stub page with no data. Wrap fetch
   // so credentials: 'include' attaches the user's my.acbl.org cookies (our
   // host_permissions cover the cross-origin attachment).
+  // The provided fetch (from the SW's smartFetch) already routes my.acbl.org
+  // requests through a same-origin tab so SameSite=Lax cookies attach. We
+  // still pass credentials:'include' here as a belt-and-suspenders for any
+  // other host that might land in this adapter someday.
   const fetchFn = fetch ?? globalThis.fetch
   const credentialedFetch = (u, opts) =>
     fetchFn(u, { ...opts, credentials: 'include' })
