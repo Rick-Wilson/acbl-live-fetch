@@ -53,9 +53,17 @@ export async function extractSession(url, options = {}) {
   const t0 = Date.now()
   let phaseStart = t0
 
+  // my.acbl.org started requiring authenticated requests in May 2026 —
+  // anonymous fetches now return 403 + a stub page with no data. Wrap fetch
+  // so credentials: 'include' attaches the user's my.acbl.org cookies (our
+  // host_permissions cover the cross-origin attachment).
+  const fetchFn = fetch ?? globalThis.fetch
+  const credentialedFetch = (u, opts) =>
+    fetchFn(u, { ...opts, credentials: 'include' })
+
   // Phase 1: fetch the page.
   const fetched = await fetchAll([url], {
-    fetch,
+    fetch: credentialedFetch,
     signal,
     maxRetries,
     delayMs,

@@ -23,23 +23,39 @@ const PRESETS = [
 //   1. Cached value from a prior tview extraction (stored by the tview content script)
 //   2. span.username on the current page (appears on some BBO pages)
 //   3. Ask the service worker (which may have seen a tview URL recently)
-async function resolveUsername(sendMessage) {
-  // 1. BBO lobby nav bar: name-tag > button > span.mat-button-wrapper
-  //    The username is a text node inside that span (" kemistry ").
-  const wrapper = document.querySelector('name-tag span.mat-button-wrapper')
-  if (wrapper) {
-    for (const node of wrapper.childNodes) {
-      if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) {
-        return node.textContent.trim()
+async function resolveUsername(sendMessage, { pollMs = 0, onWait } = {}) {
+  // Synchronous reads (DOM + cached). Tries DOM first, then cache.
+  function tryNow() {
+    const wrapper = document.querySelector('name-tag span.mat-button-wrapper')
+    if (wrapper) {
+      for (const node of wrapper.childNodes) {
+        if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) {
+          return node.textContent.trim()
+        }
       }
     }
+    return null
   }
 
-  // 2. Cached from a prior tview extraction (stored when user clicked our
-  //    button on a tview page).
+  // First: try DOM right now.
+  let name = tryNow()
+  if (name) return name
+
+  // Then: cached from a prior tview extraction.
   const stored = await sendMessage({ type: 'get-bbo-username' })
   if (stored?.username) return stored.username
 
+  // Optionally poll the DOM — useful for the mega export which fires before
+  // BBO's nav bar has finished rendering after login.
+  if (pollMs > 0) {
+    const deadline = Date.now() + pollMs
+    while (Date.now() < deadline) {
+      onWait?.()
+      await new Promise((r) => setTimeout(r, 500))
+      name = tryNow()
+      if (name) return name
+    }
+  }
   return null
 }
 
@@ -73,7 +89,7 @@ async function openTabAndCollect(sendMessage, storage, listUrl) {
 // 28-day windows (newest-first) and combine. Stops early if a chunk hits
 // "Invalid input" (shouldn't happen at this size) or returns empty (no
 // games before this point — common at the bottom of "All time").
-async function openTabAndCollectChunked({ sendMessage, storage, username, startTime, endTime, onProgress, isCancelled }) {
+async function openTabAndCollectChunked({ sendMessage, storage, username, startTime, endTime, onProgress, isCancelled, targetCount }) {
   const CHUNK_SECONDS = 28 * 24 * 3600
   const out = []
   const seen = new Set()
@@ -81,6 +97,9 @@ async function openTabAndCollectChunked({ sendMessage, storage, username, startT
   let chunkIndex = 0
   while (chunkEnd > startTime) {
     if (isCancelled && (await isCancelled())) break
+    // Stop chunking early once we've collected enough URLs for the caller's
+    // target count. Useful for testing (limit=4) and "Most recent" presets.
+    if (targetCount != null && out.length >= targetCount) break
     const chunkStart = Math.max(startTime, chunkEnd - CHUNK_SECONDS)
     chunkIndex++
     onProgress?.(chunkIndex)
@@ -397,68 +416,81 @@ if (typeof globalThis.chrome !== 'undefined' || typeof globalThis.browser !== 'u
     // Also try immediately in case the panel is already rendered.
     tryInject()
 
-    // Developer-only: bulk-export tournament history. Triggered three ways:
-    //   1. URL hash:    https://www.bridgebase.com/v3/app/lv#bcdev-mega
-    //   2. Query param: https://www.bridgebase.com/v3/app/lv?bcdev=mega
-    //   3. Hash added after load (Angular may strip it on initial bootstrap)
-    // Optional `:since=YYYY-MM-DD` after `mega` in either form.
+    // Developer-only: bulk-export tournament history. Triggered by:
+    //   ?bcdev=mega                 — full export from default 2024-01-01
+    //   ?bcdev=mega&since=2024-06-01 — earlier date
+    //   ?bcdev=mega&limit=4          — only first 4 tournaments (testing)
+    //   ?bcdev=mega&since=...&limit=4
+    //   #bcdev-mega                  — hash form also accepted (params via &)
     let megaTriggered = false
     function checkMegaTrigger() {
       if (megaTriggered) return
+      const search = new URLSearchParams(window.location.search)
       const hash = window.location.hash
-      const params = new URLSearchParams(window.location.search)
-      const hashTrigger = hash.startsWith('#bcdev-mega') ? hash : null
-      const queryTrigger = params.get('bcdev') === 'mega' || params.get('bcdev')?.startsWith('mega:')
-        ? '#bcdev-' + params.get('bcdev')
-        : null
-      const trigger = hashTrigger || queryTrigger
-      if (!trigger) return
+      const hashTriggered = hash.startsWith('#bcdev-mega')
+      const queryTriggered = search.get('bcdev') === 'mega'
+      if (!hashTriggered && !queryTriggered) return
       megaTriggered = true
+      // Parse `since` and `limit` from query params (preferred) and hash.
+      const opts = {
+        since: search.get('since'),
+        limit: search.get('limit') != null ? parseInt(search.get('limit'), 10) : null,
+      }
+      const hashSince = hash.match(/since=(\d{4}-\d{2}-\d{2})/)
+      if (hashSince) opts.since = opts.since ?? hashSince[1]
+      const hashLimit = hash.match(/limit=(\d+)/)
+      if (hashLimit) opts.limit = opts.limit ?? parseInt(hashLimit[1], 10)
       // eslint-disable-next-line no-console
-      console.log('[acbl-fetch] mega-export triggered via', hashTrigger ? 'hash' : 'query')
-      // Strip both forms so a reload doesn't re-trigger.
+      console.log('[acbl-fetch] mega-export triggered', { via: hashTriggered ? 'hash' : 'query', opts })
+      // Strip mega params so a reload doesn't re-trigger.
       try {
         const cleanSearch = new URLSearchParams(window.location.search)
         cleanSearch.delete('bcdev')
-        const search = cleanSearch.toString() ? `?${cleanSearch.toString()}` : ''
-        history.replaceState(null, '', window.location.pathname + search)
+        cleanSearch.delete('since')
+        cleanSearch.delete('limit')
+        const sStr = cleanSearch.toString() ? `?${cleanSearch.toString()}` : ''
+        history.replaceState(null, '', window.location.pathname + sStr)
       } catch {}
-      runMegaExport(sendMessage, storage, trigger).catch((e) => showMegaStatus(`Failed: ${e?.message ?? e}`))
+      runMegaExport(sendMessage, storage, opts).catch((e) => showMegaStatus(`Failed: ${e?.message ?? e}`))
     }
     // eslint-disable-next-line no-console
     console.log('[acbl-fetch] lobby ready; hash=', window.location.hash, 'search=', window.location.search)
     checkMegaTrigger()
-    // Re-check on hashchange (user types fragment after load, Angular may consume initial).
     window.addEventListener('hashchange', checkMegaTrigger)
-    // Also re-check after a delay in case the hash was stripped by Angular bootstrap.
     setTimeout(checkMegaTrigger, 1000)
     setTimeout(checkMegaTrigger, 3000)
   }).catch(() => {})
 }
 
 // ── Dev: bulk-export entire BBO history ──────────────────────────────────────
-async function runMegaExport(sendMessage, storage, hash) {
-  // Parse optional `since=YYYY-MM-DD` from the hash; default to 2024-01-01
-  // (the earliest date BBO retains, per user observation).
+async function runMegaExport(sendMessage, storage, opts = {}) {
   let sinceTs = Math.floor(new Date('2024-01-01T00:00:00Z').getTime() / 1000)
-  const sinceMatch = hash.match(/since=(\d{4}-\d{2}-\d{2})/)
-  if (sinceMatch) {
-    const t = Math.floor(new Date(`${sinceMatch[1]}T00:00:00Z`).getTime() / 1000)
+  if (opts.since) {
+    const t = Math.floor(new Date(`${opts.since}T00:00:00Z`).getTime() / 1000)
     if (!Number.isNaN(t)) sinceTs = t
   }
+  let limit = null
+  if (opts.limit && Number.isFinite(opts.limit) && opts.limit > 0) limit = opts.limit
 
-  const username = await resolveUsername(sendMessage)
-  if (!username) {
-    showMegaStatus('Could not resolve BBO username')
-    return
-  }
-
-  showMegaStatus(`Mega export starting (since ${new Date(sinceTs * 1000).toISOString().slice(0, 10)})…`)
+  showMegaStatus('Waiting for BBO login + lobby to render…')
   showMegaCancelButton(async () => {
     await storage.set({ [LISTING_CANCEL_KEY]: true }).catch(() => {})
     await storage.set({ 'dev-bulk-cancel': true }).catch(() => {})
     showMegaStatus('Cancelling…')
   })
+  // Poll up to 60s for the username — gives the user time to log in if BBO
+  // hasn't auto-restored their session yet.
+  const username = await resolveUsername(sendMessage, {
+    pollMs: 60000,
+    onWait: () => showMegaStatus('Waiting for BBO login + lobby to render…'),
+  })
+  if (!username) {
+    showMegaStatus('Could not resolve BBO username after 60s — log in to BBO first, then refresh with the same URL')
+    hideMegaCancelButton()
+    return
+  }
+
+  showMegaStatus(`Mega export starting for ${username} (since ${new Date(sinceTs * 1000).toISOString().slice(0, 10)})…`)
 
   // Step 1: get all tournament URLs via chunked listing.
   await storage.remove(LISTING_CANCEL_KEY).catch(() => {})
@@ -475,6 +507,8 @@ async function runMegaExport(sendMessage, storage, hash) {
         const r = await storage.get(LISTING_CANCEL_KEY).catch(() => null)
         return !!r?.[LISTING_CANCEL_KEY]
       },
+      // Stop chunking once we have enough URLs to satisfy the limit.
+      targetCount: limit,
     })
   } catch (err) {
     showMegaStatus(`Listing failed: ${err?.message ?? err}`)
@@ -493,7 +527,12 @@ async function runMegaExport(sendMessage, storage, hash) {
     hideMegaCancelButton()
     return
   }
-  showMegaStatus(`Found ${urls.length} tournaments. Starting bulk extract…`)
+  if (limit != null && urls.length > limit) {
+    showMegaStatus(`Found ${urls.length} tournaments; limit=${limit} so extracting first ${limit}…`)
+    urls = urls.slice(0, limit)
+  } else {
+    showMegaStatus(`Found ${urls.length} tournaments. Starting bulk extract…`)
+  }
 
   // Step 2: fire bulk extract in the SW. It returns immediately with
   // dev-bulk-started; progress is tracked via storage.

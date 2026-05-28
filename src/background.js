@@ -82,15 +82,27 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
         errors,
         envelopes,
       }
-      const blob = new Blob([JSON.stringify(output, null, 2)], { type: 'application/json' })
-      const url = URL.createObjectURL(blob)
-      try {
-        await browser.downloads.download({ url, filename, saveAs: true })
-      } catch (err) {
-        // Swallow — the user may have cancelled the save dialog.
+      // MV3 service workers don't expose URL.createObjectURL, so we encode the
+      // payload as a base64 data URL and feed that to chrome.downloads.
+      const json = JSON.stringify(output, null, 2)
+      const bytes = new TextEncoder().encode(json)
+      let binary = ''
+      const CHUNK = 0x8000
+      for (let i = 0; i < bytes.length; i += CHUNK) {
+        binary += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK))
       }
-      // Cannot revoke immediately on Chrome — downloads may still be reading
-      // from the blob. Leave it; the SW shutdown will clean up.
+      const dataUrl = `data:application/json;base64,${btoa(binary)}`
+      // eslint-disable-next-line no-console
+      console.log('[acbl-fetch] dev-bulk-extract: downloading', { filename, bytes: bytes.length, envelopes: envelopes.length, errors: errors.length })
+      try {
+        // saveAs:false → goes straight into Downloads folder. Avoids the
+        // dialog timeout/SW-suspension risk for long-running extracts where
+        // the user may not be at the computer when the file is ready.
+        await browser.downloads.download({ url: dataUrl, filename, saveAs: false })
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.log('[acbl-fetch] dev-bulk-extract: download failed', err?.message ?? err)
+      }
       await browser.storage.local.set({ [progressKey]: { total: urls.length, completed: urls.length, errors: errors.length, done: true, cancelled, startedAt, finishedAt: Date.now() } })
       await browser.storage.local.remove(cancelKey).catch(() => {})
     })().catch(() => {})

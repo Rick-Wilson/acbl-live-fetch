@@ -174,7 +174,10 @@ export async function runBatchExtraction(listUrl, deps, since = null, max = null
     let eventList
     try {
       const host = new URL(listUrl).hostname
-      const listFetch = host === 'www.bridgebase.com'
+      // my.acbl.org started requiring authentication in May 2026, so the
+      // club listing also needs credentials. BBO already needed them.
+      const needsCredentials = host === 'www.bridgebase.com' || host === 'my.acbl.org'
+      const listFetch = needsCredentials
         ? (u) => fetchFn(u, { credentials: 'include' }).then((r) => r.text())
         : (u) => fetchFn(u).then((r) => r.text())
       const html = await listFetch(listUrl)
