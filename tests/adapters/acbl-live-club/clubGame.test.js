@@ -280,6 +280,94 @@ describe('parseClubGame (Livermore Bridge Club, 2026-04-20)', () => {
     })
   })
 
+  describe('RSVP Bridge name normalization (titles + middle initials)', () => {
+    // RSVP Bridge scores the same club's games differently from ACBLScore:
+    // it prepends an honorific and inserts a middle initial into the `name`
+    // string (e.g. "Dr Arthur A Mirin" where ACBLScore gives "Arthur Mirin").
+    // Both are stripped so the same person matches across software.
+    // Synthetic blob — no fixture needed; we only exercise normalizePlayerName
+    // via the public parse path.
+    const rsvpData = {
+      id: 1455416,
+      club_name: 'Livermore Bridge Club',
+      type: 'PAIRS',
+      start_date: '06/01/2026',
+      board_scoring_method: 'MATCH_POINTS',
+      acbl_board_top: '12',
+      program_name: 'RSVP Bridge',
+      sessions: [
+        {
+          number: 1,
+          hand_records: [],
+          sections: [
+            {
+              name: 'A',
+              pair_summaries: [
+                {
+                  pair_number: 6,
+                  direction: 'NS',
+                  players: [
+                    { name: 'Padmini Sokkappa', id_number: '111' },
+                    { name: 'Dr Arthur A Mirin', id_number: '222' },
+                  ],
+                },
+                {
+                  pair_number: 5,
+                  direction: 'EW',
+                  // EW players come in [W, E] order; the parser reverses to
+                  // [E, W], so post-parse order is [Louis Meola, Barbara Meola].
+                  players: [
+                    { name: 'Mrs Barbara Meola', id_number: '333' },
+                    { name: 'Mr Louis J Meola', id_number: '444' },
+                  ],
+                },
+              ],
+              boards: [
+                {
+                  board_number: 1,
+                  board_results: [
+                    {
+                      ns_pair: '6',
+                      ew_pair: '5',
+                      contract: '3NT',
+                      declarer: 'N',
+                      tricks_taken: '9',
+                      ns_score: '400',
+                      ns_match_points: '6',
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    }
+    const t = parseClubGame(rsvpData)
+    const result = t.events[0].sessions[0].boards[0].results[0]
+
+    it('strips a leading honorific and the middle initial', () => {
+      // "Dr Arthur A Mirin" → "Arthur Mirin" (matches ACBLScore's form).
+      expect(result.ns_pair.players.map((p) => p.name)).toEqual([
+        'Padmini Sokkappa',
+        'Arthur Mirin',
+      ])
+    })
+
+    it('leaves a title-only name as just the cleaned name (no middle to strip)', () => {
+      // "Mrs Barbara Meola" → "Barbara Meola"; "Mr Louis J Meola" → "Louis
+      // Meola". (EW reversed to [E, W].)
+      expect(result.ew_pair.players.map((p) => p.name)).toEqual([
+        'Louis Meola',
+        'Barbara Meola',
+      ])
+    })
+
+    it('passes through a name with neither title nor middle initial', () => {
+      expect(result.ns_pair.players[0].name).toBe('Padmini Sokkappa')
+    })
+  })
+
   describe('player ID handling', () => {
     it('treats synthetic tmp:* IDs as null acbl_id', () => {
       // Walk every result; if any player has a 'tmp:'-prefixed source ID,

@@ -168,18 +168,67 @@ function parseMasterpoints(awardsScore) {
 }
 
 function normalizePlayerName(name) {
-  // The club source emits names as "Lastname, Firstname" (e.g. "Vondera,
-  // Wayne"). The tournament adapter and the analyzer's downstream UI both
-  // expect "Firstname Lastname". Normalize here so all sources agree.
-  // Names without a comma (already first-last, e.g. "Bruno Jahn") pass
-  // through unchanged.
+  // The club source emits names in software-dependent forms:
+  //   * ACBLScore/ScoreParser: "Lastname, Firstname" (e.g. "Vondera, Wayne"),
+  //     no honorific.
+  //   * RSVP Bridge: "Firstname Lastname" with an honorific prepended into the
+  //     name string itself (e.g. "Dr Arthur A Mirin", "Mrs Barbara Meola") —
+  //     and applied inconsistently (many players have none).
+  // RSVP also inserts a middle initial that ACBLScore omits ("Arthur A Mirin"
+  // vs "Arthur Mirin"). The tournament adapter and the analyzer's downstream
+  // UI both expect a bare "Firstname Lastname". Normalize here — flip the
+  // comma form, strip a leading honorific, then drop interior middle initials
+  // — so the same person resolves identically regardless of which software
+  // scored the game.
   if (typeof name !== 'string') return name ?? null
-  const parts = name.split(',')
-  if (parts.length !== 2) return name
-  const last = parts[0].trim()
-  const first = parts[1].trim()
-  if (!last || !first) return name
-  return `${first} ${last}`
+  let n = name.trim()
+  const parts = n.split(',')
+  if (parts.length === 2) {
+    const last = parts[0].trim()
+    const first = parts[1].trim()
+    if (last && first) n = `${first} ${last}`
+  }
+  return stripMiddleInitials(stripHonorific(n))
+}
+
+// Honorifics RSVP Bridge prepends. Compared case-insensitively, with an
+// optional trailing period ("Dr." as well as "Dr"). Kept conservative: every
+// entry is a title that would never legitimately be someone's first name, so
+// stripping can't clobber a real name.
+const HONORIFICS = new Set([
+  'mr',
+  'mrs',
+  'ms',
+  'miss',
+  'dr',
+  'prof',
+  'rev',
+  'sir',
+  'mx',
+  'madam',
+  'dame',
+])
+
+function stripHonorific(name) {
+  // Strip a single leading honorific token, but only when at least one more
+  // token follows (so a name that is somehow just "Dr" survives intact).
+  const m = name.match(/^([A-Za-z]+)\.?\s+(\S.*)$/)
+  if (m && HONORIFICS.has(m[1].toLowerCase())) return m[2].trim()
+  return name
+}
+
+function stripMiddleInitials(name) {
+  // Drop interior single-letter tokens (optionally with a trailing period):
+  // "Arthur A Mirin" → "Arthur Mirin", "Sharron M Wulferdingen" → "Sharron
+  // Wulferdingen". The first and last tokens are always preserved, so a
+  // single-letter first or last name survives, and two-token names are
+  // untouched.
+  const tokens = name.split(/\s+/).filter(Boolean)
+  if (tokens.length <= 2) return name
+  const kept = tokens.filter(
+    (tok, i) => i === 0 || i === tokens.length - 1 || !/^[A-Za-z]\.?$/.test(tok)
+  )
+  return kept.join(' ')
 }
 
 // --- board ------------------------------------------------------------------
