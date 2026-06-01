@@ -423,12 +423,20 @@ function buildResult(br, sectionName, pairIndex, top, bboGameLinks, boardNumber)
 function parseContract(raw) {
   if (raw == null) return null
   const cleaned = String(raw).replace(/\s+/g, '').toUpperCase()
-  if (cleaned === '' || cleaned === 'PASS' || cleaned === 'PASSEDOUT') {
-    return cleaned === '' ? null : 'PASS'
+  if (cleaned === '') return null
+  // Passed-out forms differ by software: ACBLScore 'PASS'/'PASSED OUT',
+  // RSVP Bridge 'PASSED'.
+  if (cleaned === 'PASS' || cleaned === 'PASSED' || cleaned === 'PASSEDOUT') {
+    return 'PASS'
   }
-  const m = cleaned.match(/^(\d)(NT|[CDHS])(XX|X)?$/)
+  // Strain is a suit or notrump. ACBLScore writes notrump as 'NT'; RSVP
+  // Bridge writes a bare 'N' ('1N', '3NX'). Accept both and normalize to 'NT'
+  // so a notrump contract isn't mistaken for an unparseable row (which would
+  // wrongly surface as a passed-out board).
+  const m = cleaned.match(/^(\d)(NT|N|[CDHS])(XX|X)?$/)
   if (!m) return null
-  return `${m[1]}${m[2]}${m[3] ?? ''}`
+  const strain = m[2] === 'N' ? 'NT' : m[2]
+  return `${m[1]}${strain}${m[3] ?? ''}`
 }
 
 function buildHandviewerUrl(bboGameLinks, boardNumber) {

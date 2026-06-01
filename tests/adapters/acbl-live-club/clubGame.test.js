@@ -280,6 +280,52 @@ describe('parseClubGame (Livermore Bridge Club, 2026-04-20)', () => {
     })
   })
 
+  describe('RSVP Bridge fixture (Livermore, 2026-06-01, program_name RSVPBridge/ScoreParser)', () => {
+    // RSVP Bridge scores the game and uploads to ACBL, where we read it. Its
+    // result rows differ from ACBLScore in ways that previously surfaced whole
+    // boards as passed-out:
+    //   * notrump contracts written as a bare 'N' ('1N', '3NX') not 'NT'
+    //   * passed-out board written as 'PASSED' not 'PASS'
+    //   * tricks_taken / result always null (analyzer derives from score)
+    const rsvpHtml = readFileSync(
+      resolve(here, '../../../fixtures/my-acbl/rsvp-club-game-1455416.html'),
+      'utf8'
+    )
+    const rsvpData = extractClubGameData(rsvpHtml)
+    const rsvp = parseClubGame(rsvpData)
+    const rsvpBoards = rsvp.events[0].sessions[0].boards
+
+    it('reads the RSVP-scored game (program_name confirms the source)', () => {
+      expect(rsvpData.program_name).toBe('RSVPBridge/ScoreParser')
+      expect(rsvpBoards).toHaveLength(28)
+    })
+
+    it('normalizes bare-N notrump contracts to NT (board 1 is all notrump)', () => {
+      const board1 = rsvpBoards.find((b) => b.number === 1)
+      const contracts = board1.results.map((r) => r.contract)
+      // Previously every row here parsed to null → the whole board showed as
+      // passed out. Now they resolve to real notrump contracts.
+      expect(contracts.every((c) => c === '1NT' || c === '2NT')).toBe(true)
+      expect(contracts).not.toContain(null)
+    })
+
+    it('parses doubled notrump (3NX → 3NTX) somewhere in the game', () => {
+      const doubledNT = rsvpBoards
+        .flatMap((b) => b.results)
+        .find((r) => r.contract === '3NTX')
+      expect(doubledNT).toBeDefined()
+    })
+
+    it("treats RSVP's 'PASSED' as a pass, and it is the only passed-out row", () => {
+      const all = rsvpBoards.flatMap((b) => b.results)
+      const passedOut = all.filter((r) => r.contract === 'PASS' || r.contract === null)
+      // The source has exactly one genuinely passed-out board_result.
+      expect(passedOut).toHaveLength(1)
+      // Everything else resolved to a real contract.
+      expect(all.length - passedOut.length).toBeGreaterThan(190)
+    })
+  })
+
   describe('RSVP Bridge name normalization (titles + middle initials)', () => {
     // RSVP Bridge scores the same club's games differently from ACBLScore:
     // it prepends an honorific and inserts a middle initial into the `name`
