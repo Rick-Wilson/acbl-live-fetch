@@ -102,8 +102,11 @@ async function fetchViaTab(url) {
   }
 }
 
-// Hosts whose SameSite=Lax cookies block SW direct fetches.
-const TAB_FETCH_HOSTS = new Set(['my.acbl.org'])
+// Hosts whose SameSite=Lax cookies block SW direct fetches. ACBL's 2026 auth
+// change applies to both properties: my.acbl.org (club results) since May, and
+// live.acbl.org (tournament results) since June — anonymous SW fetches get
+// HTTP 403, so route them through a logged-in same-origin tab.
+const TAB_FETCH_HOSTS = new Set(['my.acbl.org', 'live.acbl.org'])
 
 async function smartFetch(url, opts) {
   try {
