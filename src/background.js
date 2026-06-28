@@ -31,74 +31,102 @@ import bboAdapter from './adapters/bbo/index.js'
 // because the SW is cross-site, Chrome doesn't attach Lax cookies. Running
 // the fetch from inside a my.acbl.org tab's main world IS same-site, so the
 // browser's cookie jar applies normally.
-async function fetchViaTab(url) {
-  const origin = new URL(url).origin
-  const matchPattern = origin + '/*'
-  const tabs = await browser.tabs.query({ url: matchPattern })
-  let tabId
-  let openedTempWindow = null
-  if (tabs.length > 0) {
-    tabId = tabs[0].id
-  } else {
-    // No same-origin tab is open. Open a minimal background window pointing
-    // at the origin's root, wait for load, use it, then close it.
-    const win = await browser.windows.create({
-      url: origin + '/',
-      type: 'popup',
-      focused: false,
-      state: 'minimized',
-      top: -2000,
-      left: -2000,
-      width: 200,
-      height: 200,
-    }).catch(() => null) || await browser.windows.create({
-      url: origin + '/',
+// Among same-origin tabs, pick the one we can actually inject into. A blind
+// tabs[0] can land on a stale tab — discarded by Chrome's memory saver, left
+// mid-navigation, or sitting on a login/error page — and executeScript then
+// fails with "Cannot access contents of the page" even though a usable tab is
+// open. Rank by: the tab the user is looking at (active), still loaded (not
+// discarded), and finished loading (status complete).
+function pickInjectableTab(tabs) {
+  const score = (t) =>
+    (t.active ? 4 : 0) + (t.discarded ? 0 : 2) + (t.status === 'complete' ? 1 : 0)
+  return [...tabs].sort((a, b) => score(b) - score(a))[0]
+}
+
+// Run the credentialed fetch inside a tab's main world (same-site, so the
+// browser attaches SameSite=Lax cookies). Returns a minimal Response-like.
+async function runFetchInTab(tabId, url) {
+  const results = await browser.scripting.executeScript({
+    target: { tabId },
+    world: 'MAIN',
+    func: (u) =>
+      fetch(u, { credentials: 'include' }).then(async (r) => ({
+        ok: r.ok,
+        status: r.status,
+        statusText: r.statusText,
+        body: await r.text(),
+      })),
+    args: [url],
+  })
+  const r = results?.[0]?.result
+  if (!r) throw new Error('executeScript returned no result')
+  return {
+    ok: r.ok,
+    status: r.status,
+    statusText: r.statusText,
+    text: async () => r.body,
+    headers: { get: () => null },
+  }
+}
+
+// Open a minimized off-screen window on the target URL (a real, permitted
+// same-origin page) and wait for it to load. We point it at the target rather
+// than the origin root because the root can redirect to an off-origin login,
+// which would be unscriptable. Returns { tabId, windowId }.
+async function openTempTab(url) {
+  const win =
+    (await browser.windows
+      .create({
+        url,
+        type: 'popup',
+        focused: false,
+        state: 'minimized',
+        top: -2000,
+        left: -2000,
+        width: 200,
+        height: 200,
+      })
+      .catch(() => null)) ||
+    (await browser.windows.create({
+      url,
       type: 'normal',
       focused: false,
       state: 'minimized',
-    })
-    openedTempWindow = win.id
-    tabId = win.tabs?.[0]?.id
-    // Wait for the tab to finish loading (max 15s).
-    await Promise.race([
-      new Promise((resolve) => {
-        const listener = (id, info) => {
-          if (id === tabId && info.status === 'complete') {
-            browser.tabs.onUpdated.removeListener(listener)
-            resolve()
-          }
+    }))
+  const tabId = win.tabs?.[0]?.id
+  await Promise.race([
+    new Promise((resolve) => {
+      const listener = (id, info) => {
+        if (id === tabId && info.status === 'complete') {
+          browser.tabs.onUpdated.removeListener(listener)
+          resolve()
         }
-        browser.tabs.onUpdated.addListener(listener)
-      }),
-      new Promise((resolve) => setTimeout(resolve, 15000)),
-    ])
+      }
+      browser.tabs.onUpdated.addListener(listener)
+    }),
+    new Promise((resolve) => setTimeout(resolve, 15000)),
+  ])
+  return { tabId, windowId: win.id }
+}
+
+async function fetchViaTab(url) {
+  const matchPattern = new URL(url).origin + '/*'
+  const tabs = await browser.tabs.query({ url: matchPattern })
+  // Prefer an already-open same-origin tab (no flicker, no extra page load).
+  if (tabs.length > 0) {
+    const tab = pickInjectableTab(tabs)
+    try {
+      return await runFetchInTab(tab.id, url)
+    } catch {
+      // The chosen tab was unscriptable after all — fall through to a
+      // dedicated temp window rather than failing the whole extraction.
+    }
   }
+  const { tabId, windowId } = await openTempTab(url)
   try {
-    const results = await browser.scripting.executeScript({
-      target: { tabId },
-      world: 'MAIN',
-      func: (u) =>
-        fetch(u, { credentials: 'include' }).then(async (r) => ({
-          ok: r.ok,
-          status: r.status,
-          statusText: r.statusText,
-          body: await r.text(),
-        })),
-      args: [url],
-    })
-    const r = results?.[0]?.result
-    if (!r) throw new Error('executeScript returned no result')
-    return {
-      ok: r.ok,
-      status: r.status,
-      statusText: r.statusText,
-      text: async () => r.body,
-      headers: { get: () => null },
-    }
+    return await runFetchInTab(tabId, url)
   } finally {
-    if (openedTempWindow != null) {
-      browser.windows.remove(openedTempWindow).catch(() => {})
-    }
+    if (windowId != null) browser.windows.remove(windowId).catch(() => {})
   }
 }
 
