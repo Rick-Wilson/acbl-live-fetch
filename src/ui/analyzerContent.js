@@ -1,5 +1,5 @@
 // Bridge content script. Runs at document_start on
-// game-analysis.bridge-classroom.org/analyze*.
+// bridge-classroom.{org,com}/game-analysis/* (same-origin with the SPA).
 // Reads `#sid=<uuid>` from the URL fragment, asks the service worker to hand
 // over the pending session, and writes it into window.sessionStorage under
 // the key the SPA will read on mount.
@@ -114,13 +114,15 @@ export async function runHandoff(deps) {
 // top-level await (not available in our build target).
 if (typeof globalThis.chrome !== 'undefined' || typeof globalThis.browser !== 'undefined') {
   import('webextension-polyfill').then(({ default: browser }) => {
-    // Track which analyzer host the user is currently using so future
-    // extension launches stay on the same domain (.com vs .org). The user
-    // doesn't need to choose — visiting the analyzer is the implicit signal.
+    // Track which TLD the user is currently using so future extension launches
+    // stay on the same domain (.com vs .org). The user doesn't need to choose —
+    // visiting the analyzer is the implicit signal. The analyzer now lives at
+    // bridge-classroom.{tld}/game-analysis/ (same host as the SPA), so key on
+    // host + path, not host alone.
     const host = window.location.hostname
-    if (host === 'game-analysis.bridge-classroom.org' ||
-        host === 'game-analysis.bridge-classroom.com') {
-      browser.storage.local.set({ preferredAnalyzerHost: host }).catch(() => {})
+    const onAnalyzer = window.location.pathname.startsWith('/game-analysis/')
+    if (onAnalyzer && (host === 'bridge-classroom.org' || host === 'bridge-classroom.com')) {
+      browser.storage.local.set({ preferredAnalyzerTld: host.endsWith('.org') ? 'org' : 'com' }).catch(() => {})
     }
 
     runHandoff({
