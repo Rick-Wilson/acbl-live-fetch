@@ -87,6 +87,15 @@ START_T=$(date +%s)
 PREV_N=$START_N
 PREV_T=$START_T
 
+# Project from a trailing window rather than the last interval. At ~2s per
+# request a 60s sample holds only ~28 of them, so one request landing either
+# side of the tick swings the rate ~4% and the ETA by tens of minutes. Ten
+# minutes of history smooths that out while still tracking a real slowdown from
+# rate-limit backoff, which persists for minutes rather than seconds.
+SMOOTH_SECONDS=600
+SAMPLE_T=("$START_T")
+SAMPLE_N=("$START_N")
+
 echo "journal  $JOURNAL"
 echo "total    $TOTAL replays${FILTERS:+  ($FILTERS)}$DETECTED"
 echo "already  $BASELINE in selection at start"
@@ -102,15 +111,27 @@ while :; do
   DT=$((NOW_T - PREV_T))
   [ "$DT" -le 0 ] && DT=1
 
-  # Recent rate drives the projection; overall rate is shown for contrast so a
-  # slowdown from rate-limit backoff is visible rather than averaged away.
+  # Last-interval rate, shown so a stall is immediately visible.
   RECENT=$(bc -l <<< "$DN / $DT")
   OVERALL=$(bc -l <<< "($NOW_N - $START_N) / ($NOW_T - $START_T + 0.001)")
+
+  # Trailing-window rate, used for the projection.
+  SAMPLE_T+=("$NOW_T")
+  SAMPLE_N+=("$NOW_N")
+  while [ ${#SAMPLE_T[@]} -gt 2 ] && [ $((NOW_T - ${SAMPLE_T[0]})) -gt $SMOOTH_SECONDS ]; do
+    SAMPLE_T=("${SAMPLE_T[@]:1}")
+    SAMPLE_N=("${SAMPLE_N[@]:1}")
+  done
+  WIN_DT=$((NOW_T - ${SAMPLE_T[0]}))
+  WIN_DN=$((NOW_N - ${SAMPLE_N[0]}))
+  [ "$WIN_DT" -le 0 ] && WIN_DT=$DT && WIN_DN=$DN
+  SMOOTH=$(bc -l <<< "$WIN_DN / $WIN_DT")
+
   LEFT=$((TOTAL - NOW_N))
   PCT=$(bc -l <<< "100 * $NOW_N / $TOTAL")
 
-  if (( $(bc -l <<< "$RECENT > 0.001") )); then
-    ETA_S=$(bc -l <<< "$LEFT / $RECENT")
+  if (( $(bc -l <<< "$SMOOTH > 0.001") )); then
+    ETA_S=$(bc -l <<< "$LEFT / $SMOOTH")
     REMAIN=$(hms "$ETA_S")
     ETD=$(date -v+"${ETA_S%.*}"S '+%a %H:%M')
   else
@@ -118,9 +139,9 @@ while :; do
     ETD="--"
   fi
 
-  printf '%s  %6d/%d  %5.1f%%  %.2f/s (avg %.2f)  %d/min  left %s  done ~%s\n' \
+  printf '%s  %6d/%d  %5.1f%%  %.2f/s now  %.2f/s %dm  %.2f/s avg  left %s  done ~%s\n' \
     "$(date '+%H:%M:%S')" "$NOW_N" "$TOTAL" "$PCT" \
-    "$RECENT" "$OVERALL" "$(bc <<< "$DN * 60 / $DT")" "$REMAIN" "$ETD"
+    "$RECENT" "$SMOOTH" "$((WIN_DT / 60))" "$OVERALL" "$REMAIN" "$ETD"
 
   if [ "$NOW_N" -ge "$TOTAL" ]; then
     echo
