@@ -79,6 +79,8 @@ Options:
   --no-adaptive           Hold --delay fixed; never speed up or back off
   --max-per-board <n>     Fetch at most n replays per board, in traveller order
   --min-per-board <n>     Skip boards with fewer than n comparable tables
+  --worse-than-field <m>  Only boards where you took fewer tricks than the
+                          comparable tables: best | mean | median
   --same-contract         Only tables that played your exact contract from your
                           exact declarer seat (4S and 4SX count as different)
   --limit <n>             Stop after n fetches this run (testing)
@@ -108,6 +110,16 @@ function parseArgs(argv) {
       case '--no-adaptive': opts.adaptive = false; break
       case '--max-per-board': opts.maxPerBoard = num(); break
       case '--min-per-board': opts.minPerBoard = num(); break
+      case '--worse-than-field': {
+        const mode = argv[++i] ?? 'mean'
+        if (!Object.hasOwn(FIELD_THRESHOLDS, mode)) {
+          throw new Error(
+            `--worse-than-field takes ${Object.keys(FIELD_THRESHOLDS).join(' | ')}, got '${mode}'`
+          )
+        }
+        opts.worseThanField = mode
+        break
+      }
       case '--same-contract': opts.sameContract = true; break
       case '--limit': opts.limit = num(); break
       case '--out': opts.out = argv[++i]; break
@@ -159,7 +171,27 @@ function* eachBoard(doc) {
 // has to yield a superset of what a narrower run already fetched, so reruns
 // only fill in extras. That holds because rows are taken in traveller order
 // and the cap is a prefix of that order — see tests/tools/workList.test.js.
-export function buildWorkList(doc, { maxPerBoard, minPerBoard, sameContract } = {}) {
+const mean = (xs) => xs.reduce((a, b) => a + b, 0) / xs.length
+const median = (xs) => {
+  const s = [...xs].sort((a, b) => a - b)
+  const m = s.length >> 1
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2
+}
+
+export const FIELD_THRESHOLDS = {
+  // The best table measures the worst defence anyone met, so it flags boards
+  // where a defender slipped rather than where a line was hard to find.
+  best: (xs) => Math.max(...xs),
+  // Mean and median measure play against typical defence, which is the useful
+  // comparison for asking whether a line was findable at the table.
+  mean,
+  median,
+}
+
+export function buildWorkList(
+  doc,
+  { maxPerBoard, minPerBoard, sameContract, worseThanField } = {}
+) {
   const work = []
   const seen = new Set()
   for (const { board } of eachBoard(doc)) {
@@ -180,6 +212,21 @@ export function buildWorkList(doc, { maxPerBoard, minPerBoard, sameContract } = 
     if (minPerBoard != null) {
       const comparable = (board.results ?? []).filter((r, i) => eligible(r, i)).length
       if (comparable < minPerBoard) continue
+    }
+
+    // --worse-than-field keeps only boards where you underperformed tables in
+    // the same contract from the same seat — the boards with something to
+    // explain. Always compared like for like, even when --same-contract isn't
+    // narrowing the fetch, since trick counts across different contracts
+    // aren't comparable.
+    if (worseThanField) {
+      if (mine?.tricks == null || !mine.contract) continue
+      const peers = (board.results ?? [])
+        .filter((r, i) =>
+          i !== ui && r.contract === mine.contract && r.declarer === mine.declarer && r.tricks != null)
+        .map((r) => r.tricks)
+      if (!peers.length) continue
+      if (!(mine.tricks < FIELD_THRESHOLDS[worseThanField](peers))) continue
     }
 
     let taken = 0
@@ -464,6 +511,7 @@ async function cmdStatus(input, opts) {
   const scope = [
     opts.sameContract ? 'same contract + seat' : null,
     opts.minPerBoard ? `>=${opts.minPerBoard} comparable/board` : null,
+    opts.worseThanField ? `worse than field ${opts.worseThanField}` : null,
     opts.maxPerBoard ? `capped ${opts.maxPerBoard}/board` : null,
   ].filter(Boolean).join(', ')
   console.log(`replays wanted    ${work.length}${scope ? ` (${scope})` : ''}`)

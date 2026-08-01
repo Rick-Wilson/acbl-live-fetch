@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest'
 import { buildWorkList } from '../../tools/fetch-replays.js'
 
 // Minimal envelope tree: one board, one user row plus `others`.
-function doc(userContract, userDeclarer, others) {
+// userTricks defaults to null — only the --worse-than-field cases need it.
+function doc(userContract, userDeclarer, others, userTricks = null) {
   return {
     envelopes: [{
       tournaments: [{
@@ -12,10 +13,17 @@ function doc(userContract, userDeclarer, others) {
               number: 1,
               user_result_index: 0,
               results: [
-                { contract: userContract, declarer: userDeclarer, play: ['S2'], handviewer_url: 'x?myhand=M-1000-99' },
+                {
+                  contract: userContract,
+                  declarer: userDeclarer,
+                  tricks: userTricks,
+                  play: ['S2'],
+                  handviewer_url: 'x?myhand=M-1000-99',
+                },
                 ...others.map((o, i) => ({
                   contract: o.contract,
                   declarer: o.declarer,
+                  tricks: o.tricks ?? null,
                   play: o.play ?? null,
                   handviewer_url: `x?myhand=M-${2000 + i}-99`,
                 })),
@@ -61,6 +69,45 @@ describe('buildWorkList', () => {
     // by the next eligible row (2005); the cap still covers the same two rows.
     expect(fresh).toEqual(['2000', '2002'])
     expect(ids(buildWorkList(doc('4S', 'N', merged), opts))).toEqual(['2002'])
+  })
+
+  describe('--worse-than-field', () => {
+    // Peers all in 4S by N so they're comparable; your tricks vary per case.
+    const peers = (...tricks) => tricks.map((t) => ({ contract: '4S', declarer: 'N', tricks: t }))
+
+    const opts = (mode) => ({ worseThanField: mode, sameContract: true })
+
+    it('keeps a board where you trail the field', () => {
+      const d = doc('4S', 'N', peers(10, 10, 11), 10)      // mean 10.33
+      expect(ids(buildWorkList(d, opts('mean')))).toHaveLength(3)
+    })
+
+    it('drops a board where you match the field', () => {
+      const d = doc('4S', 'N', peers(10, 10, 10), 10)
+      for (const mode of ['mean', 'median', 'best']) {
+        expect(buildWorkList(d, opts(mode))).toEqual([])
+      }
+    })
+
+    // The distinction that motivates not defaulting to `best`: a single table
+    // beating the field is an outlier, and an extreme-order statistic reacts to
+    // it where a robust one doesn't.
+    it('best reacts to a lone outlier where median does not', () => {
+      const d = doc('4S', 'N', peers(10, 10, 10, 10, 13), 10)
+      expect(buildWorkList(d, opts('best'))).not.toEqual([])
+      expect(buildWorkList(d, opts('median'))).toEqual([])
+      // mean is 10.6, so one outlier does drag it above your 10 — median is the
+      // more robust choice when that matters.
+      expect(buildWorkList(d, opts('mean'))).not.toEqual([])
+    })
+
+    it('skips boards with no comparable table or no trick count', () => {
+      const noPeers = doc('4S', 'N', [{ contract: '3NT', declarer: 'S', tricks: 9 }], 10)
+      expect(buildWorkList(noPeers, { worseThanField: 'mean' })).toEqual([])
+
+      const noTricks = doc('4S', 'N', peers(11), null)
+      expect(buildWorkList(noTricks, { worseThanField: 'mean' })).toEqual([])
+    })
   })
 
   describe('--min-per-board', () => {
