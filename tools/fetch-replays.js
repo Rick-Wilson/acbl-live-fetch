@@ -39,12 +39,19 @@ const DEFAULTS = {
   delayMs: 2000,
   minDelayMs: 1500,
   maxDelayMs: 60000,
-  // Multiplicative backoff on refusal, gentle decay when the coast is clear —
-  // the classic shape, tuned slow because a multi-day run has no reason to
-  // probe aggressively.
-  backoff: 1.5,
-  speedup: 0.95,
-  speedupAfter: 50,
+  // Steady-state pacing moves additively in both directions. A multiplicative
+  // backoff ratchets: seven refusals took the delay from 2s to 34s, and at
+  // -5%-per-50-successes it would have needed hundreds of clean requests to
+  // recover. Nudging up 250ms and down 100ms keeps a burst of refusals from
+  // permanently crippling throughput.
+  stepUpMs: 250,
+  stepDownMs: 100,
+  speedupAfter: 20,
+  // Retry pacing is separate from steady-state pacing: a refusal means the
+  // bucket is empty right now, which calls for a real pause, not a permanent
+  // slowdown.
+  penaltyBaseMs: 5000,
+  penaltyMaxMs: 120000,
   maxRetries: 5,
   progressEvery: 25,
 }
@@ -296,13 +303,15 @@ async function cmdFetch(input, opts) {
         if (err instanceof RateLimited) {
           limited++
           streak = 0
+          attempt++
           if (live.adaptive) {
-            live.delayMs = Math.min(Math.round(live.delayMs * live.backoff), live.maxDelayMs)
+            live.delayMs = Math.min(live.delayMs + live.stepUpMs, live.maxDelayMs)
           }
-          // Wait out the bucket before trying this one again. Refusals aren't
-          // journalled, so a run that dies here just refetches the row.
-          await sleep(live.delayMs)
-          if (++attempt > live.maxRetries) { limited--; failed++; break }
+          if (attempt > live.maxRetries) { limited--; failed++; break }
+          // Wait out the bucket before retrying: exponential in the number of
+          // consecutive refusals for this row, but reset for the next row.
+          // Refusals aren't journalled, so a run that dies here refetches it.
+          await sleep(Math.min(live.penaltyBaseMs * 2 ** (attempt - 1), live.penaltyMaxMs))
           continue
         }
         if (err.permanent) {
@@ -318,9 +327,13 @@ async function cmdFetch(input, opts) {
     }
 
     if (live.adaptive && streak >= live.speedupAfter) {
-      live.delayMs = Math.max(Math.round(live.delayMs * live.speedup), live.minDelayMs)
+      live.delayMs = Math.max(live.delayMs - live.stepDownMs, live.minDelayMs)
       streak = 0
     }
+
+    // Pace the next request. This is the throttle: without it the loop runs
+    // flat out and the delay above only ever applies to retries.
+    if (i + 1 < work.length) await sleep(live.delayMs)
 
     const n = ok + failed
     if (n % live.progressEvery === 0) {
