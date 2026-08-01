@@ -2,37 +2,80 @@
 # Watch a fetch-replays.js run: prints a progress line every 60s with the
 # current rate, time remaining, and projected finish clock time.
 #
-#   tools/watch-replays.sh <export.json> [interval_seconds]
+#   tools/watch-replays.sh <export.json> [interval_seconds] [filter flags...]
 #
-# Counts lines in the journal rather than scraping the log, so it reports the
-# same number the fetcher would resume from. Ctrl-C stops the watcher only —
-# the fetch is a separate process and keeps running.
+# Pass the same filter flags the fetch was started with, so the total matches
+# the run being watched:
+#
+#   tools/watch-replays.sh export.json 60 --same-contract --min-per-board 10 \
+#     --max-per-board 10
+#
+# Ctrl-C stops the watcher only — the fetch is a separate process and keeps
+# running.
 
 set -u
 
 INPUT="${1:-}"
-INTERVAL="${2:-60}"
-
 if [ -z "$INPUT" ]; then
-  echo "usage: $(basename "$0") <export.json> [interval_seconds]" >&2
+  echo "usage: $(basename "$0") <export.json> [interval_seconds] [filter flags...]" >&2
   exit 1
+fi
+shift
+
+INTERVAL=60
+if [ $# -gt 0 ] && [ -z "${1##[0-9]*}" ]; then
+  INTERVAL="$1"
+  shift
+fi
+# Kept as a plain string rather than an array: macOS ships bash 3.2, where
+# expanding an empty array under `set -u` is an error. These flags are simple
+# tokens, so word splitting is safe.
+FILTERS="$*"
+
+# With no flags given, inherit them from the running fetch so the denominator
+# can't drift from the run being watched. Only selection-affecting flags are
+# copied; --limit and throttle knobs don't change what the run is aiming at.
+DETECTED=""
+if [ -z "$FILTERS" ]; then
+  # ps rather than `pgrep -a`: on macOS -a does not print arguments.
+  RUNNING=$(ps -Ao args= 2>/dev/null | grep "fetch-replays\.js fetch" | grep -v grep | head -1 || true)
+  if [ -n "$RUNNING" ]; then
+    case "$RUNNING" in *--same-contract*) FILTERS="--same-contract" ;; esac
+    for flag in --min-per-board --max-per-board; do
+      if [[ "$RUNNING" =~ $flag[[:space:]]+([0-9]+) ]]; then
+        FILTERS="$FILTERS $flag ${BASH_REMATCH[1]}"
+      fi
+    done
+    [ -n "$FILTERS" ] && DETECTED=" (detected from running fetch)"
+  fi
 fi
 
 BASE="${INPUT%.json}"
 JOURNAL="$BASE.replays.jsonl"
 
-# Ask the fetcher itself how much work the current knobs imply, so the total
-# matches whatever --max-per-board the run was started with.
-TOTAL=$(node --max-old-space-size=8192 \
-  "$(dirname "$0")/fetch-replays.js" status "$INPUT" ${MAX_PER_BOARD:+--max-per-board "$MAX_PER_BOARD"} 2>/dev/null \
-  | awk '/replays wanted/ {print $3}')
+# Ask the fetcher itself how much the current flags imply, so the denominator
+# matches the run rather than the whole export.
+STATUS=$(node --max-old-space-size=8192 \
+  "$(dirname "$0")/fetch-replays.js" status "$INPUT" $FILTERS 2>/dev/null)
+TOTAL=$(awk '/replays wanted/ {print $3}' <<< "$STATUS")
+BASELINE=$(awk '/replays fetched/ {print $3}' <<< "$STATUS")
 
-if [ -z "$TOTAL" ]; then
+if [ -z "$TOTAL" ] || [ -z "$BASELINE" ]; then
   echo "could not read totals from $INPUT" >&2
   exit 1
 fi
 
-count() { [ -f "$JOURNAL" ] && wc -l < "$JOURNAL" | tr -d ' ' || echo 0; }
+# The journal holds every replay ever fetched, including ones outside this
+# run's selection, so its raw line count is not this run's progress. Take the
+# in-selection count from status once, then track journal growth from here —
+# the running fetch only appends rows it selected.
+JOURNAL_AT_START=$([ -f "$JOURNAL" ] && wc -l < "$JOURNAL" | tr -d ' ' || echo 0)
+
+count() {
+  local now
+  now=$([ -f "$JOURNAL" ] && wc -l < "$JOURNAL" | tr -d ' ' || echo 0)
+  echo $((BASELINE + now - JOURNAL_AT_START))
+}
 
 hms() { # seconds -> 12h34m
   local s=${1%.*}
@@ -45,7 +88,8 @@ PREV_N=$START_N
 PREV_T=$START_T
 
 echo "journal  $JOURNAL"
-echo "total    $TOTAL replays"
+echo "total    $TOTAL replays${FILTERS:+  ($FILTERS)}$DETECTED"
+echo "already  $BASELINE in selection at start"
 echo "interval ${INTERVAL}s   (Ctrl-C stops this watcher, not the fetch)"
 echo
 
