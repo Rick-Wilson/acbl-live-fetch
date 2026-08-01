@@ -148,6 +148,25 @@ async function smartFetch(url, opts) {
   return globalThis.fetch(url, opts)
 }
 
+// Ship one dev-bulk envelope to the tab that's assembling the output file.
+// Serializing here (rather than passing the object) keeps the structured-clone
+// step cheap and lets the tab concatenate strings straight into a Blob.
+// Returns 1 on success, 0 if the tab rejected it — a dropped envelope should
+// cost one tournament, not abort a run that may be an hour deep.
+async function sendEnvelope(tabId, envelope) {
+  try {
+    await browser.tabs.sendMessage(tabId, {
+      type: 'dev-bulk-file-chunk',
+      json: JSON.stringify(envelope),
+    })
+    return 1
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.log('[acbl-fetch] dev-bulk-extract: chunk delivery failed', err?.message ?? err)
+    return 0
+  }
+}
+
 const deps = () => ({
   storage: browser.storage.local,
   tabs: browser.tabs,
@@ -158,23 +177,33 @@ const deps = () => ({
 browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // dev-bulk-extract: developer-only bulk extraction triggered via the
   // `#bcdev-mega` URL hash on the BBO lobby. Iterates a list of tournament
-  // URLs, runs each through the BBO adapter (with credentialed fetches),
-  // accumulates the envelopes in memory, and downloads the aggregate as a
-  // single JSON file. Bypasses the analyzer entirely — this is for offline
-  // analysis of long-range history (years), too big for sessionStorage.
-  // Intentionally not surfaced in the production UI.
+  // URLs, runs each through the BBO adapter (with credentialed fetches), and
+  // streams each envelope to the requesting lobby tab, which assembles them
+  // into a single JSON file and saves it. Bypasses the analyzer entirely —
+  // this is for offline analysis of long-range history (years), too big for
+  // sessionStorage. Intentionally not surfaced in the production UI.
+  //
+  // The tab does the saving because an MV3 service worker has no
+  // URL.createObjectURL, and the data: URL workaround this used to rely on
+  // silently caps out: Chrome rejects URLs over ~2MB, so a few hundred
+  // tournaments produced a 0-byte `download.json` with no error raised.
+  // A blob URL from a page context has no such limit.
   if (message?.type === 'dev-bulk-extract') {
     const urls = Array.isArray(message.urls) ? message.urls : []
     const filename = message.filename ?? `bbo-history-${new Date().toISOString().slice(0, 10)}.json`
     const progressKey = 'dev-bulk-progress'
     const cancelKey = 'dev-bulk-cancel'
+    // The requesting lobby tab assembles and saves the file. See the
+    // dev-bulk-file-* messages below for why the SW can't do it itself.
+    const tabId = sender?.tab?.id
     sendResponse({ type: 'dev-bulk-started', total: urls.length })
     ;(async () => {
-      const envelopes = []
       const errors = []
       const startedAt = Date.now()
+      let sent = 0
       await browser.storage.local.set({ [progressKey]: { total: urls.length, completed: 0, errors: 0, done: false, startedAt } })
       await browser.storage.local.remove(cancelKey).catch(() => {})
+      await browser.tabs.sendMessage(tabId, { type: 'dev-bulk-file-begin' }).catch(() => {})
       let cancelled = false
       for (let i = 0; i < urls.length; i++) {
         const cancelCheck = await browser.storage.local.get(cancelKey).catch(() => null)
@@ -187,7 +216,10 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
             fetch: globalThis.fetch.bind(globalThis),
             log: () => {},
           })
-          envelopes.push(env)
+          // Hand each envelope off as soon as it's built rather than banking
+          // them here: SW memory stays flat over a multi-hundred-tournament
+          // run, and an SW eviction can't take the whole batch with it.
+          sent += await sendEnvelope(tabId, env)
         } catch (err) {
           errors.push({ url, error: err?.message ?? String(err) })
         }
@@ -195,38 +227,30 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
         // Brief pause between tournaments to be nice to BBO.
         await new Promise((r) => setTimeout(r, 250))
       }
-      // Build the output file. Wrap envelopes in a small header so the file
-      // self-describes (counts, generation timestamp, source URL ranges).
-      const output = {
-        generated_at: new Date().toISOString(),
-        envelope_count: envelopes.length,
-        error_count: errors.length,
-        cancelled,
-        errors,
-        envelopes,
-      }
-      // MV3 service workers don't expose URL.createObjectURL, so we encode the
-      // payload as a base64 data URL and feed that to chrome.downloads.
-      const json = JSON.stringify(output, null, 2)
-      const bytes = new TextEncoder().encode(json)
-      let binary = ''
-      const CHUNK = 0x8000
-      for (let i = 0; i < bytes.length; i += CHUNK) {
-        binary += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK))
-      }
-      const dataUrl = `data:application/json;base64,${btoa(binary)}`
-      // eslint-disable-next-line no-console
-      console.log('[acbl-fetch] dev-bulk-extract: downloading', { filename, bytes: bytes.length, envelopes: envelopes.length, errors: errors.length })
+      // Tell the tab to assemble and save. The header travels separately from
+      // the envelopes so the tab can write it without re-serializing them.
+      let saveError = null
       try {
-        // saveAs:false → goes straight into Downloads folder. Avoids the
-        // dialog timeout/SW-suspension risk for long-running extracts where
-        // the user may not be at the computer when the file is ready.
-        await browser.downloads.download({ url: dataUrl, filename, saveAs: false })
-      } catch (err) {
+        const res = await browser.tabs.sendMessage(tabId, {
+          type: 'dev-bulk-file-finish',
+          filename,
+          header: {
+            generated_at: new Date().toISOString(),
+            envelope_count: sent,
+            error_count: errors.length,
+            cancelled,
+            errors,
+          },
+        })
+        if (res?.error) saveError = res.error
         // eslint-disable-next-line no-console
-        console.log('[acbl-fetch] dev-bulk-extract: download failed', err?.message ?? err)
+        console.log('[acbl-fetch] dev-bulk-extract: saved', { filename, envelopes: sent, bytes: res?.bytes, errors: errors.length })
+      } catch (err) {
+        saveError = err?.message ?? String(err)
+        // eslint-disable-next-line no-console
+        console.log('[acbl-fetch] dev-bulk-extract: save failed', saveError)
       }
-      await browser.storage.local.set({ [progressKey]: { total: urls.length, completed: urls.length, errors: errors.length, done: true, cancelled, startedAt, finishedAt: Date.now() } })
+      await browser.storage.local.set({ [progressKey]: { total: urls.length, completed: urls.length, errors: errors.length, done: true, cancelled, startedAt, finishedAt: Date.now(), saveError } })
       await browser.storage.local.remove(cancelKey).catch(() => {})
     })().catch(() => {})
     return true
