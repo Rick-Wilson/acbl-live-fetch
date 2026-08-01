@@ -83,6 +83,9 @@ Options:
                           comparable tables: best | mean | median
   --same-contract         Only tables that played your exact contract from your
                           exact declarer seat (4S and 4SX count as different)
+  --player <name>         Only tables where this player sat (case-insensitive,
+                          repeatable). Use alone to capture one player's whole
+                          history rather than your own comparison set.
   --limit <n>             Stop after n fetches this run (testing)
   --out <path>            Output path for merge (default <input>.expanded.json)
   --help
@@ -121,6 +124,10 @@ function parseArgs(argv) {
         break
       }
       case '--same-contract': opts.sameContract = true; break
+      case '--player':
+        // Repeatable: --player gavin --player nazinator
+        opts.players = [...(opts.players ?? []), argv[++i]]
+        break
       case '--limit': opts.limit = num(); break
       case '--out': opts.out = argv[++i]; break
       case '--help': case '-h': usage(); process.exit(0); break
@@ -188,10 +195,24 @@ export const FIELD_THRESHOLDS = {
   median,
 }
 
+// BBO usernames are case-insensitive to log in but stored as typed, so the same
+// person shows up as both 'emwny' and 'EMWNY'. Fold case or you'll split people.
+function seatedPlayers(result) {
+  const out = []
+  for (const pair of [result?.ns_pair, result?.ew_pair]) {
+    for (const p of pair?.players ?? []) {
+      if (p?.name) out.push(p.name.toLowerCase())
+    }
+  }
+  return out
+}
+
 export function buildWorkList(
   doc,
-  { maxPerBoard, minPerBoard, sameContract, worseThanField } = {}
+  { maxPerBoard, minPerBoard, sameContract, worseThanField, players } = {}
 ) {
+  const wanted = players?.length ? new Set(players.map((p) => p.toLowerCase())) : null
+
   const work = []
   const seen = new Set()
   for (const { board } of eachBoard(doc)) {
@@ -203,7 +224,8 @@ export function buildWorkList(
 
     const eligible = (r, i) =>
       i !== ui &&
-      (!sameContract || (r.contract === mine.contract && r.declarer === mine.declarer))
+      (!sameContract || (r.contract === mine.contract && r.declarer === mine.declarer)) &&
+      (!wanted || seatedPlayers(r).some((n) => wanted.has(n)))
 
     // --min-per-board gates the whole board on how many comparable tables it
     // has, for when a board is only worth fetching if the comparison is broad
@@ -512,6 +534,7 @@ async function cmdStatus(input, opts) {
     opts.sameContract ? 'same contract + seat' : null,
     opts.minPerBoard ? `>=${opts.minPerBoard} comparable/board` : null,
     opts.worseThanField ? `worse than field ${opts.worseThanField}` : null,
+    opts.players?.length ? `player ${opts.players.join('/')}` : null,
     opts.maxPerBoard ? `capped ${opts.maxPerBoard}/board` : null,
   ].filter(Boolean).join(', ')
   console.log(`replays wanted    ${work.length}${scope ? ` (${scope})` : ''}`)

@@ -110,6 +110,58 @@ describe('buildWorkList', () => {
     })
   })
 
+  describe('--player', () => {
+    // doc() names every seat 'x' by default, so give specific rows real seats.
+    const seated = (names) => ({
+      contract: '4S',
+      declarer: 'N',
+      ns: names.slice(0, 2),
+      ew: names.slice(2, 4),
+    })
+
+    const withSeats = (rows) => {
+      const d = doc('4S', 'N', rows)
+      const results = d.envelopes[0].tournaments[0].events[0].sessions[0].boards[0].results
+      rows.forEach((row, i) => {
+        if (!row.ns) return
+        results[i + 1].ns_pair = { players: row.ns.map((name) => ({ name })) }
+        results[i + 1].ew_pair = { players: row.ew.map((name) => ({ name })) }
+      })
+      return d
+    }
+
+    it('keeps only tables where the player sat', () => {
+      const d = withSeats([
+        seated(['gavin', 'Nazinator', 'a', 'b']),
+        seated(['c', 'd', 'e', 'f']),
+        seated(['g', 'h', 'gavin', 'i']),
+      ])
+      expect(ids(buildWorkList(d, { players: ['gavin'] }))).toEqual(['2000', '2002'])
+    })
+
+    // BBO stores usernames as typed but treats them as case-insensitive, so
+    // 'EMWNY' and 'emwny' are one person.
+    it('matches case-insensitively', () => {
+      const d = withSeats([seated(['GAVIN', 'x', 'y', 'z'])])
+      expect(ids(buildWorkList(d, { players: ['gavin'] }))).toEqual(['2000'])
+      expect(ids(buildWorkList(d, { players: ['GaViN'] }))).toEqual(['2000'])
+    })
+
+    it('accepts several players', () => {
+      const d = withSeats([
+        seated(['gavin', 'a', 'b', 'c']),
+        seated(['d', 'e', 'f', 'g']),
+        seated(['h', 'nazinator', 'i', 'j']),
+      ])
+      expect(ids(buildWorkList(d, { players: ['gavin', 'Nazinator'] }))).toEqual(['2000', '2002'])
+    })
+
+    it('matches whole names, not substrings', () => {
+      const d = withSeats([seated(['gavinx', 'a', 'b', 'c'])])
+      expect(buildWorkList(d, { players: ['gavin'] })).toEqual([])
+    })
+  })
+
   describe('--min-per-board', () => {
     it('drops boards with too few comparable tables', () => {
       const opts = { sameContract: true, minPerBoard: 4 }
