@@ -78,6 +78,9 @@ Options:
   --max-delay <ms>        Ceiling when backing off (default ${DEFAULTS.maxDelayMs})
   --no-adaptive           Hold --delay fixed; never speed up or back off
   --max-per-board <n>     Fetch at most n replays per board, in traveller order
+  --min-per-board <n>     Skip boards with fewer than n comparable tables
+  --same-contract         Only tables that played your exact contract from your
+                          exact declarer seat (4S and 4SX count as different)
   --limit <n>             Stop after n fetches this run (testing)
   --out <path>            Output path for merge (default <input>.expanded.json)
   --help
@@ -104,6 +107,8 @@ function parseArgs(argv) {
       case '--max-delay': opts.maxDelayMs = num(); break
       case '--no-adaptive': opts.adaptive = false; break
       case '--max-per-board': opts.maxPerBoard = num(); break
+      case '--min-per-board': opts.minPerBoard = num(); break
+      case '--same-contract': opts.sameContract = true; break
       case '--limit': opts.limit = num(); break
       case '--out': opts.out = argv[++i]; break
       case '--help': case '-h': usage(); process.exit(0); break
@@ -144,18 +149,51 @@ function* eachBoard(doc) {
 // Rows needing a fetch: every table but yours, that has no play yet and does
 // carry an ID. Ordered board by board so an interrupted run leaves whole
 // boards finished rather than a scatter of rows.
-function buildWorkList(doc, { maxPerBoard } = {}) {
+//
+// --same-contract narrows this to tables that reached your exact contract from
+// your exact declarer seat, which is the comparison set for asking whether a
+// double-dummy miss was a play error or only findable with all 52 cards
+// visible. Contracts compare as exact strings, so 4S and 4SX are treated as
+// different problems.
+// Selection must be *nested*: raising --max-per-board, or dropping a filter,
+// has to yield a superset of what a narrower run already fetched, so reruns
+// only fill in extras. That holds because rows are taken in traveller order
+// and the cap is a prefix of that order — see tests/tools/workList.test.js.
+export function buildWorkList(doc, { maxPerBoard, minPerBoard, sameContract } = {}) {
   const work = []
   const seen = new Set()
   for (const { board } of eachBoard(doc)) {
+    const ui = board.user_result_index
+    const mine = ui != null ? board.results?.[ui] : null
+    // Nothing to compare against when you passed the board out, or when the
+    // export never identified your row.
+    if (sameContract && !mine?.contract) continue
+
+    const eligible = (r, i) =>
+      i !== ui &&
+      (!sameContract || (r.contract === mine.contract && r.declarer === mine.declarer))
+
+    // --min-per-board gates the whole board on how many comparable tables it
+    // has, for when a board is only worth fetching if the comparison is broad
+    // enough to be meaningful. Counted over the input's rows regardless of what
+    // has been fetched, so the gate is a property of the board, not of progress.
+    if (minPerBoard != null) {
+      const comparable = (board.results ?? []).filter((r, i) => eligible(r, i)).length
+      if (comparable < minPerBoard) continue
+    }
+
     let taken = 0
     for (const [i, r] of (board.results ?? []).entries()) {
-      if (i === board.user_result_index) continue
-      if (r.play) continue
+      if (!eligible(r, i)) continue
       if (maxPerBoard != null && taken >= maxPerBoard) break
       const ref = replayId(r)
       if (!ref) continue
+      // Count toward the cap before checking whether we already hold the play,
+      // so which rows a cap selects depends only on the input's row order —
+      // never on how much has been fetched or merged already. Otherwise
+      // rerunning against a merged file would slide the cap onto fresh rows.
       taken++
+      if (r.play) continue
       if (seen.has(ref.id)) continue
       seen.add(ref.id)
       work.push(ref)
@@ -423,7 +461,12 @@ async function cmdStatus(input, opts) {
   console.log(`boards            ${boards}`)
   console.log(`result rows       ${rows}`)
   console.log(`your tables       ${mine} with cardplay`)
-  console.log(`replays wanted    ${work.length}${opts.maxPerBoard ? ` (capped ${opts.maxPerBoard}/board)` : ''}`)
+  const scope = [
+    opts.sameContract ? 'same contract + seat' : null,
+    opts.minPerBoard ? `>=${opts.minPerBoard} comparable/board` : null,
+    opts.maxPerBoard ? `capped ${opts.maxPerBoard}/board` : null,
+  ].filter(Boolean).join(', ')
+  console.log(`replays wanted    ${work.length}${scope ? ` (${scope})` : ''}`)
   console.log(`replays fetched   ${work.length - remaining.length}  (${pct.toFixed(1)}%)`)
   console.log(`remaining         ${remaining.length}  ~${fmtDuration(remaining.length * opts.delayMs)} at ${opts.delayMs}ms`)
 }
@@ -438,17 +481,23 @@ function readInput(input) {
   return JSON.parse(fs.readFileSync(input, 'utf8'))
 }
 
-const { opts, positional } = parseArgs(process.argv.slice(2))
-const [command, input] = positional
-if (!command || !input) {
-  usage()
-  process.exit(1)
-}
+// Only run as a CLI when invoked directly, so tests can import buildWorkList.
+const invokedDirectly =
+  process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname)
 
-const commands = { fetch: cmdFetch, merge: cmdMerge, status: cmdStatus }
-if (!commands[command]) {
-  console.error(`unknown command: ${command}`)
-  usage()
-  process.exit(1)
+if (invokedDirectly) {
+  const { opts, positional } = parseArgs(process.argv.slice(2))
+  const [command, input] = positional
+  if (!command || !input) {
+    usage()
+    process.exit(1)
+  }
+
+  const commands = { fetch: cmdFetch, merge: cmdMerge, status: cmdStatus }
+  if (!commands[command]) {
+    console.error(`unknown command: ${command}`)
+    usage()
+    process.exit(1)
+  }
+  await commands[command](path.resolve(input), opts)
 }
-await commands[command](path.resolve(input), opts)
