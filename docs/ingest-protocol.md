@@ -31,8 +31,9 @@ each envelope carries its own `schema_version` (currently `"1.0"`, see
 for payload shape. Bump `v` only when the message sequence below changes.
 
 The fragment carries the reference (`ref`) the page echoes back. The content
-script clears the fragment after reading it, so a reload does not re-trigger
-consumption — reload recovery is the `ready` handshake's job, not the URL's.
+script clears it **only after `ready` arrives** — clearing earlier races the
+page's own read of the hash, and the page cannot recover a `ref` it never saw.
+Receiving `ready` proves the page already has it.
 
 ## Message sequence
 
@@ -62,6 +63,17 @@ The page speaks first. `postMessage` has no delivery guarantee to a listener
 that isn't attached yet, so the content script waits rather than firing blind —
 this is the one behavioural difference from the old `sessionStorage` write,
 which was durable per-tab and needed no handshake.
+
+Two rules make the handshake survive startup ordering. Both were added after an
+end-to-end test found the handoff stranded:
+
+- **The page repeats `ready` every 250 ms until `begin` arrives.** A single
+  `ready` is fragile: the page's inline script routinely runs before the content
+  script's dynamic `import()` resolves, and a missed `ready` strands the handoff
+  with no recovery path.
+- **The content script attaches its listener synchronously at
+  `document_start`,** before any `await`. Retrying covers the rest, but a
+  listener behind an async import misses the early attempts for no reason.
 
 ### Messages
 

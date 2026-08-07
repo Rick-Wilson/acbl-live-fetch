@@ -14,10 +14,14 @@
     "dev": "vite",
     "test": "vitest run",
     "test:watch": "vitest",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "build:test": "INGEST_TEST=1 vite build --outDir dist/test",
+    "test:e2e": "npm run build:test && playwright test",
+    "serve:ingest": "python3 -m http.server 4173 --directory test-ingest"
   },
   "devDependencies": {
     "@crxjs/vite-plugin": "^2.4.0",
+    "@playwright/test": "^1.62.1",
     "jsdom": "^25.0.1",
     "prettier": "^3.8.3",
     "vite": "^6.4.2",

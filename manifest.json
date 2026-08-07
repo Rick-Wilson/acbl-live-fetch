@@ -31,6 +31,14 @@
       ],
       "js": ["src/ui/analyzerContent.js"],
       "run_at": "document_start"
+    },
+    {
+      "js": ["src/ui/ingestContent.js"],
+      "matches": [
+        "https://bridge-classroom.org/*",
+        "https://bridge-classroom.com/*"
+      ],
+      "run_at": "document_start"
     }
   ],
   "permissions": ["storage", "tabs", "scripting"],

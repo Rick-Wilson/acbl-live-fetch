@@ -44,6 +44,25 @@ if (!Object.hasOwn(PER_BROWSER_OVERRIDES, BROWSER)) {
 
 const manifest = { ...baseManifest, ...PER_BROWSER_OVERRIDES[BROWSER] }
 
+// INGEST_TEST=1 adds origins for the test ingester (local static server and the
+// GitHub Pages copy) to the ingest content script and host permissions. Kept
+// out of shipped builds: a localhost or github.io permission in a store listing
+// invites reviewer questions for no user benefit (ADR 0001).
+// Match patterns ignore the port, so http://localhost/* covers any dev port.
+if (process.env.INGEST_TEST === '1') {
+  const TEST_ORIGINS = [
+    'http://localhost/*',
+    'http://127.0.0.1/*',
+    'https://bridge-craftwork.github.io/*',
+  ]
+  manifest.content_scripts = manifest.content_scripts.map((cs) =>
+    cs.js?.includes('src/ui/ingestContent.js')
+      ? { ...cs, matches: [...cs.matches, ...TEST_ORIGINS] }
+      : cs
+  )
+  manifest.host_permissions = [...manifest.host_permissions, ...TEST_ORIGINS]
+}
+
 export default defineConfig({
   plugins: [crx({ manifest, browser: BROWSER === 'firefox' ? 'firefox' : 'chrome' })],
   build: {

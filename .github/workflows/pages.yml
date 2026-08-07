@@ -1,0 +1,39 @@
+"on":
+  push:
+    branches: [main]
+    paths: ['test-ingest/**', '.github/workflows/pages.yml']
+  workflow_dispatch:
+
+name: Deploy test ingester to Pages
+
+# Publishes test-ingest/ so the extension can be exercised against a real
+# https origin without depending on the Bridge Classroom production ingest.
+# The page stores nothing off-device; see docs/ingest-protocol.md.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      # Served at <pages-url>/ingest/ — the ingest content script gates on a
+      # path ending in /ingest, so the directory name is load-bearing.
+      - run: |
+          mkdir -p _site/ingest
+          cp test-ingest/index.html _site/ingest/index.html
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4

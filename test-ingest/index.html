@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Test Ingester — acbl-live-fetch</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font: 15px/1.5 system-ui, sans-serif; max-width: 46rem; margin: 2rem auto; padding: 0 1rem; }
+  h1 { font-size: 1.3rem; }
+  .state { padding: .6rem .9rem; border-radius: 6px; font-weight: 600; }
+  .waiting { background: #fff3cd; color: #664d03; }
+  .ok      { background: #d1e7dd; color: #0f5132; }
+  .fail    { background: #f8d7da; color: #842029; }
+  table { border-collapse: collapse; width: 100%; margin-top: 1rem; }
+  td, th { text-align: left; padding: .3rem .6rem; border-bottom: 1px solid #8883; }
+  th { width: 12rem; font-weight: 600; }
+  td.num { font-variant-numeric: tabular-nums; }
+  pre { background: #8881; padding: .8rem; border-radius: 6px; overflow-x: auto; font-size: 13px; }
+  .hint { color: #7a7a7a; font-size: 13px; }
+</style>
+</head>
+<body>
+<h1>Test Ingester <span class="hint">protocol v1</span></h1>
+<p class="hint">
+  Implements the page contract in <code>docs/ingest-protocol.md</code>. Records a
+  summary of what was ingested and how long it took. Nothing is uploaded
+  anywhere — this exists so the extension can be tested end to end without
+  depending on the real Bridge Classroom ingest.
+</p>
+
+<div id="state" class="state waiting" data-testid="state">waiting for extension…</div>
+<table id="summary" hidden>
+  <tbody data-testid="summary-body"></tbody>
+</table>
+<pre id="log" data-testid="log"></pre>
+
+<script>
+const CHANNEL = 'bc-ingest'
+const V = 1
+
+const params = new URLSearchParams(location.hash.slice(1))
+const ref = params.get('sid') ?? params.get('batch')
+
+const $state = document.getElementById('state')
+const $summary = document.getElementById('summary')
+const $body = document.querySelector('[data-testid="summary-body"]')
+const $log = document.getElementById('log')
+
+const log = (...a) => { $log.textContent += a.join(' ') + '\n' }
+
+function setState(text, cls) {
+  $state.textContent = text
+  $state.className = 'state ' + cls
+}
+
+if (!ref) {
+  setState('no #sid= or #batch= in the URL', 'fail')
+} else {
+  start()
+}
+
+function start() {
+  const chunks = []
+  let meta = null
+  let t0 = 0
+  let chunkTimer = null
+  let readyTimer = null
+
+  const post = (msg) => window.postMessage({ channel: CHANNEL, v: V, ref, ...msg }, location.origin)
+
+  const armChunkTimeout = () => {
+    clearTimeout(chunkTimer)
+    chunkTimer = setTimeout(() => {
+      setState('timed out waiting for the next chunk', 'fail')
+    }, 15000)
+  }
+
+  window.addEventListener('message', async (event) => {
+    // Any script on this page can post here; validate before trusting.
+    if (event.source !== window) return
+    if (event.origin !== location.origin) return
+    const m = event.data
+    if (!m || m.channel !== CHANNEL || m.v !== V || m.ref !== ref) return
+
+    switch (m.type) {
+      case 'begin':
+        meta = m
+        clearInterval(readyTimer)
+        log(`begin kind=${m.kind} parts=${m.parts} bytes=${m.bytes}`)
+        setState(`receiving ${m.parts} part(s)…`, 'waiting')
+        armChunkTimeout()
+        break
+
+      case 'chunk':
+        chunks[m.seq] = m
+        armChunkTimeout()
+        break
+
+      case 'error':
+        clearInterval(readyTimer)
+        clearTimeout(chunkTimer)
+        log(`error ${m.reason}: ${m.detail ?? ''}`)
+        setState(`failed: ${m.reason}`, 'fail')
+        break
+
+      case 'finish': {
+        clearTimeout(chunkTimer)
+        const transport_ms = Math.round(performance.now() - t0)
+        if (chunks.filter(Boolean).length !== m.parts) {
+          setState(`incomplete: got ${chunks.filter(Boolean).length} of ${m.parts}`, 'fail')
+          return
+        }
+        const d0 = performance.now()
+        let envelopes
+        try {
+          envelopes = await Promise.all(chunks.map(decode))
+        } catch (err) {
+          setState('decode failed: ' + err.message, 'fail')
+          return
+        }
+        const summary = summarize(envelopes, {
+          ref,
+          kind: meta?.kind ?? 'unknown',
+          transport_ms,
+          decode_ms: Math.round(performance.now() - d0),
+          bytes: envelopes.reduce((n, e) => n + JSON.stringify(e).length, 0),
+          errors: m.errors?.length ?? 0,
+        })
+        persist(summary)
+        render(summary)
+        post({ type: 'ack', ok: true, summary })
+        break
+      }
+    }
+  })
+
+  // Speak first, then keep repeating until `begin`. A single `ready` is fragile:
+  // the content script may still be initialising when the page's inline script
+  // runs, and a missed `ready` strands the handoff with no way to recover.
+  t0 = performance.now()
+  post({ type: 'ready' })
+  readyTimer = setInterval(() => post({ type: 'ready' }), 250)
+  log('ready sent, ref=' + ref)
+
+  setTimeout(() => {
+    if (!meta && $state.className.includes('waiting')) {
+      clearInterval(readyTimer)
+      setState('extension did not respond — is it installed and is this origin in its manifest?', 'fail')
+    }
+  }, 5000)
+}
+
+async function decode(chunk) {
+  if (chunk.encoding === 'json') return JSON.parse(chunk.data)
+  const bytes = Uint8Array.from(atob(chunk.data), (c) => c.charCodeAt(0))
+  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))
+  return JSON.parse(await new Response(stream).text())
+}
+
+function summarize(envelopes, base) {
+  const counts = { envelopes: envelopes.length, events: 0, sessions: 0, boards: 0, results: 0 }
+  const sources = new Set()
+  const dates = []
+  for (const env of envelopes) {
+    sources.add(env.source)
+    for (const t of env.tournaments ?? []) {
+      for (const ev of t.events ?? []) {
+        counts.events++
+        if (ev.date) dates.push(ev.date)
+        for (const s of ev.sessions ?? []) {
+          counts.sessions++
+          for (const b of s.boards ?? []) {
+            counts.boards++
+            counts.results += (b.results ?? []).length
+          }
+        }
+      }
+    }
+  }
+  dates.sort()
+  return {
+    ...base, ...counts,
+    received_at: new Date().toISOString(),
+    sources: [...sources],
+    date_range: dates.length ? [dates[0], dates.at(-1)] : null,
+  }
+}
+
+// v1 persistence: one IndexedDB store of summaries keyed by ref. Enough to
+// prove the path end to end; the real archive replaces this without the
+// protocol changing.
+function persist(summary) {
+  try {
+    const req = indexedDB.open('bc-test-ingest', 1)
+    req.onupgradeneeded = () => req.result.createObjectStore('summaries', { keyPath: 'ref' })
+    req.onsuccess = () => {
+      const db = req.result
+      db.transaction('summaries', 'readwrite').objectStore('summaries').put(summary)
+    }
+  } catch (err) {
+    log('persist failed: ' + err.message)
+  }
+}
+
+function render(summary) {
+  const rows = [
+    ['ref', summary.ref],
+    ['kind', summary.kind],
+    ['envelopes', summary.envelopes],
+    ['events', summary.events],
+    ['sessions', summary.sessions],
+    ['boards', summary.boards],
+    ['results', summary.results],
+    ['sources', summary.sources.join(', ')],
+    ['date range', summary.date_range ? summary.date_range.join(' .. ') : '—'],
+    ['bytes', summary.bytes.toLocaleString()],
+    ['transport', summary.transport_ms + ' ms'],
+    ['decode', summary.decode_ms + ' ms'],
+    ['fetch errors', summary.errors],
+  ]
+  $body.innerHTML = rows
+    .map(([k, v]) => `<tr><th>${k}</th><td class="num" data-testid="row-${k.replace(/ /g, '-')}">${v}</td></tr>`)
+    .join('')
+  $summary.hidden = false
+  setState(`ingested ${summary.boards} boards from ${summary.envelopes} envelope(s)`, 'ok')
+}
+</script>
+</body>
+</html>
