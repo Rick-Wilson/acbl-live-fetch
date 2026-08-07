@@ -20,6 +20,7 @@ import {
   RESULTS,
   SECTIONS,
 } from '../../lib/provenance.js'
+import { countTables } from '../../lib/tableCount.js'
 
 export { SCHEMA_VERSION }
 export const SOURCE_NAME = 'bbo'
@@ -204,6 +205,7 @@ export async function extractSession(url, options = {}) {
     session_number: 1,
     time: null,
     user_pair: buildUserPair(handsList),
+    table_count: countTables(boards),
     boards,
     partial,
     warnings,

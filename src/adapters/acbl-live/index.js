@@ -13,6 +13,7 @@ import {
   RESULTS,
   SECTIONS,
 } from '../../lib/provenance.js'
+import { countTables } from '../../lib/tableCount.js'
 
 export { SCHEMA_VERSION }
 export const SOURCE_NAME = 'acbl-live'
@@ -497,6 +498,7 @@ function buildSession(scorecard, parsedBoardsBySection) {
     session_number: scorecard.session_number,
     time: scorecard.time,
     user_pair: scorecard.user_pair,
+    table_count: countTables(boards),
     boards,
     partial,
     warnings,

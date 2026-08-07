@@ -168,6 +168,7 @@ function summarize(envelopes, base) {
   const cardplay = new Set()
   const sections = new Set()
   const contexts = new Set()
+  const tables = []
   for (const env of envelopes) {
     sources.add(env.source)
     if (env.provider) providers.add(`${env.provider.id} ${env.provider.version}`)
@@ -182,6 +183,7 @@ function summarize(envelopes, base) {
         if (ev.date) dates.push(ev.date)
         for (const s of ev.sessions ?? []) {
           counts.sessions++
+          if (s.table_count != null) tables.push(s.table_count)
           for (const b of s.boards ?? []) {
             counts.boards++
             counts.results += (b.results ?? []).length
@@ -199,6 +201,11 @@ function summarize(envelopes, base) {
     cardplay: [...cardplay],
     sections: [...sections],
     context: [...contexts].join('; '),
+    tables: tables.length
+      ? (Math.min(...tables) === Math.max(...tables)
+          ? String(Math.min(...tables))
+          : `${Math.min(...tables)}–${Math.max(...tables)}`)
+      : null,
     date_range: dates.length ? [dates[0], dates.at(-1)] : null,
   }
 }
@@ -231,6 +238,7 @@ function render(summary) {
     ['events', summary.events],
     ['sessions', summary.sessions],
     ['boards', summary.boards],
+    ['tables', summary.tables ?? '—'],
     ['results', summary.results],
     ['sources', summary.sources.join(', ')],
     ['date range', summary.date_range ? summary.date_range.join(' .. ') : '—'],

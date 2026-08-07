@@ -86,6 +86,7 @@ In every case the structure is the same nested tree; the only difference is the 
     "4": [Player, Player],        //   keys are stringified pair numbers (since JSON object keys are strings)
     "10": [Player, Player]        //   players echo the Player shape used elsewhere
   },
+  "table_count": 54,              // tables in play this session; null if not derivable
   "boards": [Board, ...],
   "partial": false,               // true if some boards failed to fetch or parse
   "warnings": []                  // human-readable issues encountered during extraction
@@ -109,6 +110,14 @@ In every case the structure is the same nested tree; the only difference is the 
   "carryover": 192.00
 }
 ```
+
+
+`table_count` is derived rather than reported by any source: every table plays a
+board once, so the result rows for a board number — summed across sections, since
+a board number recurs once per section — give the table count. The maximum across
+board numbers is used so a board that some tables sat out doesn't undercount.
+Validated against BBO's own summary: `tview.php` reports 54 tables for a
+4-section event whose busiest board carries exactly 54 rows.
 
 ## Board
 

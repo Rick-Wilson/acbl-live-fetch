@@ -21,6 +21,7 @@
 
 import { ParseError } from '../../../lib/parseError.js'
 import { parseDoubleDummyLine } from '../../../lib/doubleDummy.js'
+import { countTables } from '../../../lib/tableCount.js'
 
 const HANDVIEWER_BASE = 'https://www.bridgebase.com/tools/handviewer.html'
 
@@ -78,6 +79,7 @@ function buildSession(session, data) {
 
   return {
     session_number: session.number ?? null,
+    table_count: countTables(boards),
     time: null,
     user_pair: null,
     boards,

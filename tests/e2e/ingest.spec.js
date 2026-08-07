@@ -56,6 +56,7 @@ function envelope({ date = '2026-04-29', boards = 2, results = 3 } = {}) {
           session_number: 1,
           time: null,
           user_pair: null,
+          table_count: results,
           partial: false,
           warnings: [],
           boards: Array.from({ length: boards }, (_, b) => ({
@@ -152,6 +153,7 @@ test.describe('ingest handoff', () => {
     await expect(page.getByTestId('row-envelopes')).toHaveText('1')
     await expect(page.getByTestId('row-boards')).toHaveText('2')
     await expect(page.getByTestId('row-results')).toHaveText('6')  // 2 boards x 3
+    await expect(page.getByTestId('row-tables')).toHaveText('3')
     await expect(page.getByTestId('row-sources')).toHaveText('bbo')
     // Provenance travels with the envelope and is surfaced without decoding
     // the whole archive.
@@ -183,6 +185,7 @@ test.describe('ingest handoff', () => {
     await expect(page.getByTestId('row-envelopes')).toHaveText('3')
     await expect(page.getByTestId('row-boards')).toHaveText('4')
     await expect(page.getByTestId('row-results')).toHaveText('8')
+    await expect(page.getByTestId('row-tables')).toHaveText('2')
     // Date range proves the gzip chunks decoded into distinct envelopes rather
     // than the same one three times.
     await expect(page.getByTestId('row-date-range')).toHaveText('2026-04-01 .. 2026-06-01')
