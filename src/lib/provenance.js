@@ -50,6 +50,20 @@ export const RESULTS = Object.freeze({
   ALL_TABLES: 'all-tables',
 })
 
+// Whether the archive holds personally identifying names, or only the
+// pseudonymous handles a site assigns. Declared so a consumer — or a backend
+// sync with privacy obligations — can tell which envelopes carry PI without
+// scanning them.
+//
+//   none       no player identification at all
+//   usernames  site handles only (BBO), which identify a seat but not a person
+//   real       real names, and possibly national-body IDs
+export const PLAYER_NAMES = Object.freeze({
+  NONE: 'none',
+  USERNAMES: 'usernames',
+  REAL: 'real',
+})
+
 export const SECTIONS = Object.freeze({
   ALL: 'all',
   USER_ONLY: 'user-only',

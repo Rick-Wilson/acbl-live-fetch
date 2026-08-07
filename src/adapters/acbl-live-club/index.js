@@ -18,6 +18,7 @@ import {
   AUCTION,
   RESULTS,
   SECTIONS,
+  PLAYER_NAMES,
 } from '../../lib/provenance.js'
 
 export { SCHEMA_VERSION }
@@ -28,6 +29,7 @@ export const COVERAGE = {
   auction: AUCTION.NONE,
   results: RESULTS.ALL_TABLES,
   sections: SECTIONS.ALL,
+  player_names: PLAYER_NAMES.REAL,
   sections_labelled: true,
 }
 

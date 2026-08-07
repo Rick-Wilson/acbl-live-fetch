@@ -12,6 +12,7 @@
 import { fetchAll } from '../../lib/rateLimiter.js'
 import { parseHandsList } from './parsers/handsList.js'
 import { parseTraveller, parseResultText } from './parsers/traveller.js'
+import { parseTournamentView, indexByUsername } from './parsers/tournamentView.js'
 import {
   SCHEMA_VERSION,
   buildProvenance,
@@ -19,6 +20,7 @@ import {
   AUCTION,
   RESULTS,
   SECTIONS,
+  PLAYER_NAMES,
 } from '../../lib/provenance.js'
 import { countTables } from '../../lib/tableCount.js'
 
@@ -37,6 +39,7 @@ export const COVERAGE = {
   sections: SECTIONS.ALL,
   // Section identity lives on tview.php, which this adapter does not fetch, so
   // Board.section and Pair.section are null throughout.
+  player_names: PLAYER_NAMES.USERNAMES,
   sections_labelled: false,
 }
 
@@ -105,6 +108,12 @@ export async function extractSession(url, options = {}) {
   const fetchFn = fetch ?? globalThis.fetch
   const credentialedFetch = (url, opts) => fetchFn(url, { ...opts, credentials: 'include' })
   const fetchOpts = { fetch: credentialedFetch, signal, concurrency, delayMs, maxRetries }
+  // Explicitly cookie-less. Keep this distinct from credentialedFetch: if the
+  // two are ever collapsed, opponents' real names start flowing into the
+  // archive with no visible signal.
+  const anonymousFetch = (u, opts) => fetchFn(u, { ...opts, credentials: 'omit' })
+  const warnings = []
+  let partial = false
   let t0 = Date.now()
   let phaseStart = t0
 
@@ -120,6 +129,26 @@ export async function extractSession(url, options = {}) {
   const handsList = parseHandsList(handsListHtml)
   log('phase2.parseHandsList', { ms: Date.now() - phaseStart, boards: handsList.boards.length })
   phaseStart = Date.now()
+
+  // ── Phase 2b: tournament summary, fetched WITHOUT credentials ───────────────
+  // The only page carrying section identity, and the only reliable source of
+  // the event name (the hands list omits it on most events). Fetched
+  // anonymously on purpose: BBO withholds real player names from anonymous
+  // viewers, which is exactly the outcome we want — section, ranks and
+  // masterpoints without gathering opponents' personal information.
+  // Best-effort: a failure costs enrichment, not the extraction.
+  let tview = null
+  const tviewUrl = deriveTviewUrl(url)
+  if (tviewUrl) {
+    try {
+      const res = await anonymousFetch(tviewUrl, { signal })
+      if (res?.ok) tview = parseTournamentView(await res.text())
+    } catch (err) {
+      warnings.push(`tournament summary unavailable (${err?.message ?? err})`)
+    }
+    log('phase2b.tournamentView', { ms: Date.now() - phaseStart, ok: !!tview })
+    phaseStart = Date.now()
+  }
 
   // ── Phase 3: fetch all travellers in parallel ────────────────────────────────
   const travellerUrls = handsList.boards
@@ -160,8 +189,6 @@ export async function extractSession(url, options = {}) {
   }
 
   // ── Phase 4: assemble boards ─────────────────────────────────────────────────
-  const warnings = []
-  let partial = false
   const boards = []
 
   for (const handsListBoard of handsList.boards) {
@@ -201,11 +228,30 @@ export async function extractSession(url, options = {}) {
   log('extractSession.total', { ms: Date.now() - t0 })
 
   // ── Assemble normalized envelope ─────────────────────────────────────────────
+  const userPair = buildUserPair(handsList)
+
+  // Fold in the tournament summary, if we got one.
+  let tviewName = null
+  let tviewTables = null
+  if (tview) {
+    const applied = applyTournamentView(
+      { boards, userPair, username: handsList.username },
+      tview
+    )
+    tviewName = applied.name
+    tviewTables = applied.tableCount
+    if (!applied.matched) {
+      warnings.push('tournament summary did not contain the viewing player')
+    }
+  }
+
   const session = {
     session_number: 1,
     time: null,
-    user_pair: buildUserPair(handsList),
-    table_count: countTables(boards),
+    user_pair: userPair,
+    // tview states the table count outright; countTables() only sees the
+    // tables whose results we captured.
+    table_count: tviewTables ?? countTables(boards),
     boards,
     partial,
     warnings,
@@ -218,7 +264,9 @@ export async function extractSession(url, options = {}) {
   const event = {
     event_id: tourneyId,
     event_type: 'open_pairs',
-    name: handsList.tourneyName,
+    // The hands list carries the name only sometimes (null on 238 of 264
+    // events in a real capture); tview states it every time.
+    name: tviewName ?? handsList.tourneyName,
     date,
     scoring: handsList.scoring,
     sessions: [session],
@@ -227,14 +275,19 @@ export async function extractSession(url, options = {}) {
   const tournament = {
     sanction,
     schedule_url: null,
-    name: handsList.tourneyName,
+    name: tviewName ?? handsList.tourneyName,
     events: [event],
   }
 
   return {
     schema_version: SCHEMA_VERSION,
     source: SOURCE_NAME,
-    ...buildProvenance({ coverage: COVERAGE, capture }),
+    ...buildProvenance({
+      // Declare what this run actually achieved, not what the adapter can do
+      // at best: without the summary, section identity is absent.
+      coverage: { ...COVERAGE, sections_labelled: !!tview },
+      capture,
+    }),
     fetched_at: now(),
     source_url: url,
     tournaments: [tournament],
@@ -242,6 +295,65 @@ export async function extractSession(url, options = {}) {
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
+
+// Derive the tournament-summary URL from either entry-point form.
+export function deriveTviewUrl(url) {
+  const u = new URL(url)
+  if (u.hostname === 'webutil.bridgebase.com') return u.toString()
+  // hands.php?tourney=<id>-&username=<user> → tview.php?t=<id>&u=<user>
+  const tourney = (u.searchParams.get('tourney') ?? '').replace(/-$/, '')
+  const username = u.searchParams.get('username')
+  if (!tourney || !username) return null
+  return `https://webutil.bridgebase.com/v2/tview.php?t=${tourney}&u=${encodeURIComponent(username)}`
+}
+
+// Fold the tournament summary into the boards and user pair.
+//
+// Deliberately identity-free: the summary is fetched WITHOUT credentials, so
+// BBO returns pseudonymous usernames and withholds real names. That keeps
+// opponents' personal information out of the archive while still yielding
+// section, direction, strat ranks and masterpoint awards. See coverage
+// .player_names in docs/normalized-schema.md.
+//
+// Self-identification keys off the username the caller already has, not the
+// row BBO marks as highlighted — that class is also applied to friends.
+export function applyTournamentView({ boards, userPair, username }, parsed) {
+  const index = indexByUsername(parsed)
+  const lookup = (name) => (name ? index.get(String(name).toLowerCase()) : undefined)
+
+  const label = (pair) => {
+    if (!pair) return
+    for (const player of pair.players ?? []) {
+      const hit = lookup(player.name)
+      if (!hit) continue
+      pair.section = hit.section
+      if (hit.strat_ranks?.length) pair.strat_ranks = hit.strat_ranks
+      // BBO awards masterpoints per pair; ACBL records them per player, and
+      // both partners receive the same amount.
+      if (hit.masterpoints != null) {
+        for (const p of pair.players ?? []) {
+          p.masterpoints_earned = [{ amount: hit.masterpoints, color: null }]
+        }
+      }
+      return
+    }
+  }
+
+  for (const board of boards ?? []) {
+    for (const result of board.results ?? []) {
+      label(result.ns_pair)
+      label(result.ew_pair)
+    }
+  }
+
+  const me = lookup(username)
+  if (me && userPair) {
+    userPair.section = me.section
+    if (me.strat_ranks?.length) userPair.strat_ranks = me.strat_ranks
+  }
+
+  return { name: parsed.name ?? null, tableCount: parsed.table_count ?? null, matched: !!me }
+}
 
 // Derive the hands list URL from either a tournament-view or hands-list URL.
 function deriveHandsListUrl(url) {

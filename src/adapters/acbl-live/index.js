@@ -12,6 +12,7 @@ import {
   AUCTION,
   RESULTS,
   SECTIONS,
+  PLAYER_NAMES,
 } from '../../lib/provenance.js'
 import { countTables } from '../../lib/tableCount.js'
 
@@ -28,6 +29,7 @@ export const COVERAGE = {
   // uniqueSections() collects every section in the pair directory and the fetch
   // plan covers session x section x board.
   sections: SECTIONS.ALL,
+  player_names: PLAYER_NAMES.REAL,
   sections_labelled: true,
 }
 export const TOURNAMENT_SCHEDULE_BASE = 'https://tournaments.acbl.org/schedule.php'

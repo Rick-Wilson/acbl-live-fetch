@@ -31,7 +31,8 @@ Every adapter emits this JSON schema regardless of source. The downstream analyz
     "auction": "user-table",      // none | user-table | all-tables
     "results": "all-tables",      // user-table | section | all-tables
     "sections": "all",            // all | user-only | not-applicable
-    "sections_labelled": false    // are Board.section / Pair.section populated?
+    "player_names": "usernames",  // none | usernames | real
+    "sections_labelled": false    // is section identity known for pairs?
   },
   "fetched_at": "2026-04-26T18:30:00Z",
   "source_url": "https://liveresults.acbl.org/...",  // URL scraped from; omitted for file uploads
@@ -273,18 +274,40 @@ that are consumed differently:
 A boolean would make a BBO export look identical before and after a replay
 backfill, which is the distinction that matters most for analysis.
 
+**`player_names`** declares whether the envelope carries personally identifying
+names or only the pseudonymous handles a site assigns, so a consumer — or a
+backend sync with privacy obligations — can tell which envelopes hold PI without
+scanning them.
+
+| Value | Meaning |
+|---|---|
+| `none` | No player identification at all. |
+| `usernames` | Site handles only, e.g. BBO's `kemistry`. Identifies a seat, not a person. |
+| `real` | Real names, and possibly national-body IDs. |
+
+BBO is `usernames` by deliberate choice, not limitation. `tview.php` shows real
+names to an authenticated viewer, so the adapter fetches it **without
+credentials**: BBO then withholds names while still returning sections, strat
+ranks and masterpoint awards. Opponents' personal information never enters the
+archive. ACBL Live and club games are `real` — those sources publish names, and
+in a club game you generally know the players, which is the point.
+
 **`sections` vs `sections_labelled`** are separate guarantees. `sections: "all"`
 means every section's results are present; `sections_labelled` means you can
 tell *which* section a pair was in. BBO is `all` but not labelled: a traveller
 carries one row per table across the whole event — verified against `tview.php`,
 where a 4-section, 54-table event yields 54 rows on a board — but section
-identity is only on `tview.php`, which the adapter does not fetch.
+identity is only on `tview.php`. The adapter now fetches that page, so
+`sections_labelled` is `true` whenever the fetch succeeds and `false` when it
+doesn't — the value describes the run, not the adapter's best case. Note that
+`Board.section` stays null for BBO even then: a traveller spans the whole field,
+so a board isn't in one section. It is `Pair.section` that gets labelled.
 
 ### What each adapter declares
 
 | Adapter | cardplay | auction | results | sections | labelled |
 |---|---|---|---|---|---|
-| `bbo` | `user-table` | `user-table` | `all-tables` | `all` | `false` |
+| `bbo` | `user-table` | `user-table` | `all-tables` | `all` | `true` when the summary fetch succeeds |
 | `acbl-live` | `none` | `none` | `all-tables` | `all` | `true` |
 | `acbl-live-club` | `none` | `none` | `all-tables` | `all` | `true` |
 

@@ -51,7 +51,11 @@ describe('declared coverage matches what the adapters actually produce', () => {
       auction: 'user-table',
       results: 'all-tables',
       sections: 'all',
-      // Section identity lives on tview.php, which the adapter does not fetch.
+      // BBO handles identify a seat but not a person. The tournament summary is
+      // fetched without credentials precisely so real names stay out.
+      player_names: 'usernames',
+      // The baseline; extractSession raises this to true when the summary
+      // fetch succeeds.
       sections_labelled: false,
     })
   })
@@ -65,10 +69,12 @@ describe('declared coverage matches what the adapters actually produce', () => {
     expect(coverage.results).toBe('all-tables')
     expect(coverage.sections).toBe('all')
     expect(coverage.sections_labelled).toBe(true)
+    // ACBL sources publish real names and national-body IDs.
+    expect(coverage.player_names).toBe('real')
   })
 
   it('every adapter declares the full coverage shape', () => {
-    const keys = ['cardplay', 'auction', 'results', 'sections', 'sections_labelled']
+    const keys = ['cardplay', 'auction', 'results', 'sections', 'player_names', 'sections_labelled']
     for (const coverage of [BBO_COVERAGE, ACBL_COVERAGE, CLUB_COVERAGE]) {
       expect(Object.keys(coverage).sort()).toEqual([...keys].sort())
     }
