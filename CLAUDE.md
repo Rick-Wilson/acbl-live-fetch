@@ -48,7 +48,7 @@ The first concrete task is in `START_HERE.md`. Do not skip it — it sets up the
 - **The auction in BBO handviewer URLs is synthetic, not real.** ACBL Live does not capture per-table auctions. Do not extract or use it for analysis. The `auction` field in the normalized schema must be `null` for ACBL Live data.
 - **Em-dash for voids.** Hand parser must handle `—` (U+2014) as void.
 - **Two tables per board-detail page.** Table 0 is N-S view, Table 1 is E-W view. Use Table 0 only — it contains every result.
-- **Section coverage.** The board-detail page only shows results from one section. For multi-section events, fetching all sections is a future feature; document this limitation but don't build it yet.
+- **Section coverage.** A board-detail page shows one section, so the ACBL Live adapter derives every section from the pair directory and fetches session × section × board. Multi-section is built, not pending. BBO differs: its events have sections too, but a traveller carries one row per table across the whole event, so all sections arrive without extra fetches — while section *identity* stays null, because it lives on `tview.php`, which the adapter doesn't fetch. Each adapter declares this in `coverage` (see `docs/normalized-schema.md`).
 - **Player IDs may be missing** for unregistered players. Handle the absence of `data-acbl` gracefully (`acbl_id: null`).
 - **HTML changes.** When ACBL Live updates their HTML, parsers should fail loudly with specific error messages, not produce silently-wrong data. Validate structural assumptions.
 

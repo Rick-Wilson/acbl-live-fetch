@@ -6,8 +6,33 @@ Every adapter emits this JSON schema regardless of source. The downstream analyz
 
 ```jsonc
 {
-  "schema_version": "1.0",
+  "schema_version": "1.1",
   "source": "acbl-live",          // "acbl-live" | "club-game-bws" | "bbo" | ...
+
+  // Who produced this envelope. Present so a consumer can tell extension
+  // output from a results site exporting directly from its own server.
+  "provider": {
+    "id": "acbl-live-fetch",
+    "version": "0.2.2",
+    "kind": "browser-extension"   // "browser-extension" | "server" | "manual"
+  },
+
+  // What the user asked for. Free text, plus whatever identifies the subject.
+  // Optional — omitted when the caller supplies nothing.
+  "capture": {
+    "context": "last 1 month for kemistry",
+    "subject": { "bbo": "kemistry" }
+  },
+
+  // What this data covers, declared rather than left to be re-derived by
+  // scanning. See § Coverage.
+  "coverage": {
+    "cardplay": "user-table",     // none | lead | user-table | all-tables
+    "auction": "user-table",      // none | user-table | all-tables
+    "results": "all-tables",      // user-table | section | all-tables
+    "sections": "all",            // all | user-only | not-applicable
+    "sections_labelled": false    // are Board.section / Pair.section populated?
+  },
   "fetched_at": "2026-04-26T18:30:00Z",
   "source_url": "https://liveresults.acbl.org/...",  // URL scraped from; omitted for file uploads
   "tournaments": [Tournament, ...]
@@ -219,6 +244,46 @@ Adapters that don't have strat/placement data (ACBL Live tournament, BBO) emit `
 
 `masterpoints_earned` is per-player (not per-pair) because ACBL awards are individual. Both players in a pair typically earn the same amount. Adapters without award data emit `[]`. Color values match ACBL pigment names: `"Black"`, `"Red"`, `"Silver"`, `"Gold"`, `"Platinum"`, etc.
 
+## Coverage
+
+`coverage` states what the data contains so a consumer doesn't have to scan a
+large archive to find out. It describes the envelope as delivered — the replay
+backfill in `tools/fetch-replays.js` legitimately promotes `cardplay` from
+`user-table` to `all-tables` when it merges.
+
+**`cardplay`** is an enum, not a boolean, because "some cardplay" spans cases
+that are consumed differently:
+
+| Value | Meaning |
+|---|---|
+| `none` | No card-level data. |
+| `lead` | Opening lead only. Bridgemate can be configured to record it, usually for every table. |
+| `user-table` | Full play, but only for the seat captured for. Supports "how did I play this". |
+| `all-tables` | Full play for every table on the board. Supports "how did the field play this". |
+
+A boolean would make a BBO export look identical before and after a replay
+backfill, which is the distinction that matters most for analysis.
+
+**`sections` vs `sections_labelled`** are separate guarantees. `sections: "all"`
+means every section's results are present; `sections_labelled` means you can
+tell *which* section a pair was in. BBO is `all` but not labelled: a traveller
+carries one row per table across the whole event — verified against `tview.php`,
+where a 4-section, 54-table event yields 54 rows on a board — but section
+identity is only on `tview.php`, which the adapter does not fetch.
+
+### What each adapter declares
+
+| Adapter | cardplay | auction | results | sections | labelled |
+|---|---|---|---|---|---|
+| `bbo` | `user-table` | `user-table` | `all-tables` | `all` | `false` |
+| `acbl-live` | `none` | `none` | `all-tables` | `all` | `true` |
+| `acbl-live-club` | `none` | `none` | `all-tables` | `all` | `true` |
+
+ACBL Live publishes no card-level data at all. The auction in the BBO
+handviewer links on its board-detail pages is synthetic rather than the auction
+played, so it is deliberately not extracted.
+
+
 ## Schema versioning
 
 `schema_version` follows semver-ish:
@@ -233,8 +298,13 @@ The analyzer should validate `schema_version` and refuse data from unknown major
 
 ```json
 {
-  "schema_version": "1.0",
+  "schema_version": "1.1",
   "source": "acbl-live",
+  "provider": { "id": "acbl-live-fetch", "version": "0.2.2", "kind": "browser-extension" },
+  "coverage": {
+    "cardplay": "none", "auction": "none", "results": "all-tables",
+    "sections": "all", "sections_labelled": true
+  },
   "fetched_at": "2026-04-26T18:30:00Z",
   "tournaments": [
     {

@@ -12,9 +12,32 @@
 import { fetchAll } from '../../lib/rateLimiter.js'
 import { parseHandsList } from './parsers/handsList.js'
 import { parseTraveller, parseResultText } from './parsers/traveller.js'
+import {
+  SCHEMA_VERSION,
+  buildProvenance,
+  CARDPLAY,
+  AUCTION,
+  RESULTS,
+  SECTIONS,
+} from '../../lib/provenance.js'
 
-export const SCHEMA_VERSION = '1.0'
+export { SCHEMA_VERSION }
 export const SOURCE_NAME = 'bbo'
+
+export const COVERAGE = {
+  // Auction and play come from the LIN embedded in the user's own hands list,
+  // which holds only their seat. Every other table is contract/result only.
+  cardplay: CARDPLAY.USER_TABLE,
+  auction: AUCTION.USER_TABLE,
+  // A traveller carries one row per table across the whole event: verified
+  // against tview.php, where a 4-section/54-table event yields 54 rows on a
+  // board. BBO events do have sections, but the traveller is not scoped to one.
+  results: RESULTS.ALL_TABLES,
+  sections: SECTIONS.ALL,
+  // Section identity lives on tview.php, which this adapter does not fetch, so
+  // Board.section and Pair.section are null throughout.
+  sections_labelled: false,
+}
 
 // BBO seems to rate-limit traveller fetches when too many fire in parallel:
 // some return real game HTML, others return BBO's timezone-redirect page,
@@ -61,6 +84,10 @@ export async function extractSession(url, options = {}) {
     maxRetries,
     now = () => new Date().toISOString(),
     log = defaultLog,
+    // Describes the request that produced this envelope (e.g. "last 1 month
+    // for kemistry"). Supplied by the caller — an adapter can't know whether it
+    // was asked for one session or a year of history.
+    capture,
   } = options
 
   const pageType = classifyPage(url)
@@ -205,6 +232,7 @@ export async function extractSession(url, options = {}) {
   return {
     schema_version: SCHEMA_VERSION,
     source: SOURCE_NAME,
+    ...buildProvenance({ coverage: COVERAGE, capture }),
     fetched_at: now(),
     source_url: url,
     tournaments: [tournament],
