@@ -5,9 +5,31 @@
 import { fetchAll } from '../../lib/rateLimiter.js'
 import { parseBoardDetail } from './parsers/boardDetail.js'
 import { parsePairScorecard } from './parsers/pairScorecard.js'
+import {
+  SCHEMA_VERSION,
+  buildProvenance,
+  CARDPLAY,
+  AUCTION,
+  RESULTS,
+  SECTIONS,
+} from '../../lib/provenance.js'
+import { countTables } from '../../lib/tableCount.js'
 
-export const SCHEMA_VERSION = '1.0'
+export { SCHEMA_VERSION }
 export const SOURCE_NAME = 'acbl-live'
+
+export const COVERAGE = {
+  // ACBL Live publishes no card-level data. The auction in the BBO handviewer
+  // links on board-detail pages is synthetic, not the auction played, so it is
+  // deliberately not extracted (see CLAUDE.md).
+  cardplay: CARDPLAY.NONE,
+  auction: AUCTION.NONE,
+  results: RESULTS.ALL_TABLES,
+  // uniqueSections() collects every section in the pair directory and the fetch
+  // plan covers session x section x board.
+  sections: SECTIONS.ALL,
+  sections_labelled: true,
+}
 export const TOURNAMENT_SCHEDULE_BASE = 'https://tournaments.acbl.org/schedule.php'
 
 // Default concurrency for extractSession's bulk fetches. Higher than the
@@ -73,6 +95,10 @@ export async function extractSession(url, options = {}) {
     maxRetries,
     now = () => new Date().toISOString(),
     log = defaultLog,
+    // Describes the request that produced this envelope (e.g. "last 1 month
+    // for kemistry"). Supplied by the caller — an adapter can't know whether it
+    // was asked for one session or a year of history.
+    capture,
   } = options
 
   const pageType = classifyPage(url)
@@ -266,6 +292,7 @@ export async function extractSession(url, options = {}) {
   return {
     schema_version: SCHEMA_VERSION,
     source: SOURCE_NAME,
+    ...buildProvenance({ coverage: COVERAGE, capture }),
     fetched_at: now(),
     source_url: url,
     tournaments: [tournament],
@@ -471,6 +498,7 @@ function buildSession(scorecard, parsedBoardsBySection) {
     session_number: scorecard.session_number,
     time: scorecard.time,
     user_pair: scorecard.user_pair,
+    table_count: countTables(boards),
     boards,
     partial,
     warnings,

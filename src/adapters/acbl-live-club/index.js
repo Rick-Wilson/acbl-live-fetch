@@ -11,9 +11,25 @@
 import { fetchAll } from '../../lib/rateLimiter.js'
 import { extractClubGameData } from './extractor.js'
 import { parseClubGame } from './parsers/clubGame.js'
+import {
+  SCHEMA_VERSION,
+  buildProvenance,
+  CARDPLAY,
+  AUCTION,
+  RESULTS,
+  SECTIONS,
+} from '../../lib/provenance.js'
 
-export const SCHEMA_VERSION = '1.0'
+export { SCHEMA_VERSION }
 export const SOURCE_NAME = 'acbl-live-club'
+
+export const COVERAGE = {
+  cardplay: CARDPLAY.NONE,
+  auction: AUCTION.NONE,
+  results: RESULTS.ALL_TABLES,
+  sections: SECTIONS.ALL,
+  sections_labelled: true,
+}
 
 export function matchesUrl(url) {
   try {
@@ -40,6 +56,10 @@ export async function extractSession(url, options = {}) {
     delayMs = 0,
     now = () => new Date().toISOString(),
     log = defaultLog,
+    // Describes the request that produced this envelope (e.g. "last 1 month
+    // for kemistry"). Supplied by the caller — an adapter can't know whether it
+    // was asked for one session or a year of history.
+    capture,
   } = options
 
   const pageType = classifyPage(url)
@@ -95,6 +115,7 @@ export async function extractSession(url, options = {}) {
   return {
     schema_version: SCHEMA_VERSION,
     source: SOURCE_NAME,
+    ...buildProvenance({ coverage: COVERAGE, capture }),
     fetched_at: now(),
     source_url: url,
     tournaments: [tournament],

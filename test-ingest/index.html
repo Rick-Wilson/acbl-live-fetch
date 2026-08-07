@@ -162,14 +162,28 @@ function summarize(envelopes, base) {
   const counts = { envelopes: envelopes.length, events: 0, sessions: 0, boards: 0, results: 0 }
   const sources = new Set()
   const dates = []
+  // Provenance is declared per envelope; a batch is normally homogeneous, but
+  // show every distinct value rather than assuming so.
+  const providers = new Set()
+  const cardplay = new Set()
+  const sections = new Set()
+  const contexts = new Set()
+  const tables = []
   for (const env of envelopes) {
     sources.add(env.source)
+    if (env.provider) providers.add(`${env.provider.id} ${env.provider.version}`)
+    if (env.coverage) {
+      cardplay.add(env.coverage.cardplay ?? '?')
+      sections.add(env.coverage.sections_labelled ? 'all (labelled)' : (env.coverage.sections ?? '?'))
+    }
+    if (env.capture?.context) contexts.add(env.capture.context)
     for (const t of env.tournaments ?? []) {
       for (const ev of t.events ?? []) {
         counts.events++
         if (ev.date) dates.push(ev.date)
         for (const s of ev.sessions ?? []) {
           counts.sessions++
+          if (s.table_count != null) tables.push(s.table_count)
           for (const b of s.boards ?? []) {
             counts.boards++
             counts.results += (b.results ?? []).length
@@ -183,6 +197,15 @@ function summarize(envelopes, base) {
     ...base, ...counts,
     received_at: new Date().toISOString(),
     sources: [...sources],
+    providers: [...providers],
+    cardplay: [...cardplay],
+    sections: [...sections],
+    context: [...contexts].join('; '),
+    tables: tables.length
+      ? (Math.min(...tables) === Math.max(...tables)
+          ? String(Math.min(...tables))
+          : `${Math.min(...tables)}–${Math.max(...tables)}`)
+      : null,
     date_range: dates.length ? [dates[0], dates.at(-1)] : null,
   }
 }
@@ -207,10 +230,15 @@ function render(summary) {
   const rows = [
     ['ref', summary.ref],
     ['kind', summary.kind],
+    ['provider', summary.providers?.join(', ') || '—'],
+    ['context', summary.context || '—'],
+    ['cardplay', summary.cardplay?.join(', ') || '—'],
+    ['sections', summary.sections?.join(', ') || '—'],
     ['envelopes', summary.envelopes],
     ['events', summary.events],
     ['sessions', summary.sessions],
     ['boards', summary.boards],
+    ['tables', summary.tables ?? '—'],
     ['results', summary.results],
     ['sources', summary.sources.join(', ')],
     ['date range', summary.date_range ? summary.date_range.join(' .. ') : '—'],

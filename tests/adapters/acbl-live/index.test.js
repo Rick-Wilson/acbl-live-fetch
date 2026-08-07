@@ -6,6 +6,7 @@ import adapter, {
   matchesUrl,
   classifyPage,
   extractSession,
+  SCHEMA_VERSION,
 } from '../../../src/adapters/acbl-live/index.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -144,7 +145,7 @@ describe('extractSession', () => {
     const out = await extractSession(SUMMARY_URL, { fetch: fetchFn, log: silentLog })
 
     // Standard envelope shape preserved.
-    expect(out.schema_version).toBe('1.0')
+    expect(out.schema_version).toBe(SCHEMA_VERSION)
     expect(out.source_url).toBe(SUMMARY_URL)
     expect(out.tournaments[0].sanction).toBe('2604321')
     expect(out.tournaments[0].events[0].sessions).toHaveLength(2)
@@ -205,7 +206,7 @@ describe('extractSession', () => {
     })
 
     // Top-level wrapper
-    expect(out.schema_version).toBe('1.0')
+    expect(out.schema_version).toBe(SCHEMA_VERSION)
     expect(out.source).toBe('acbl-live')
     expect(out.fetched_at).toBe(fixedNow)
     expect(out.source_url).toBe(SCORECARD_URL)
