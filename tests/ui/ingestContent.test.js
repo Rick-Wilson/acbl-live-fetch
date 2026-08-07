@@ -33,6 +33,10 @@ describe('isIngestPath', () => {
     ['/ingest', true],
     ['/ingest/', true],
     ['/ingest///', true],
+    // A GitHub Pages *project* site serves under a repo-name prefix, which is
+    // how the test ingester is reached end to end.
+    ['/acbl-live-fetch/ingest/', true],
+    ['/acbl-live-fetch/ingest', true],
     ['/game-analysis/', false],
     ['/', false],
     ['/ingested', false],
