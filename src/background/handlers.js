@@ -33,24 +33,27 @@ async function dispatchExtract(url, options) {
 export const PENDING_PREFIX = 'pending-sessions:'
 export const PENDING_BATCH_PREFIX = 'pending-batch:'
 export const PENDING_TTL_MS = 60 * 60 * 1000 // 1 hour
-export const DEFAULT_ANALYZER_URL = 'https://game-analysis.bridge-classroom.org/analyze'
-const KNOWN_ANALYZER_HOSTS = new Set([
-  'game-analysis.bridge-classroom.org',
-  'game-analysis.bridge-classroom.com',
-])
+// The analyzer now lives same-origin with the Bridge Classroom SPA at
+// bridge-classroom.{tld}/game-analysis/ (was its own game-analysis.* host).
+// The `?analyze` query is the hand-off signal; the tab-open appends `#sid=`/
+// `#batch=` for the payload key.
+export const analyzerUrlForTld = (tld) =>
+  `https://bridge-classroom.${tld}/game-analysis/?analyze`
+export const DEFAULT_ANALYZER_URL = analyzerUrlForTld('org')
+const ANALYZER_TLDS = new Set(['org', 'com'])
 /** Returns the analyzer URL. Resolution order:
  *  1. devAnalyzerUrl (manual override for local dev — set via:
- *       chrome.storage.local.set({ devAnalyzerUrl: 'http://localhost:3001/analyze' })
+ *       chrome.storage.local.set({ devAnalyzerUrl: 'http://localhost:3001/game-analysis/?analyze' })
  *     clear with: chrome.storage.local.remove('devAnalyzerUrl'))
- *  2. preferredAnalyzerHost (auto-tracked: whenever the user visits the
- *     analyzer on .com or .org, analyzerContent.js writes that host here so
- *     subsequent launches stay on the same domain)
+ *  2. preferredAnalyzerTld (auto-tracked: whenever the user visits the analyzer
+ *     on .com or .org, analyzerContent.js writes that TLD here so subsequent
+ *     launches stay on the same domain)
  *  3. DEFAULT_ANALYZER_URL (.org) */
 export async function getAnalyzerUrl(storage) {
-  const result = await storage.get(['devAnalyzerUrl', 'preferredAnalyzerHost'])
+  const result = await storage.get(['devAnalyzerUrl', 'preferredAnalyzerTld'])
   if (result?.devAnalyzerUrl) return result.devAnalyzerUrl
-  const host = result?.preferredAnalyzerHost
-  if (host && KNOWN_ANALYZER_HOSTS.has(host)) return `https://${host}/analyze`
+  const tld = result?.preferredAnalyzerTld
+  if (tld && ANALYZER_TLDS.has(tld)) return analyzerUrlForTld(tld)
   return DEFAULT_ANALYZER_URL
 }
 // Per-host pause between batch items to avoid rate-limiting. ACBL needs more

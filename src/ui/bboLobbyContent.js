@@ -535,8 +535,11 @@ async function runMegaExport(sendMessage, storage, opts = {}) {
   }
 
   // Step 2: fire bulk extract in the SW. It returns immediately with
-  // dev-bulk-started; progress is tracked via storage.
+  // dev-bulk-started; progress is tracked via storage. Envelopes stream back
+  // to the receiver below, which writes the file when the SW says it's done —
+  // so it has to be listening before the extract starts.
   const filename = `bbo-history-${username}-${new Date().toISOString().slice(0, 10)}.json`
+  installMegaFileReceiver()
   await sendMessage({ type: 'dev-bulk-extract', urls, filename })
 
   // Watch progress.
@@ -547,13 +550,80 @@ async function runMegaExport(sendMessage, storage, opts = {}) {
       storage.onChanged.removeListener(listener)
       const elapsed = Math.round((p.finishedAt - p.startedAt) / 1000)
       const status = p.cancelled ? 'Cancelled' : 'Done'
-      showMegaStatus(`${status} — ${p.completed - p.errors}/${p.total} fetched in ${elapsed}s. Save dialog should appear.`)
+      const where = p.saveError
+        ? `SAVE FAILED: ${p.saveError}`
+        : 'saved to your Downloads folder.'
+      showMegaStatus(`${status} — ${p.completed - p.errors}/${p.total} fetched in ${elapsed}s; ${where}`)
       hideMegaCancelButton()
     } else {
       showMegaStatus(`Bulk extract: ${p.completed}/${p.total} (${p.errors} errors)`)
     }
   }
   storage.onChanged.addListener(listener)
+}
+
+// ── Dev: file assembly for the mega export ───────────────────────────────────
+// The SW streams envelope JSON here one tournament at a time; we hold the
+// strings and splice them into a single JSON document at the end. Assembly
+// lives in the page context because only here can we build a blob URL — the
+// service worker has no URL.createObjectURL, and its data: URL alternative is
+// capped near 2MB by Chrome, which silently truncated multi-hundred-tournament
+// exports to an empty file.
+function installMegaFileReceiver() {
+  const parts = []
+  // eslint-disable-next-line no-undef
+  chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+    if (msg?.type === 'dev-bulk-file-begin') {
+      parts.length = 0
+      sendResponse({ ok: true })
+      return
+    }
+    if (msg?.type === 'dev-bulk-file-chunk') {
+      parts.push(msg.json)
+      sendResponse({ ok: true })
+      return
+    }
+    if (msg?.type === 'dev-bulk-file-finish') {
+      try {
+        const bytes = saveMegaFile(msg.filename, msg.header, parts)
+        parts.length = 0
+        sendResponse({ ok: true, bytes })
+      } catch (err) {
+        sendResponse({ error: err?.message ?? String(err) })
+      }
+      return
+    }
+  })
+}
+
+// Stitch the header and the accumulated envelope strings into one JSON
+// document and hand it to the browser as a download. Building the Blob from an
+// array of string pieces avoids ever materializing the whole file as a single
+// JS string, which matters at hundreds of MB.
+function saveMegaFile(filename, header, parts) {
+  const pieces = ['{\n']
+  for (const [key, value] of Object.entries(header)) {
+    pieces.push(`  ${JSON.stringify(key)}: ${JSON.stringify(value)},\n`)
+  }
+  pieces.push('  "envelopes": [\n')
+  parts.forEach((json, i) => {
+    pieces.push(json)
+    if (i < parts.length - 1) pieces.push(',\n')
+  })
+  pieces.push('\n  ]\n}\n')
+
+  const blob = new Blob(pieces, { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.style.display = 'none'
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  // Give the download a beat to latch onto the blob before we drop it.
+  setTimeout(() => URL.revokeObjectURL(url), 60000)
+  return blob.size
 }
 
 function ensureMegaBanner() {

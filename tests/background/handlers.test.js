@@ -7,6 +7,7 @@ import {
   PENDING_PREFIX,
   PENDING_TTL_MS,
   DEFAULT_ANALYZER_URL,
+  getAnalyzerUrl,
 } from '../../src/background/handlers.js'
 
 function makeStorage(initial = {}) {
@@ -218,5 +219,32 @@ describe('handleMessage dispatch', () => {
     expect((await handleMessage({ type: 'foo' }, { storage })).type).toBe('extraction-error')
     expect((await handleMessage(null, { storage })).type).toBe('extraction-error')
     expect((await handleMessage({}, { storage })).type).toBe('extraction-error')
+  })
+})
+
+describe('getAnalyzerUrl', () => {
+  const store = (data) => ({ get: async () => data })
+
+  it('falls back to .org', async () => {
+    expect(await getAnalyzerUrl(store({}))).toBe(DEFAULT_ANALYZER_URL)
+  })
+
+  it('honours the tracked TLD', async () => {
+    expect(await getAnalyzerUrl(store({ preferredAnalyzerTld: 'com' })))
+      .toBe('https://bridge-classroom.com/game-analysis/?analyze')
+  })
+
+  // How the extension is pointed at the GitHub Pages test ingester: the
+  // override is returned verbatim, with no host restriction, so an operator can
+  // redirect the hand-off without a rebuild.
+  it('returns devAnalyzerUrl verbatim, including a Pages ingest URL', async () => {
+    const pages = 'https://bridge-craftwork.github.io/acbl-live-fetch/ingest/?analyze'
+    expect(await getAnalyzerUrl(store({ devAnalyzerUrl: pages }))).toBe(pages)
+  })
+
+  it('lets the override win over a tracked TLD', async () => {
+    const pages = 'https://bridge-craftwork.github.io/acbl-live-fetch/ingest/?analyze'
+    expect(await getAnalyzerUrl(store({ devAnalyzerUrl: pages, preferredAnalyzerTld: 'com' })))
+      .toBe(pages)
   })
 })
