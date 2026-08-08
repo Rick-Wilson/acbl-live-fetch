@@ -130,10 +130,19 @@ async function fetchViaTab(url) {
   }
 }
 
-// Hosts whose SameSite=Lax cookies block SW direct fetches. ACBL's 2026 auth
-// change applies to both properties: my.acbl.org (club results) since May, and
-// live.acbl.org (tournament results) since June — anonymous SW fetches get
-// HTTP 403, so route them through a logged-in same-origin tab.
+// Hosts that reject a direct service-worker fetch with HTTP 403. Routing the
+// request through a same-origin tab fixes both, but for different reasons —
+// worth keeping straight, because it changes what a user (or a store reviewer)
+// needs in order to use each one:
+//
+//   live.acbl.org  genuinely requires an ACBL session. Logged out, the site
+//                  serves a Cloudflare check and then a sign-in prompt.
+//   my.acbl.org    club results are PUBLIC — logged out, the same Cloudflare
+//                  check is followed by the results themselves. What the worker
+//                  lacks here is the site's bot-protection clearance, not a login.
+//
+// Either way the fix is the same: issue the fetch from a browsing context that
+// has already satisfied the site, i.e. one of the user's own tabs.
 const TAB_FETCH_HOSTS = new Set(['my.acbl.org', 'live.acbl.org'])
 
 async function smartFetch(url, opts) {

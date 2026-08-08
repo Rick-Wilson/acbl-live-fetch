@@ -13,16 +13,22 @@ For what the data means once captured, see
 
 ## 1. Summary
 
-| Source | Host | Auth | Mechanism |
-|---|---|---|---|
-| ACBL Live tournaments | `live.acbl.org` | Session cookie | **Fetch inside a same-origin tab** |
-| ACBL club games | `my.acbl.org` | Session cookie | **Fetch inside a same-origin tab** |
-| BBO hands list | `www.bridgebase.com/myhands/` | Session cookie | Service-worker fetch, `credentials: 'include'` |
-| BBO traveller | `www.bridgebase.com/myhands/` | Session cookie | Service-worker fetch, `credentials: 'include'` |
-| BBO tournament summary | `webutil.bridgebase.com/v2/tview.php` | **None, deliberately** | Service-worker fetch, `credentials: 'omit'` |
-| BBO event listing | `www.bridgebase.com/myhands/` | Session cookie | **Off-screen minimized popup window** |
-| BBO replay LIN | `www.bridgebase.com/myhands/fetchlin.php` | None | **CLI, outside the browser** |
-| BBO hand viewer | `www.bridgebase.com/tools/handviewer.html` | None | **No fetch — the deal is in the URL** |
+| Source | Host | Auth | Testable logged out? | Mechanism |
+|---|---|---|---|---|
+| ACBL Live tournaments | `live.acbl.org` | ACBL login | **No** — Cloudflare, then a login prompt | **Fetch inside a same-origin tab** |
+| ACBL club games | `my.acbl.org` | **None** — results are public | **Yes**, after a Cloudflare check | **Fetch inside a same-origin tab** |
+| BBO hands list | `www.bridgebase.com/myhands/` | BBO login | **No** — redirects to `myhands_login.php` | Service-worker fetch, `credentials: 'include'` |
+| BBO traveller | `www.bridgebase.com/myhands/` | BBO login | **No** | Service-worker fetch, `credentials: 'include'` |
+| BBO event listing | `www.bridgebase.com/myhands/` | BBO login | **No** | **Off-screen minimized popup window** |
+| BBO tournament summary | `webutil.bridgebase.com/v2/tview.php` | **None, deliberately** | **Yes** | Service-worker fetch, `credentials: 'omit'` |
+| BBO replay LIN | `www.bridgebase.com/myhands/fetchlin.php` | None | **Yes** | **CLI, outside the browser** |
+| BBO hand viewer | `www.bridgebase.com/tools/handviewer.html` | None | **Yes** | **No fetch — the deal is in the URL** |
+
+"Testable logged out" is the property that matters for store review: it says
+whether someone with no account can exercise that path. Verified in a clean
+browser profile, August 2026. The hand viewer is the one entry point that needs
+no account, no cookies and no Cloudflare pass — see
+[store-review.md](store-review.md).
 
 ---
 
