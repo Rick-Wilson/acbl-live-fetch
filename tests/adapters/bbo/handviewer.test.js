@@ -54,18 +54,35 @@ describe('handviewer page type', () => {
 })
 
 describe('button-row injection', () => {
+  // BBO's controls are <input type="button">, not <button>.
   function pageWithControlRow() {
-    const dom = new JSDOM('<!doctype html><body><div id="buttonDiv"><button class="buttonStyle">Rewind</button></div></body>')
+    const dom = new JSDOM(
+      '<!doctype html><body><div id="buttonDiv"><input type="button" class="buttonStyle" value="Rewind"></div></body>',
+      { url: 'https://www.bridgebase.com/' }
+    )
     return dom.window.document
   }
+
+  // BBO styles its row with `input.buttonStyle` — element-qualified — so a
+  // <button> carrying that class matches nothing and stays position:static,
+  // silently ignoring the left we compute. Position has to be set directly.
+  it('positions itself absolutely rather than relying on BBO\'s class', () => {
+    const doc = pageWithControlRow()
+    const btn = injectButton({ document: doc, location: { href: PASSED_OUT_URL }, sendMessage: () => {} })
+    const sib = doc.querySelector('input.buttonStyle')
+    Object.defineProperty(sib, 'offsetLeft', { value: 10 })
+    Object.defineProperty(sib, 'offsetWidth', { value: 90 })
+    placeAtRowEnd(doc.getElementById('buttonDiv'), btn, 8, { log: () => {} })
+    expect(btn.style.position).toBe('absolute')
+    expect(btn.style.left).toBe('108px')
+  })
 
   it('appends into #buttonDiv, styled like its siblings', () => {
     const doc = pageWithControlRow()
     const btn = injectButton({ document: doc, location: { href: PASSED_OUT_URL }, sendMessage: () => {} })
     expect(btn).not.toBeNull()
     expect(btn.parentElement.id).toBe('buttonDiv')
-    expect(btn.className).toBe('buttonStyle')
-    // Our own chrome is stripped so BBO's stylesheet governs the look.
+    // Our own chrome is stripped so the button matches its neighbours.
     expect(btn.style.background).toBe('')
     expect(btn.style.border).toBe('')
     expect(btn.style.borderRadius).toBe('')
@@ -96,7 +113,7 @@ describe('button-row injection', () => {
     const loc = { href: PASSED_OUT_URL }
     injectButton({ document: doc, location: loc, sendMessage: () => {} })
     injectButton({ document: doc, location: loc, sendMessage: () => {} })
-    expect(doc.querySelectorAll('#buttonDiv button').length).toBe(2) // Rewind + ours
+    expect(doc.querySelectorAll('#buttonDiv button').length).toBe(1) // just ours
   })
 
   // BBO positions its controls absolutely and assigns each a `left` in JS, so

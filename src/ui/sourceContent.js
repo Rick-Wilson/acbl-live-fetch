@@ -308,6 +308,10 @@ export function placeAtRowEnd(row, btn, gap = 8, { log = defaultPlacementLog } =
     // which stacks it on the first control — the original bug.
     if (right <= 0 || !rightmost) return false
 
+    // The siblings are absolutely positioned by an element-qualified rule we
+    // can't inherit, so set that ourselves before any offset means anything.
+    if (btn.style.position !== 'absolute') btn.style.position = 'absolute'
+
     const computed = view?.getComputedStyle?.(rightmost)
     if (computed) {
       for (const prop of ['fontSize', 'fontFamily', 'top', 'height', 'paddingTop', 'paddingBottom']) {
@@ -387,14 +391,15 @@ export function injectButton(deps) {
     // analysis, and the ingest page decides which tool anyway.
     btn.textContent = 'Bridge Classroom'
 
-    // hvstyles.css gives .buttonStyle `position: absolute; height: 100%`, and
-    // the viewer assigns each button's `left` in JS at layout time. Inheriting
-    // the class without a left of our own puts us at 0 — on top of Rewind.
-    // Strip our own chrome so the button matches its neighbours, then place it
-    // past the rightmost one.
-    btn.className = 'buttonStyle'
-    // Drop every inline style buildButton applied rather than unsetting them one
-    // by one — shorthands like `background` expand to several properties, so
+    // Do NOT copy BBO's class. Its controls are <input type="button"> and the
+    // rule is element-qualified — `input.buttonStyle` — so a <button> wearing
+    // that class matches nothing, stays `position: static`, and ignores any
+    // `left` we set. That is exactly how this failed: the placement ran, logged
+    // a correct offset, and moved nothing.
+    //
+    // Instead drop our own chrome and let placeAtRowEnd copy the geometry from a
+    // real sibling. cssText is cleared wholesale rather than property by
+    // property because shorthands like `background` expand, so
     // removeProperty('background') leaves background-color behind.
     btn.style.cssText = ''
     btn.style.cursor = 'pointer'
