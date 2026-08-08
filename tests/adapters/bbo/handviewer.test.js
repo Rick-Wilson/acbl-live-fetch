@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
+import { JSDOM } from 'jsdom'
 import { classifyPage, matchesUrl, extractSession, buildHandviewerEnvelope } from '../../../src/adapters/bbo/index.js'
 import { parseLinPlayers, deriveContract } from '../../../src/adapters/bbo/parsers/lin.js'
-import { shouldInject } from '../../../src/ui/sourceContent.js'
+import { shouldInject, pickInjectionStrategy, injectButton } from '../../../src/ui/sourceContent.js'
 
 // The user's real URL: a passed-out board 7, LIN inline.
 const PASSED_OUT_URL =
@@ -28,6 +29,50 @@ describe('handviewer page type', () => {
 
   it('injects the button there', () => {
     expect(shouldInject(PASSED_OUT_URL)).toBe(true)
+  })
+
+  // Every corner of the hand viewer is taken: the auction occupies top-right
+  // where the fixed overlay would land, BBO's own controls run along the
+  // bottom, and BBO Helper draws a double-dummy table bottom-left. The control
+  // row is the one place that collides with none of them.
+  it('joins the control row rather than floating over the auction', () => {
+    expect(pickInjectionStrategy(PASSED_OUT_URL)).toBe('button-row')
+  })
+
+  it('still uses the overlay on other BBO pages', () => {
+    expect(pickInjectionStrategy('https://www.bridgebase.com/myhands/hands.php?tourney=1-2&username=x'))
+      .toBe('overlay')
+    expect(pickInjectionStrategy('https://webutil.bridgebase.com/v2/tview.php?t=1-2&u=x'))
+      .toBe('overlay')
+  })
+})
+
+describe('button-row injection', () => {
+  function pageWithControlRow() {
+    const dom = new JSDOM('<!doctype html><body><div id="buttonDiv"><button class="buttonStyle">Rewind</button></div></body>')
+    return dom.window.document
+  }
+
+  it('appends into #buttonDiv, styled like its siblings', () => {
+    const doc = pageWithControlRow()
+    const btn = injectButton({ document: doc, location: { href: PASSED_OUT_URL }, sendMessage: () => {} })
+    expect(btn).not.toBeNull()
+    expect(btn.parentElement.id).toBe('buttonDiv')
+    expect(btn.className).toBe('buttonStyle')
+  })
+
+  it('returns null when the row has not rendered yet, so the observer retries', () => {
+    const dom = new JSDOM('<!doctype html><body></body>')
+    expect(injectButton({ document: dom.window.document, location: { href: PASSED_OUT_URL }, sendMessage: () => {} }))
+      .toBeNull()
+  })
+
+  it('does not add a second button on re-injection', () => {
+    const doc = pageWithControlRow()
+    const loc = { href: PASSED_OUT_URL }
+    injectButton({ document: doc, location: loc, sendMessage: () => {} })
+    injectButton({ document: doc, location: loc, sendMessage: () => {} })
+    expect(doc.querySelectorAll('#buttonDiv button').length).toBe(3) // Rewind + ours + cancel
   })
 })
 

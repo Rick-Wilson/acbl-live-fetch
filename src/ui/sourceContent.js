@@ -118,9 +118,18 @@ export function pickInjectionStrategy(url) {
   //   If Vue hasn't mounted yet, injectButton returns null and the
   //   MutationObserver retries once the nav appears.
   // BBO pages (bridgebase.com) have no obvious anchor; use a fixed overlay.
+  // The hand viewer is the exception: it has a real control row, and its
+  // corners are all taken — the auction sits top-right where the overlay would
+  // land, BBO's own controls run along the bottom, and BBO Helper (a commonly
+  // installed extension) draws a double-dummy table bottom-left. Joining the
+  // control row avoids all three and looks native.
   try {
-    const host = new URL(url).hostname
+    const u = new URL(url)
+    const host = u.hostname
     if (host === 'my.acbl.org') return 'club-nav'
+    if (host === 'www.bridgebase.com' && u.pathname === '/tools/handviewer.html') {
+      return 'button-row'
+    }
     if (host.endsWith('bridgebase.com')) return 'overlay'
     return 'inline'
   } catch {
@@ -290,6 +299,22 @@ export function injectButton(deps) {
     li.appendChild(btn)
     li.appendChild(cancelBtn)
     ul.appendChild(li)
+    return btn
+  }
+
+  if (strategy === 'button-row') {
+    // #buttonDiv holds Rewind / Previous / Next / Options / Play. It exists in
+    // the static HTML, but the viewer populates it at runtime, so a null return
+    // here just lets the MutationObserver retry.
+    const row = doc.getElementById('buttonDiv')
+    if (!row) return null
+    // Match the siblings rather than imposing our own chrome.
+    btn.className = 'buttonStyle'
+    cancelBtn.className = 'buttonStyle'
+    Object.assign(btn.style, { marginLeft: '8px', verticalAlign: 'middle' })
+    Object.assign(cancelBtn.style, { marginLeft: '4px', verticalAlign: 'middle' })
+    row.appendChild(btn)
+    row.appendChild(cancelBtn)
     return btn
   }
 
