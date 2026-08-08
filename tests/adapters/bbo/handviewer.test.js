@@ -162,6 +162,41 @@ describe('button-row injection', () => {
       placeAtRowEnd(row, ours)
       expect(ours.style.left).toBe('')
     })
+
+    // Real numbers from the live page: BBO's six controls end at 414+55=469,
+    // and the row also contains a whitespace node with zero dimensions.
+    it('places correctly against the real hand viewer row', () => {
+      const { row, ours } = rowWith([[7, 81], [98, 92], [199, 57], [266, 83], [359, 45], [414, 55], [0, 0]])
+      placeAtRowEnd(row, ours)
+      expect(ours.style.left).toBe('477px')
+    })
+
+    // The viewer re-lays the row out after our first attempt, which silently
+    // undid the placement when this relied on timers.
+    it('re-applies when the row changes after the first attempt', () => {
+      const dom = new JSDOM('<!doctype html><body><div id="r"></div></body>')
+      const d = dom.window.document
+      const row = d.getElementById('r')
+      const sib = d.createElement('button')
+      let left = 0, width = 0
+      Object.defineProperty(sib, 'offsetLeft', { get: () => left })
+      Object.defineProperty(sib, 'offsetWidth', { get: () => width })
+      row.appendChild(sib)
+      const ours = d.createElement('button')
+      row.appendChild(ours)
+
+      const observers = []
+      dom.window.MutationObserver = class {
+        constructor(cb) { observers.push(cb) }
+        observe() {}
+      }
+      placeAtRowEnd(row, ours)
+      expect(ours.style.left).toBe('')          // nothing laid out yet
+
+      left = 300; width = 60                    // viewer finishes laying out
+      observers.forEach((cb) => cb())
+      expect(ours.style.left).toBe('368px')
+    })
   })
 })
 
