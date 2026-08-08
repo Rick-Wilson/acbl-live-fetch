@@ -140,14 +140,14 @@ Chrome requires a written justification per permission. Current manifest:
 | `scripting` | Both ACBL sites reject requests made from the extension's background worker with HTTP 403, so the fetch is issued from inside one of the user's own tabs on that site instead. This is required for the site's own protections to be satisfied — a session on `live.acbl.org`, bot-protection clearance on `my.acbl.org`. |
 | Host: `live.acbl.org`, `my.acbl.org` | Reading the user's own tournament and club results. |
 | Host: `www.bridgebase.com`, `webutil.bridgebase.com` | Reading the user's own BBO results. |
-| Host: `bridge-classroom.{org,com}` | Delivering the results to the analyzer the user chose to send them to. |
+| Content script on `bridge-classroom.{org,com}` | Delivering the results to the page the user is taken to, which then forwards them to the chosen tool. No host permission is requested for these domains — the content-script match is sufficient. |
 
 ### Before submitting
 
-- **Remove `http://localhost:3001/game-analysis/*`** from `host_permissions`. It
-  backs the local development workflow in `CLAUDE.md` and has no business in a
-  published build — a localhost permission in a store listing invites questions
-  for no user benefit. Ship it via a separate unpacked build.
+- ~~Remove `http://localhost:3001/game-analysis/*` from `host_permissions`.~~
+  Done — removed when the `/game-analysis/` hand-off was retired. Local
+  development now uses the `devAnalyzerUrl` override, which needs no manifest
+  entry.
 - **Do not ship the `INGEST_TEST=1` build.** It adds `localhost`, `127.0.0.1`
   and a GitHub Pages origin for end-to-end testing.
 

@@ -31,17 +31,6 @@
       "run_at": "document_idle"
     },
     {
-      "matches": [
-        "https://bridge-classroom.org/game-analysis/*",
-        "https://bridge-classroom.com/game-analysis/*",
-        "http://localhost:3001/game-analysis/*"
-      ],
-      "js": [
-        "src/ui/analyzerContent.js"
-      ],
-      "run_at": "document_start"
-    },
-    {
       "js": [
         "src/ui/ingestContent.js"
       ],
@@ -60,9 +49,6 @@
   "host_permissions": [
     "https://live.acbl.org/*",
     "https://my.acbl.org/*",
-    "https://bridge-classroom.org/game-analysis/*",
-    "https://bridge-classroom.com/game-analysis/*",
-    "http://localhost:3001/game-analysis/*",
     "https://webutil.bridgebase.com/*",
     "https://www.bridgebase.com/*"
   ]

@@ -33,21 +33,28 @@ async function dispatchExtract(url, options) {
 export const PENDING_PREFIX = 'pending-sessions:'
 export const PENDING_BATCH_PREFIX = 'pending-batch:'
 export const PENDING_TTL_MS = 60 * 60 * 1000 // 1 hour
-// The analyzer now lives same-origin with the Bridge Classroom SPA at
-// bridge-classroom.{tld}/game-analysis/ (was its own game-analysis.* host).
-// The `?analyze` query is the hand-off signal; the tab-open appends `#sid=`/
-// `#batch=` for the payload key.
+// Results are handed to bridge-classroom.{tld}/ingest/, which receives the
+// payload and forwards it to whichever Bridge Classroom tool the user picks —
+// game analysis today, the double-dummy and replay tools as they arrive. Routing
+// through one versioned entry point means adding a consumer is a web deploy
+// rather than an extension release (ADR 0001).
+//
+// `?v=1` versions the transport contract, not the payload; the envelope carries
+// its own schema_version. The tab-open appends `#sid=` / `#batch=`.
+//
+// Trailing slash is deliberate: /ingest 301s to /ingest/, and pointing at the
+// final URL avoids a redirect on every hand-off.
 export const analyzerUrlForTld = (tld) =>
-  `https://bridge-classroom.${tld}/game-analysis/?analyze`
+  `https://bridge-classroom.${tld}/ingest/?v=1`
 export const DEFAULT_ANALYZER_URL = analyzerUrlForTld('org')
 const ANALYZER_TLDS = new Set(['org', 'com'])
-/** Returns the analyzer URL. Resolution order:
+/** Returns the hand-off URL. Resolution order:
  *  1. devAnalyzerUrl (manual override for local dev — set via:
- *       chrome.storage.local.set({ devAnalyzerUrl: 'http://localhost:3001/game-analysis/?analyze' })
+ *       chrome.storage.local.set({ devAnalyzerUrl: 'http://localhost:3001/ingest/?v=1' })
  *     clear with: chrome.storage.local.remove('devAnalyzerUrl'))
- *  2. preferredAnalyzerTld (auto-tracked: whenever the user visits the analyzer
- *     on .com or .org, analyzerContent.js writes that TLD here so subsequent
- *     launches stay on the same domain)
+ *  2. preferredAnalyzerTld (auto-tracked: whenever the user visits Bridge
+ *     Classroom on .com or .org, ingestContent.js writes that TLD here so
+ *     subsequent hand-offs stay on the same domain)
  *  3. DEFAULT_ANALYZER_URL (.org) */
 export async function getAnalyzerUrl(storage) {
   const result = await storage.get(['devAnalyzerUrl', 'preferredAnalyzerTld'])

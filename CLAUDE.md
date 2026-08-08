@@ -54,10 +54,10 @@ The first concrete task is in `START_HERE.md`. Do not skip it — it sets up the
 
 ## Development: targeting a local analyzer
 
-The extension opens the analyzer at a runtime-configurable URL (default: `https://game-analysis.bridge-classroom.org/analyze`). To point it at a local dev server instead, open the background service worker console in `chrome://extensions` and run:
+The extension hands results to a runtime-configurable URL (default: `https://bridge-classroom.org/ingest/?v=1`). That page receives the payload and forwards it to whichever Bridge Classroom tool the user picks — see `docs/ingest-protocol.md`. To point it at a local dev server instead, open the background service worker console in `chrome://extensions` and run:
 
 ```js
-chrome.storage.local.set({ devAnalyzerUrl: 'http://localhost:3001/analyze' })
+chrome.storage.local.set({ devAnalyzerUrl: 'http://localhost:3001/ingest/?v=1' })
 ```
 
 To revert to production:

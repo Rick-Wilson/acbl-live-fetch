@@ -1,8 +1,10 @@
 # ADR 0001 — Versioned ingest endpoint and postMessage handoff
 
-- **Status:** Proposed
+- **Status:** Accepted — implemented 2026-08-08, except Decision 6
+  (`unlimitedStorage`), which is still outstanding
 - **Date:** 2026-08-01
-- **Supersedes:** the "Why sessionStorage" decision in [handoff-protocol.md](../handoff-protocol.md)
+- **Supersedes:** [handoff-protocol.md](../handoff-protocol.md), now retired
+  along with `src/ui/analyzerContent.js`
 
 ## Context
 

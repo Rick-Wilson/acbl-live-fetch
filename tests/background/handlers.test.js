@@ -233,7 +233,16 @@ describe('getAnalyzerUrl', () => {
 
   it('honours the tracked TLD', async () => {
     expect(await getAnalyzerUrl(store({ preferredAnalyzerTld: 'com' })))
-      .toBe('https://bridge-classroom.com/game-analysis/?analyze')
+      .toBe('https://bridge-classroom.com/ingest/?v=1')
+  })
+
+  // The ingest route is the default destination: it receives the payload and
+  // forwards it to whichever tool the user picks, so adding a consumer doesn't
+  // need an extension release (ADR 0001). The trailing slash avoids the 301.
+  it('defaults to the versioned ingest route', async () => {
+    const url = await getAnalyzerUrl(store({}))
+    expect(url).toBe('https://bridge-classroom.org/ingest/?v=1')
+    expect(new URL(url).pathname).toBe('/ingest/')
   })
 
   // How the extension is pointed at the GitHub Pages test ingester: the

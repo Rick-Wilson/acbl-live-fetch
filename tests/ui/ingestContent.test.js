@@ -44,8 +44,7 @@ describe('isIngestPath', () => {
     expect(isIngestPath(path)).toBe(expected)
   })
 
-  // The gate exists because analyzerContent.js consumes the same #sid fragment
-  // on /game-analysis/, and the first consumer deletes the stored entry.
+  // Keeps the script inert on the rest of the Bridge Classroom site.
   it('does not match the analyzer route', () => {
     expect(isIngestPath('/game-analysis/')).toBe(false)
   })
