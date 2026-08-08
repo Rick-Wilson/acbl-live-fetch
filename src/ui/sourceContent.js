@@ -279,28 +279,56 @@ export function buildDatePicker(doc, onSelect, onSingleGame = null) {
   return picker
 }
 
-// Park an absolutely-positioned button just past the rightmost sibling. BBO
-// lays its own controls out in JS, so this has to be measured rather than
-// guessed, and redone whenever the viewer re-lays out.
+// Match a sibling control and park the button past the rightmost one.
+//
+// The hand viewer lays its own row out in JS: hvstyles.css only says
+// `position: absolute; height: 100%`, while the actual left, top and font size
+// are assigned at layout time and scale with the viewport. So both the geometry
+// and the type size have to be copied from a real sibling rather than guessed —
+// and copied *after* the viewer has run, since every offset reads 0 until then.
 export function placeAtRowEnd(row, btn, gap = 8) {
-  const measure = () => {
-    let right = 0
-    for (const el of row.children) {
-      if (el === btn) continue
-      const edge = (el.offsetLeft ?? 0) + (el.offsetWidth ?? 0)
-      if (edge > right) right = edge
-    }
-    // offsetWidth is 0 before layout (and always, in jsdom); leave the button
-    // where it is rather than stacking it at 0 on top of the first control.
-    if (right > 0) btn.style.left = `${right + gap}px`
-  }
-  measure()
   const view = row.ownerDocument?.defaultView
-  if (view?.addEventListener) {
-    view.addEventListener('resize', measure)
-    // The viewer sizes its controls after first paint; re-measure once it has.
-    view.setTimeout?.(measure, 300)
+
+  const siblings = () => [...row.children].filter((el) => el !== btn)
+
+  const apply = () => {
+    const others = siblings()
+    if (others.length === 0) return false
+    let right = 0
+    let rightmost = null
+    for (const el of others) {
+      const edge = (el.offsetLeft ?? 0) + (el.offsetWidth ?? 0)
+      if (edge > right) { right = edge; rightmost = el }
+    }
+    // Nothing laid out yet. Leave the button untouched rather than pinning it
+    // at 0, which would stack it on the first control.
+    if (right <= 0 || !rightmost) return false
+
+    // Copy the type size and vertical placement the viewer chose, so the button
+    // reads as one of BBO's own rather than a smaller inserted one.
+    const computed = view?.getComputedStyle?.(rightmost)
+    if (computed) {
+      for (const prop of ['fontSize', 'fontFamily', 'top', 'height', 'paddingTop', 'paddingBottom']) {
+        const value = computed[prop]
+        if (value) btn.style[prop] = value
+      }
+    }
+    btn.style.left = `${right + gap}px`
+    return true
   }
+
+  // The viewer sizes the row after first paint, and again on resize. Retry with
+  // backoff until it has, rather than betting on a single delay.
+  if (!apply() && view?.setTimeout) {
+    let delay = 50
+    const retry = () => {
+      if (apply() || delay > 3000) return
+      delay *= 2
+      view.setTimeout(retry, delay)
+    }
+    view.setTimeout(retry, delay)
+  }
+  view?.addEventListener?.('resize', apply)
   return btn
 }
 

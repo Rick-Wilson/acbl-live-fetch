@@ -116,6 +116,31 @@ describe('button-row injection', () => {
       return { row, ours }
     }
 
+    // BBO scales its controls' type to the viewport, so an inserted button that
+    // keeps the default size reads as visibly smaller than its neighbours.
+    it('copies the type size and vertical placement of a sibling', () => {
+      const dom = new JSDOM('<!doctype html><body><div id="r"></div></body>')
+      const { document: d, window: w } = dom.window.document.defaultView
+        ? { document: dom.window.document, window: dom.window }
+        : {}
+      const row = d.getElementById('r')
+      const sib = d.createElement('button')
+      Object.defineProperty(sib, 'offsetLeft', { value: 10 })
+      Object.defineProperty(sib, 'offsetWidth', { value: 90 })
+      sib.style.fontSize = '28px'
+      sib.style.top = '6px'
+      row.appendChild(sib)
+      const ours = d.createElement('button')
+      row.appendChild(ours)
+
+      w.getComputedStyle = () => ({ fontSize: '28px', fontFamily: 'arial', top: '6px', height: '40px' })
+      placeAtRowEnd(row, ours)
+
+      expect(ours.style.fontSize).toBe('28px')
+      expect(ours.style.top).toBe('6px')
+      expect(ours.style.left).toBe('108px')
+    })
+
     it('sits past the rightmost sibling', () => {
       const { row, ours } = rowWith([[0, 60], [70, 80], [160, 50]])
       placeAtRowEnd(row, ours)
