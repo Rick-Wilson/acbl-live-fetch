@@ -292,7 +292,7 @@ export function buildDatePicker(doc, onSelect, onSingleGame = null) {
 // starts `visibility: hidden` and the row can hold its box while the controls
 // inside it are still unsized. What actually changes is each button's own
 // geometry, which is also exactly what gets measured here.
-export function placeAtRowEnd(row, btn, gap = 8, { log = defaultPlacementLog } = {}) {
+export function placeAtRowEnd(row, btn, gap = 14, { log = defaultPlacementLog } = {}) {
   const view = row.ownerDocument?.defaultView
   let placed = false
 
@@ -328,6 +328,15 @@ export function placeAtRowEnd(row, btn, gap = 8, { log = defaultPlacementLog } =
     }
     return true
   }
+
+  // Wire the observers once per button. Calling this twice would leave two sets
+  // running, and if they disagreed — different gaps, say — each one's write
+  // would retrigger the other's observer forever.
+  if (btn.dataset && btn.dataset.bcRowPlacement === 'wired') {
+    apply()
+    return btn
+  }
+  if (btn.dataset) btn.dataset.bcRowPlacement = 'wired'
 
   // Watch every control, not the container: a button going from unsized to
   // sized is the event we're waiting for.
@@ -403,6 +412,11 @@ export function injectButton(deps) {
     // removeProperty('background') leaves background-color behind.
     btn.style.cssText = ''
     btn.style.cursor = 'pointer'
+    // BBO's own rule says `padding-left: 2` with no unit, which is invalid and
+    // so ignored — their controls get the browser default. Give ours a little
+    // more room around the label than that.
+    btn.style.paddingLeft = '12px'
+    btn.style.paddingRight = '12px'
     // No cancel button here: a single deal is instant, so there is nothing to
     // cancel and a second control would only crowd BBO's row.
     row.appendChild(btn)

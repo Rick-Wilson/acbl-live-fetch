@@ -72,9 +72,27 @@ describe('button-row injection', () => {
     const sib = doc.querySelector('input.buttonStyle')
     Object.defineProperty(sib, 'offsetLeft', { value: 10 })
     Object.defineProperty(sib, 'offsetWidth', { value: 90 })
-    placeAtRowEnd(doc.getElementById('buttonDiv'), btn, 8, { log: () => {} })
+    placeAtRowEnd(doc.getElementById('buttonDiv'), btn, undefined, { log: () => {} })
     expect(btn.style.position).toBe('absolute')
-    expect(btn.style.left).toBe('108px')
+    expect(btn.style.left).toBe('114px')
+  })
+
+  // injectButton already wires the placement, and the re-injection observer can
+  // call it again. A second set of observers with a different gap would leave
+  // the two writing over each other forever.
+  it('wires its observers only once per button', () => {
+    const doc = pageWithControlRow()
+    const row = doc.getElementById('buttonDiv')
+    const btn = injectButton({ document: doc, location: { href: PASSED_OUT_URL }, sendMessage: () => {} })
+    const sib = doc.querySelector('input.buttonStyle')
+    Object.defineProperty(sib, 'offsetLeft', { value: 10 })
+    Object.defineProperty(sib, 'offsetWidth', { value: 90 })
+
+    let created = 0
+    doc.defaultView.ResizeObserver = class { constructor() { created++ } observe() {} }
+    placeAtRowEnd(row, btn, 8, { log: () => {} })
+    placeAtRowEnd(row, btn, 8, { log: () => {} })
+    expect(created).toBe(0)   // already wired by injectButton
   })
 
   it('appends into #buttonDiv, styled like its siblings', () => {
@@ -86,6 +104,10 @@ describe('button-row injection', () => {
     expect(btn.style.background).toBe('')
     expect(btn.style.border).toBe('')
     expect(btn.style.borderRadius).toBe('')
+    // BBO's own `padding-left: 2` is unit-less and therefore ignored, so their
+    // controls sit at the browser default; ours gets a little more room.
+    expect(btn.style.paddingLeft).toBe('12px')
+    expect(btn.style.paddingRight).toBe('12px')
   })
 
   // "Analyze" is wrong for one deal — it goes to double-dummy, and the ingest
@@ -155,13 +177,13 @@ describe('button-row injection', () => {
 
       expect(ours.style.fontSize).toBe('28px')
       expect(ours.style.top).toBe('6px')
-      expect(ours.style.left).toBe('108px')
+      expect(ours.style.left).toBe('114px')
     })
 
     it('sits past the rightmost sibling', () => {
       const { row, ours } = rowWith([[0, 60], [70, 80], [160, 50]])
       placeAtRowEnd(row, ours)
-      expect(ours.style.left).toBe('218px')   // 160 + 50 + 8
+      expect(ours.style.left).toBe('224px')   // 160 + 50 + 14
     })
 
     it('ignores its own width when measuring', () => {
@@ -169,7 +191,7 @@ describe('button-row injection', () => {
       Object.defineProperty(ours, 'offsetLeft', { value: 999 })
       Object.defineProperty(ours, 'offsetWidth', { value: 999 })
       placeAtRowEnd(row, ours)
-      expect(ours.style.left).toBe('68px')
+      expect(ours.style.left).toBe('74px')
     })
 
     // Before layout every offset is 0. Setting left:0 then would stack us on
@@ -185,7 +207,7 @@ describe('button-row injection', () => {
     it('places correctly against the real hand viewer row', () => {
       const { row, ours } = rowWith([[7, 81], [98, 92], [199, 57], [266, 83], [359, 45], [414, 55], [0, 0]])
       placeAtRowEnd(row, ours)
-      expect(ours.style.left).toBe('477px')
+      expect(ours.style.left).toBe('483px')
     })
 
     // The viewer finishes laying out after we inject. Watching each control's
