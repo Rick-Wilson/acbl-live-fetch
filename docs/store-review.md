@@ -172,6 +172,49 @@ answers:
 - **A privacy policy is required** by the Chrome Web Store for any extension
   handling user data, and must be linked from the listing.
 
+### Where the policy lives
+
+One document, on bridge-classroom.org, with a clearly-headed *Browser extension*
+section; that URL goes in the listing. A separate document isn't needed, but
+pointing the listing at a general site policy that never mentions the extension
+does get rejected — reviewers look for the requested permissions to be described.
+
+The division: the extension is a conduit plus a short-lived cache **on the user's
+own device**. Once results reach bridge-classroom.org the main policy governs
+them. When back-end storage of hand data ships (ADR 0001), that change belongs in
+the main document, not this section.
+
+### Draft — extension section
+
+> **Browser extension**
+>
+> The Bridge Classroom browser extension reads bridge results from pages you are
+> already viewing on supported sites — ACBL Live, my.acbl.org and Bridge Base
+> Online — when you click its button. It does not run on other sites, and it does
+> not read anything until you ask it to.
+>
+> Results are held briefly in the browser's own extension storage, on your
+> device, so they can be passed to the analysis page you are being taken to. They
+> are deleted as soon as the page receives them, and in any case within one hour.
+> Your Bridge Base username is cached on the same one-hour basis so you don't
+> have to re-enter it; it is never sent anywhere.
+>
+> The only setting kept indefinitely is which Bridge Classroom domain you prefer
+> (.org or .com), so the extension opens the one you use. This identifies nobody.
+>
+> Results are sent only to bridge-classroom.org or bridge-classroom.com, by
+> opening a page there — the same thing that happens if you upload a file
+> yourself. Nothing is sent to any other service. The extension contains no
+> analytics or tracking of any kind.
+>
+> When reading Bridge Base tournament results, the extension deliberately
+> requests the results page **without signing in**, because Bridge Base then
+> withholds other players' real names. Your opponents are recorded only by their
+> Bridge Base usernames. Results from ACBL sites do include player names and
+> numbers, because those sites publish them.
+>
+> Once results reach Bridge Classroom, the rest of this policy applies to them.
+
 ---
 
 ## 7. Known review friction

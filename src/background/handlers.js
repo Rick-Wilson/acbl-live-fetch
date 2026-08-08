@@ -299,11 +299,27 @@ export async function cancelBatch(key, deps) {
 }
 
 export const BBO_USERNAME_KEY = 'bbo-username'
+export const BATCH_RESULT_KEY = 'bbo-batch-result'
 
+// Both of these identify a person, so both expire on the same clock as the game
+// data. Neither is expensive to lose: the username is re-read from any BBO page,
+// and the batch result is consumed seconds after it is written. Keeping them
+// bounded means nothing personally identifying outlives PENDING_TTL_MS, which is
+// a far simpler thing to state in a privacy policy than a list of exceptions.
+//
+// Stored as { username, stored_at }. Earlier versions wrote a bare string; those
+// are swept on sight rather than migrated, since re-deriving costs one page
+// visit.
 export async function getBboUsername(deps) {
   const { storage } = deps
   const result = await storage.get(BBO_USERNAME_KEY)
-  return { username: result?.[BBO_USERNAME_KEY] ?? null }
+  const entry = result?.[BBO_USERNAME_KEY]
+  if (typeof entry === 'string') return { username: entry }   // legacy shape
+  if (!entry || typeof entry !== 'object') return { username: null }
+  if (typeof entry.stored_at !== 'number' || Date.now() - entry.stored_at > PENDING_TTL_MS) {
+    return { username: null }
+  }
+  return { username: entry.username ?? null }
 }
 
 async function cacheBboUsername(url, storage) {
@@ -311,7 +327,9 @@ async function cacheBboUsername(url, storage) {
     const u = new URL(url)
     if (u.hostname === 'webutil.bridgebase.com') {
       const username = u.searchParams.get('u') ?? u.searchParams.get('U')
-      if (username) await storage.set({ [BBO_USERNAME_KEY]: username })
+      if (username) {
+        await storage.set({ [BBO_USERNAME_KEY]: { username, stored_at: Date.now() } })
+      }
     }
   } catch { /* non-fatal */ }
 }
@@ -324,6 +342,18 @@ export async function sweepExpired(deps) {
     // Always sweep stale cancel-batch flags — they're meant to live only as
     // long as the batch they're cancelling.
     if (key.startsWith(CANCEL_BATCH_PREFIX)) { toRemove.push(key); continue }
+    // The two identifying caches. A legacy bare-string username has no
+    // timestamp to judge, so it goes.
+    if (key === BBO_USERNAME_KEY) {
+      const at = typeof value === 'object' ? value?.stored_at : null
+      if (typeof at !== 'number' || Date.now() - at > PENDING_TTL_MS) toRemove.push(key)
+      continue
+    }
+    if (key === BATCH_RESULT_KEY) {
+      const at = value?.timestamp
+      if (typeof at !== 'number' || Date.now() - at > PENDING_TTL_MS) toRemove.push(key)
+      continue
+    }
     if (!key.startsWith(PENDING_PREFIX) && !key.startsWith(PENDING_BATCH_PREFIX)) continue
     const storedAt = value?.stored_at
     if (typeof storedAt !== 'number' || Date.now() - storedAt > PENDING_TTL_MS) {

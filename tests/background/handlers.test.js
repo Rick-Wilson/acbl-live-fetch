@@ -8,6 +8,8 @@ import {
   PENDING_TTL_MS,
   DEFAULT_ANALYZER_URL,
   getAnalyzerUrl,
+  getBboUsername,
+  BBO_USERNAME_KEY,
 } from '../../src/background/handlers.js'
 
 function makeStorage(initial = {}) {
@@ -246,5 +248,59 @@ describe('getAnalyzerUrl', () => {
     const pages = 'https://bridge-craftwork.github.io/acbl-live-fetch/ingest/?analyze'
     expect(await getAnalyzerUrl(store({ devAnalyzerUrl: pages, preferredAnalyzerTld: 'com' })))
       .toBe(pages)
+  })
+})
+
+describe('identifying caches expire', () => {
+  const HOUR = 60 * 60 * 1000
+  const fakeStorage = (data) => {
+    const store = { ...data }
+    return {
+      get: async (k) => (k === null ? { ...store } : { [k]: store[k] }),
+      set: async (obj) => Object.assign(store, obj),
+      remove: async (keys) => [].concat(keys).forEach((k) => delete store[k]),
+      _dump: () => store,
+    }
+  }
+
+  it('keeps a fresh username', async () => {
+    const storage = fakeStorage({ [BBO_USERNAME_KEY]: { username: 'kemistry', stored_at: Date.now() } })
+    expect((await getBboUsername({ storage })).username).toBe('kemistry')
+  })
+
+  it('does not return a username past the TTL', async () => {
+    const storage = fakeStorage({
+      [BBO_USERNAME_KEY]: { username: 'kemistry', stored_at: Date.now() - 2 * HOUR },
+    })
+    expect((await getBboUsername({ storage })).username).toBeNull()
+  })
+
+  // Nothing personally identifying should outlive the game data, so the sweep
+  // has to reach these two as well as the pending- prefixes.
+  it('sweeps a stale username and batch result', async () => {
+    const storage = fakeStorage({
+      [BBO_USERNAME_KEY]: { username: 'kemistry', stored_at: Date.now() - 2 * HOUR },
+      'bbo-batch-result': { urls: ['https://x'], timestamp: Date.now() - 2 * HOUR },
+      preferredAnalyzerTld: 'org',
+    })
+    await sweepExpired({ storage })
+    expect(storage._dump()).toEqual({ preferredAnalyzerTld: 'org' })
+  })
+
+  it('leaves fresh ones alone', async () => {
+    const storage = fakeStorage({
+      [BBO_USERNAME_KEY]: { username: 'kemistry', stored_at: Date.now() },
+      'bbo-batch-result': { urls: [], timestamp: Date.now() },
+    })
+    await sweepExpired({ storage })
+    expect(Object.keys(storage._dump()).sort()).toEqual(['bbo-batch-result', 'bbo-username'])
+  })
+
+  // Earlier versions stored a bare string with no timestamp; it can't be aged,
+  // so it goes and is re-derived from any BBO page.
+  it('sweeps a legacy bare-string username', async () => {
+    const storage = fakeStorage({ [BBO_USERNAME_KEY]: 'kemistry' })
+    await sweepExpired({ storage })
+    expect(storage._dump()).toEqual({})
   })
 })
