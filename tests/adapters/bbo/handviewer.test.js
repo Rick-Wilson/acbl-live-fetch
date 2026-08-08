@@ -2,7 +2,13 @@ import { describe, it, expect } from 'vitest'
 import { JSDOM } from 'jsdom'
 import { classifyPage, matchesUrl, extractSession, buildHandviewerEnvelope } from '../../../src/adapters/bbo/index.js'
 import { parseLinPlayers, deriveContract } from '../../../src/adapters/bbo/parsers/lin.js'
-import { shouldInject, pickInjectionStrategy, injectButton } from '../../../src/ui/sourceContent.js'
+import {
+  shouldInject,
+  pickInjectionStrategy,
+  injectButton,
+  placeAtRowEnd,
+  CANCEL_BUTTON_ID,
+} from '../../../src/ui/sourceContent.js'
 
 // The user's real URL: a passed-out board 7, LIN inline.
 const PASSED_OUT_URL =
@@ -59,6 +65,24 @@ describe('button-row injection', () => {
     expect(btn).not.toBeNull()
     expect(btn.parentElement.id).toBe('buttonDiv')
     expect(btn.className).toBe('buttonStyle')
+    // Our own chrome is stripped so BBO's stylesheet governs the look.
+    expect(btn.style.background).toBe('')
+    expect(btn.style.border).toBe('')
+    expect(btn.style.borderRadius).toBe('')
+  })
+
+  // "Analyze" is wrong for one deal — it goes to double-dummy, and the ingest
+  // page picks the tool regardless.
+  it('is labelled for the hand viewer, not the analyzer', () => {
+    const doc = pageWithControlRow()
+    const btn = injectButton({ document: doc, location: { href: PASSED_OUT_URL }, sendMessage: () => {} })
+    expect(btn.textContent).toBe('Bridge Classroom')
+  })
+
+  it('adds no cancel button — a single deal is instant', () => {
+    const doc = pageWithControlRow()
+    injectButton({ document: doc, location: { href: PASSED_OUT_URL }, sendMessage: () => {} })
+    expect(doc.getElementById(CANCEL_BUTTON_ID)).toBeNull()
   })
 
   it('returns null when the row has not rendered yet, so the observer retries', () => {
@@ -72,7 +96,47 @@ describe('button-row injection', () => {
     const loc = { href: PASSED_OUT_URL }
     injectButton({ document: doc, location: loc, sendMessage: () => {} })
     injectButton({ document: doc, location: loc, sendMessage: () => {} })
-    expect(doc.querySelectorAll('#buttonDiv button').length).toBe(3) // Rewind + ours + cancel
+    expect(doc.querySelectorAll('#buttonDiv button').length).toBe(2) // Rewind + ours
+  })
+
+  // BBO positions its controls absolutely and assigns each a `left` in JS, so
+  // an appended button with no left of its own sits at 0 — on top of Rewind.
+  describe('placeAtRowEnd', () => {
+    const rowWith = (widths) => {
+      const dom = new JSDOM('<!doctype html><body><div id="r"></div></body>')
+      const row = dom.window.document.getElementById('r')
+      widths.forEach(([left, width]) => {
+        const b = dom.window.document.createElement('button')
+        Object.defineProperty(b, 'offsetLeft', { value: left })
+        Object.defineProperty(b, 'offsetWidth', { value: width })
+        row.appendChild(b)
+      })
+      const ours = dom.window.document.createElement('button')
+      row.appendChild(ours)
+      return { row, ours }
+    }
+
+    it('sits past the rightmost sibling', () => {
+      const { row, ours } = rowWith([[0, 60], [70, 80], [160, 50]])
+      placeAtRowEnd(row, ours)
+      expect(ours.style.left).toBe('218px')   // 160 + 50 + 8
+    })
+
+    it('ignores its own width when measuring', () => {
+      const { row, ours } = rowWith([[0, 60]])
+      Object.defineProperty(ours, 'offsetLeft', { value: 999 })
+      Object.defineProperty(ours, 'offsetWidth', { value: 999 })
+      placeAtRowEnd(row, ours)
+      expect(ours.style.left).toBe('68px')
+    })
+
+    // Before layout every offset is 0. Setting left:0 then would stack us on
+    // the first control, which is the bug this whole function exists to avoid.
+    it('leaves the button alone when nothing has been laid out yet', () => {
+      const { row, ours } = rowWith([[0, 0], [0, 0]])
+      placeAtRowEnd(row, ours)
+      expect(ours.style.left).toBe('')
+    })
   })
 })
 

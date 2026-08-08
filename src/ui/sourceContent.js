@@ -279,6 +279,31 @@ export function buildDatePicker(doc, onSelect, onSingleGame = null) {
   return picker
 }
 
+// Park an absolutely-positioned button just past the rightmost sibling. BBO
+// lays its own controls out in JS, so this has to be measured rather than
+// guessed, and redone whenever the viewer re-lays out.
+export function placeAtRowEnd(row, btn, gap = 8) {
+  const measure = () => {
+    let right = 0
+    for (const el of row.children) {
+      if (el === btn) continue
+      const edge = (el.offsetLeft ?? 0) + (el.offsetWidth ?? 0)
+      if (edge > right) right = edge
+    }
+    // offsetWidth is 0 before layout (and always, in jsdom); leave the button
+    // where it is rather than stacking it at 0 on top of the first control.
+    if (right > 0) btn.style.left = `${right + gap}px`
+  }
+  measure()
+  const view = row.ownerDocument?.defaultView
+  if (view?.addEventListener) {
+    view.addEventListener('resize', measure)
+    // The viewer sizes its controls after first paint; re-measure once it has.
+    view.setTimeout?.(measure, 300)
+  }
+  return btn
+}
+
 export function injectButton(deps) {
   const { document: doc, location, sendMessage } = deps
   if (!shouldInject(location.href)) return null
@@ -308,13 +333,26 @@ export function injectButton(deps) {
     // here just lets the MutationObserver retry.
     const row = doc.getElementById('buttonDiv')
     if (!row) return null
-    // Match the siblings rather than imposing our own chrome.
+
+    // "Analyze" is wrong here: a single deal goes to double-dummy, not game
+    // analysis, and the ingest page decides which tool anyway.
+    btn.textContent = 'Bridge Classroom'
+
+    // hvstyles.css gives .buttonStyle `position: absolute; height: 100%`, and
+    // the viewer assigns each button's `left` in JS at layout time. Inheriting
+    // the class without a left of our own puts us at 0 — on top of Rewind.
+    // Strip our own chrome so the button matches its neighbours, then place it
+    // past the rightmost one.
     btn.className = 'buttonStyle'
-    cancelBtn.className = 'buttonStyle'
-    Object.assign(btn.style, { marginLeft: '8px', verticalAlign: 'middle' })
-    Object.assign(cancelBtn.style, { marginLeft: '4px', verticalAlign: 'middle' })
+    // Drop every inline style buildButton applied rather than unsetting them one
+    // by one — shorthands like `background` expand to several properties, so
+    // removeProperty('background') leaves background-color behind.
+    btn.style.cssText = ''
+    btn.style.cursor = 'pointer'
+    // No cancel button here: a single deal is instant, so there is nothing to
+    // cancel and a second control would only crowd BBO's row.
     row.appendChild(btn)
-    row.appendChild(cancelBtn)
+    placeAtRowEnd(row, btn)
     return btn
   }
 
