@@ -148,3 +148,71 @@ function parseLINCard(cardStr) {
   const rankChars = cardStr.slice(1)
   return suit + (rankChars === 'T' ? '10' : rankChars)
 }
+
+// Seat order for LIN's pn| token: South, West, North, East. Confirmed two ways
+// — against a hands list whose traveller independently names each seat, and
+// against BBO's own handviewer rendering of the same LIN.
+const PN_SEATS = ['S', 'W', 'N', 'E']
+
+// Extract BBO usernames by seat. Returns nulls for seats the LIN omits, and
+// null entirely when there is no pn| token (some LINs carry only the deal).
+export function parseLinPlayers(linStr) {
+  if (typeof linStr !== 'string') return null
+  const m = /(?:^|\|)pn\|([^|]*)\|/.exec(linStr)
+  if (!m) return null
+  const names = m[1].split(',')
+  const out = { N: null, E: null, S: null, W: null }
+  PN_SEATS.forEach((seat, i) => {
+    const name = (names[i] ?? '').trim()
+    out[seat] = name || null
+  })
+  return out
+}
+
+const SEAT_ORDER = ['N', 'E', 'S', 'W']
+const BID_RE = /^([1-7])(NT|[CDHS])$/
+const sideOf = (seat) => (seat === 'N' || seat === 'S' ? 'NS' : 'EW')
+
+// Work out the contract and declarer from the auction.
+//
+// The contract is the last bid, plus any double still standing. Declarer is the
+// member of the declaring side who *first* named that strain — not whoever made
+// the final bid, which is the mistake worth guarding against: after 1S-2H-4S,
+// opener declares even though partner bid game.
+//
+// Returns { contract: null, declarer: null } for a passed-out board, which is a
+// real outcome rather than a parse failure.
+export function deriveContract(auction, dealer) {
+  if (!Array.isArray(auction) || auction.length === 0) return { contract: null, declarer: null }
+  const start = SEAT_ORDER.indexOf(dealer)
+  if (start < 0) return { contract: null, declarer: null }
+  const seatAt = (i) => SEAT_ORDER[(start + i) % 4]
+
+  let lastBid = -1
+  for (let i = 0; i < auction.length; i++) {
+    if (BID_RE.test(auction[i])) lastBid = i
+  }
+  if (lastBid < 0) return { contract: null, declarer: null }
+
+  const [, level, strain] = BID_RE.exec(auction[lastBid])
+  const declaringSide = sideOf(seatAt(lastBid))
+
+  let declarer = seatAt(lastBid)
+  for (let i = 0; i <= lastBid; i++) {
+    const m = BID_RE.exec(auction[i])
+    if (!m || m[2] !== strain) continue
+    if (sideOf(seatAt(i)) !== declaringSide) continue
+    declarer = seatAt(i)
+    break
+  }
+
+  // A double is wiped out by any later bid, so only calls after the last bid
+  // count.
+  let suffix = ''
+  for (let i = lastBid + 1; i < auction.length; i++) {
+    if (auction[i] === 'X') suffix = 'X'
+    else if (auction[i] === 'XX') suffix = 'XX'
+  }
+
+  return { contract: `${level}${strain}${suffix}`, declarer }
+}

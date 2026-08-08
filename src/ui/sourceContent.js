@@ -17,6 +17,8 @@ const BUTTON_ID = 'bridge-classroom-analyze-btn'
 //   * club-game-result  — my.acbl.org club-game page
 //   * tournament-view   — webutil.bridgebase.com/v2/tview.php
 //   * hands-list        — www.bridgebase.com/myhands/hands.php?tourney=
+//   * handviewer        — www.bridgebase.com/tools/handviewer.html?lin= or ?myhand=
+//                         (the most reachable page right after playing a board)
 const INJECT_PAGE_TYPES = new Set([
   'pair-scorecard',
   'event-summary',
@@ -25,6 +27,7 @@ const INJECT_PAGE_TYPES = new Set([
   'club-results-list',
   'tournament-view',
   'hands-list',
+  'handviewer',
 ])
 
 export function shouldInject(url) {
