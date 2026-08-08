@@ -171,9 +171,9 @@ describe('button-row injection', () => {
       expect(ours.style.left).toBe('477px')
     })
 
-    // The viewer re-lays the row out after our first attempt, which silently
-    // undid the placement when this relied on timers.
-    it('re-applies when the row changes after the first attempt', () => {
+    // The viewer finishes laying out after we inject. Watching each control's
+    // own geometry catches that; watching the container did not.
+    it('places once a control reports real dimensions', () => {
       const dom = new JSDOM('<!doctype html><body><div id="r"></div></body>')
       const d = dom.window.document
       const row = d.getElementById('r')
@@ -185,17 +185,40 @@ describe('button-row injection', () => {
       const ours = d.createElement('button')
       row.appendChild(ours)
 
-      const observers = []
-      dom.window.MutationObserver = class {
-        constructor(cb) { observers.push(cb) }
+      const callbacks = []
+      dom.window.ResizeObserver = class {
+        constructor(cb) { callbacks.push(cb) }
         observe() {}
       }
-      placeAtRowEnd(row, ours)
+      placeAtRowEnd(row, ours, 8, { log: () => {} })
       expect(ours.style.left).toBe('')          // nothing laid out yet
 
-      left = 300; width = 60                    // viewer finishes laying out
-      observers.forEach((cb) => cb())
+      callbacks.forEach((cb) => cb())           // fires while still unsized
+      expect(ours.style.left).toBe('')
+
+      left = 300; width = 60                    // the control gets its geometry
+      callbacks.forEach((cb) => cb())
       expect(ours.style.left).toBe('368px')
+    })
+
+    it('watches each control rather than the container', () => {
+      const dom = new JSDOM('<!doctype html><body><div id="r"></div></body>', { url: 'https://www.bridgebase.com/' })
+      const d = dom.window.document
+      const row = d.getElementById('r')
+      const a = d.createElement('button'); const b = d.createElement('button')
+      row.appendChild(a); row.appendChild(b)
+      const ours = d.createElement('button'); row.appendChild(ours)
+
+      const observed = []
+      dom.window.ResizeObserver = class {
+        constructor() {}
+        observe(el) { observed.push(el) }
+      }
+      placeAtRowEnd(row, ours, 8, { log: () => {} })
+      expect(observed).toContain(a)
+      expect(observed).toContain(b)
+      expect(observed).not.toContain(ours)
+      expect(observed).not.toContain(row)
     })
   })
 })

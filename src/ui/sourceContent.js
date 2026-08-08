@@ -286,11 +286,15 @@ export function buildDatePicker(doc, onSelect, onSingleGame = null) {
 // at layout time and scale with the viewport. Both the geometry and the type
 // size therefore have to be copied from a real sibling, once the viewer has run.
 //
-// Timers proved unreliable for that — the viewer can finish after any deadline
-// we pick, and it re-lays the row out later too, which silently undid our
-// placement. So watch the row instead and re-apply whenever it changes.
-export function placeAtRowEnd(row, btn, gap = 8) {
+// Knowing *when* it has run is the hard part, and two earlier attempts failed:
+// a backoff timer expired before the viewer finished, and a ResizeObserver on
+// the row never fired. The row is the wrong thing to watch — `.buttonDivStyle`
+// starts `visibility: hidden` and the row can hold its box while the controls
+// inside it are still unsized. What actually changes is each button's own
+// geometry, which is also exactly what gets measured here.
+export function placeAtRowEnd(row, btn, gap = 8, { log = defaultPlacementLog } = {}) {
   const view = row.ownerDocument?.defaultView
+  let placed = false
 
   const apply = () => {
     let right = 0
@@ -308,34 +312,45 @@ export function placeAtRowEnd(row, btn, gap = 8) {
     if (computed) {
       for (const prop of ['fontSize', 'fontFamily', 'top', 'height', 'paddingTop', 'paddingBottom']) {
         const value = computed[prop]
-        // Only write when it differs, so our own edit doesn't re-trigger the
-        // MutationObserver below and loop.
+        // Only write when it differs, so our own edit doesn't retrigger the
+        // observers below and loop.
         if (value && btn.style[prop] !== value) btn.style[prop] = value
       }
     }
     const left = `${right + gap}px`
-    if (btn.style.left !== left) btn.style.left = left
+    if (btn.style.left !== left) {
+      btn.style.left = left
+      if (!placed) { placed = true; log(`placed at ${left}`) }
+    }
     return true
   }
 
-  apply()
+  // Watch every control, not the container: a button going from unsized to
+  // sized is the event we're waiting for.
+  const resize = typeof view?.ResizeObserver === 'function'
+    ? new view.ResizeObserver(() => apply())
+    : null
+  const watchChildren = () => {
+    if (!resize) return
+    for (const el of row.children) if (el !== btn) resize.observe(el)
+  }
 
-  // Fires when the viewer finally sizes the row, and on every re-layout after.
-  if (typeof view?.ResizeObserver === 'function') {
-    new view.ResizeObserver(() => apply()).observe(row)
-  }
-  // The viewer positions its controls by writing inline styles on them; that is
-  // the moment our own placement needs redoing.
+  // Controls are added and restyled as the viewer builds the row; either is a
+  // reason to re-measure, and newly added ones need watching too.
   if (typeof view?.MutationObserver === 'function') {
-    new view.MutationObserver(() => apply()).observe(row, {
-      attributes: true,
-      attributeFilter: ['style'],
-      subtree: true,
-      childList: true,
-    })
+    new view.MutationObserver(() => { watchChildren(); apply() })
+      .observe(row, { attributes: true, childList: true, subtree: true })
   }
+  watchChildren()
   view?.addEventListener?.('resize', apply)
+
+  apply()
   return btn
+}
+
+function defaultPlacementLog(message) {
+  // eslint-disable-next-line no-console
+  console.log(`[bridge-classroom] ${message}`)
 }
 
 export function injectButton(deps) {
