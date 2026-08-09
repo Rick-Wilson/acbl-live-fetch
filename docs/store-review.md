@@ -149,7 +149,7 @@ summary below fits the tightest (Chrome's 132 characters).
 Store)
 
 **Support / homepage:** https://github.com/bridge-craftwork/bridge-classroom-fetch
-**Privacy policy:** the URL where `PRIVACY.md` is published
+**Privacy policy:** https://bridge-classroom.org/privacy#extension
 
 ## 3b. Per-store differences
 
@@ -244,36 +244,41 @@ own device**. Once results reach bridge-classroom.org the main policy governs
 them. When back-end storage of hand data ships (ADR 0001), that change belongs in
 the main document, not this section.
 
-### Draft — extension section
+### Published — 8 August 2026
 
-> **Browser extension**
->
-> The Bridge Classroom browser extension reads bridge results from pages you are
-> already viewing on supported sites — ACBL Live, my.acbl.org and Bridge Base
-> Online — when you click its button. It does not run on other sites, and it does
-> not read anything until you ask it to.
->
-> Results are held briefly in the browser's own extension storage, on your
-> device, so they can be passed to the analysis page you are being taken to. They
-> are deleted as soon as the page receives them, and in any case within one hour.
-> Your Bridge Base username is cached on the same one-hour basis so you don't
-> have to re-enter it; it is never sent anywhere.
->
-> The only setting kept indefinitely is which Bridge Classroom domain you prefer
-> (.org or .com), so the extension opens the one you use. This identifies nobody.
->
-> Results are sent only to bridge-classroom.org or bridge-classroom.com, by
-> opening a page there — the same thing that happens if you upload a file
-> yourself. Nothing is sent to any other service. The extension contains no
-> analytics or tracking of any kind.
->
-> When reading Bridge Base tournament results, the extension deliberately
-> requests the results page **without signing in**, because Bridge Base then
-> withholds other players' real names. Your opponents are recorded only by their
-> Bridge Base usernames. Results from ACBL sites do include player names and
-> numbers, because those sites publish them.
->
-> Once results reach Bridge Classroom, the rest of this policy applies to them.
+The section is live at **https://bridge-classroom.org/privacy#extension**, in
+`docs/privacy.html` of the `Bridge-Classroom` repo. That URL is what goes in every
+listing. `PRIVACY.md` at this repo's root stays as the extension-side detail and
+links to it; the site document is canonical.
+
+It ships wider than the draft above, because back-end storage *has* since shipped
+and the analyzer reaches two outside services. Three things the draft did not say,
+all verified in the code rather than assumed:
+
+- **Signed-in captures are archived server-side.** The `/ingest/` page POSTs the
+  whole normalized envelope to `api.bridge-classroom.{org,com}/api/club-games`
+  (the `bc-archive` sink). Anonymous users are untouched — "this capture stays in
+  this browser". The archive is **not** end-to-end encrypted, unlike practice
+  activity, and it carries other players' ACBL names and numbers.
+- **Opening a board sends the deal to `bba.harmonicsystems.com`** for the robot
+  auction. Cards, dealer and vulnerability only — no names. This is our own
+  service, *not* a third party, so it needs no third-party disclosure; it is
+  described because the data does leave the page. Not extension-specific; a
+  hand-uploaded game does the same.
+- **Double-dummy never leaves the browser.** It arrives in the ACBL data, or —
+  for BBO captures, whose adapter emits `double_dummy: null` — is solved by our
+  `bridge-solver` wasm running in a worker, vendored at
+  `Bridge-Game-Analysis/static/solver/`. Until August 2026 this was a
+  third-party call to `dds.bridgewebs.com` (BSOL); that was removed, with no
+  network fallback, precisely so the listing can claim what it claims. If a
+  future change reintroduces an outbound solver, this section and the published
+  policy both have to change.
+- **Single-board replays route to `solver.bridge-classroom.org`** with the hand in
+  the URL as `?lin=`.
+
+So the draft's "Nothing is sent to any other service" is true of the *extension*
+and false of the *site*, which is precisely why the two documents are scoped the
+way they are. Keep that boundary if either is edited.
 
 ---
 
@@ -294,9 +299,9 @@ This is a design decision rather than a packaging one, so it is deliberately not
 guessed at here. A placeholder set can be generated to prove the pipeline end to
 end, but the shipped artwork should be real.
 
-**Privacy policy URL.** `PRIVACY.md` is written and lives at the repo root, but
-the listing needs a URL. Either publish it on bridge-classroom.org, or link the
-rendered GitHub copy.
+**~~Privacy policy URL~~ — done.** https://bridge-classroom.org/privacy#extension
+(see *Where the policy lives* above). Needs the `Bridge-Classroom` repo deployed
+before it resolves.
 
 **Version number.** Everything is `0.2.2`. Worth deciding whether the first
 public release is `1.0.0`; the version lives in `manifest.json` and is read from

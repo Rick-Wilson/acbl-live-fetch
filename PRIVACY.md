@@ -1,6 +1,12 @@
 # Privacy Policy — Bridge Classroom Fetch
 
-**Last updated:** 9 August 2026
+**Last updated:** 8 August 2026
+
+> The published policy is
+> **<https://bridge-classroom.org/privacy#extension>**, and that is the URL the
+> store listings point at. It covers the whole path — this extension *and* what
+> Bridge Classroom does with results once they arrive. This file is the
+> extension-side detail, kept beside the code it describes.
 
 ## Overview
 
@@ -48,12 +54,21 @@ by opening a page there — the same thing that happens if you upload a file to
 the site yourself. You can see the destination in your browser's address bar
 every time.
 
-Once results reach Bridge Classroom, the
-[Bridge Classroom privacy policy](https://bridge-classroom.org/privacy)
-applies to them.
+Nothing is sent anywhere else *by the extension*. It contains no analytics, no
+telemetry, no advertising, no tracking, and no third-party service of any kind.
 
-Nothing is sent anywhere else. There is no analytics, no telemetry, no
-advertising, no tracking, and no third-party service of any kind.
+Once results reach Bridge Classroom, the
+[Bridge Classroom privacy policy](https://bridge-classroom.org/privacy#extension)
+governs them, and it is worth reading rather than assuming — the site does more
+with them than the extension does:
+
+- If you are **signed in to Bridge Classroom**, the game is also saved to your
+  account so it is available on your other devices. If you are not signed in,
+  nothing reaches the server at all.
+- Opening a **single board** sends that deal — the cards, the dealer, and the
+  vulnerability, with no names attached — to our own bidding service, which
+  returns the auction a robot would have bid. Double-dummy results come with the
+  ACBL data or are computed on your device.
 
 ## Other players' names
 
