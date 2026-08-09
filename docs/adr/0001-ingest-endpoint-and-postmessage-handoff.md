@@ -1,8 +1,10 @@
 # ADR 0001 — Versioned ingest endpoint and postMessage handoff
 
-- **Status:** Proposed
+- **Status:** Accepted — implemented 2026-08-08, except Decision 6
+  (`unlimitedStorage`), which is still outstanding
 - **Date:** 2026-08-01
-- **Supersedes:** the "Why sessionStorage" decision in [handoff-protocol.md](../handoff-protocol.md)
+- **Supersedes:** [handoff-protocol.md](../handoff-protocol.md), now retired
+  along with `src/ui/analyzerContent.js`
 
 ## Context
 
@@ -112,7 +114,7 @@ than silent — the ingest page should say plainly that the capture is local to
 this domain and that signing in makes it available everywhere. Two consequences
 follow that the implementation has to handle:
 
-- `preferredAnalyzerTld` currently follows whichever domain the user last
+- `preferredTld` (formerly `preferredAnalyzerTld`) currently follows whichever domain the user last
   visited, so a signed-out user can split their own captures across origins
   without ever making a choice. Either pin signed-out ingest to one origin or
   make the landing page state which domain it just wrote to.
@@ -184,13 +186,23 @@ magnitude past it.
   lifts it on **Firefox and Safari**, not just Chrome. The Chrome behaviour is
   documented; the others are assumed here and should be measured.
 - For signed-out ingest, whether to pin one origin or follow
-  `preferredAnalyzerTld` and disclose the destination on the landing page
+  `preferredTld` and disclose the destination on the landing page
   (Decision 5).
 - The claim-and-upload path for a user who captures signed-out and registers
   afterwards.
-- Whether `/ingest` replaces the `/game-analysis/` landing entirely or runs
-  alongside it during migration. A versioned route makes a parallel period cheap.
-- [handoff-protocol.md](../handoff-protocol.md) still documents the analyzer at
-  `club-game-analysis.bridge-classroom.com`, which is stale — the analyzer moved
-  to `bridge-classroom.{tld}/game-analysis/`. It needs rewriting alongside this
-  work, not before.
+
+---
+
+## Resolved
+
+- **Does `/ingest` replace `/game-analysis/` entirely, or run alongside it?**
+  Replaced entirely, 2026-08-08. No parallel period was needed: the extension
+  has two users, and the ingest page forwards to whichever tool is wanted, so
+  keeping a second hand-off mechanism bought nothing.
+  `src/ui/analyzerContent.js`, its content-script match and its `sessionStorage`
+  bridge are removed; `/game-analysis/` is now reached by the ingest page
+  forwarding to it, not by the extension.
+- **handoff-protocol.md.** Retired rather than rewritten — the mechanism it
+  describes no longer exists. It carries a header pointing here and at
+  [ingest-protocol.md](../ingest-protocol.md), and is kept only as a record of
+  why `sessionStorage` was chosen originally.

@@ -6,8 +6,10 @@ import {
   sweepExpired,
   PENDING_PREFIX,
   PENDING_TTL_MS,
-  DEFAULT_ANALYZER_URL,
-  getAnalyzerUrl,
+  DEFAULT_INGEST_URL,
+  getIngestUrl,
+  getBboUsername,
+  BBO_USERNAME_KEY,
 } from '../../src/background/handlers.js'
 
 function makeStorage(initial = {}) {
@@ -64,7 +66,7 @@ describe('runExtraction', () => {
     expect(stored.envelope).toBe(envelope)
     expect(typeof stored.stored_at).toBe('number')
 
-    expect(tabs.create).toHaveBeenCalledWith({ url: `${DEFAULT_ANALYZER_URL}#sid=abc-123` })
+    expect(tabs.create).toHaveBeenCalledWith({ url: `${DEFAULT_INGEST_URL}#sid=abc-123` })
   })
 
   it('returns extraction-error on extractor failure (no tab opened)', async () => {
@@ -222,29 +224,106 @@ describe('handleMessage dispatch', () => {
   })
 })
 
-describe('getAnalyzerUrl', () => {
+describe('getIngestUrl', () => {
   const store = (data) => ({ get: async () => data })
 
   it('falls back to .org', async () => {
-    expect(await getAnalyzerUrl(store({}))).toBe(DEFAULT_ANALYZER_URL)
+    expect(await getIngestUrl(store({}))).toBe(DEFAULT_INGEST_URL)
   })
 
   it('honours the tracked TLD', async () => {
-    expect(await getAnalyzerUrl(store({ preferredAnalyzerTld: 'com' })))
-      .toBe('https://bridge-classroom.com/game-analysis/?analyze')
+    expect(await getIngestUrl(store({ preferredTld: 'com' })))
+      .toBe('https://bridge-classroom.com/ingest/?v=1')
+  })
+
+  // An install that predates the rename must not silently change destination.
+  it('still reads the pre-rename keys', async () => {
+    expect(await getIngestUrl(store({ preferredAnalyzerTld: 'com' })))
+      .toBe('https://bridge-classroom.com/ingest/?v=1')
+    const legacy = 'https://example.test/ingest/?v=1'
+    expect(await getIngestUrl(store({ devAnalyzerUrl: legacy }))).toBe(legacy)
+  })
+
+  it('prefers the current key over the legacy one', async () => {
+    const current = 'https://current.test/ingest/'
+    expect(await getIngestUrl(store({ devIngestUrl: current, devAnalyzerUrl: 'https://old.test/' })))
+      .toBe(current)
+  })
+
+  // The ingest route is the default destination: it receives the payload and
+  // forwards it to whichever tool the user picks, so adding a consumer doesn't
+  // need an extension release (ADR 0001). The trailing slash avoids the 301.
+  it('defaults to the versioned ingest route', async () => {
+    const url = await getIngestUrl(store({}))
+    expect(url).toBe('https://bridge-classroom.org/ingest/?v=1')
+    expect(new URL(url).pathname).toBe('/ingest/')
   })
 
   // How the extension is pointed at the GitHub Pages test ingester: the
   // override is returned verbatim, with no host restriction, so an operator can
   // redirect the hand-off without a rebuild.
-  it('returns devAnalyzerUrl verbatim, including a Pages ingest URL', async () => {
-    const pages = 'https://bridge-craftwork.github.io/acbl-live-fetch/ingest/?analyze'
-    expect(await getAnalyzerUrl(store({ devAnalyzerUrl: pages }))).toBe(pages)
+  it('returns devIngestUrl verbatim, including a Pages ingest URL', async () => {
+    const pages = 'https://bridge-craftwork.github.io/acbl-live-fetch/ingest/?v=1'
+    expect(await getIngestUrl(store({ devIngestUrl: pages }))).toBe(pages)
   })
 
   it('lets the override win over a tracked TLD', async () => {
-    const pages = 'https://bridge-craftwork.github.io/acbl-live-fetch/ingest/?analyze'
-    expect(await getAnalyzerUrl(store({ devAnalyzerUrl: pages, preferredAnalyzerTld: 'com' })))
+    const pages = 'https://bridge-craftwork.github.io/acbl-live-fetch/ingest/?v=1'
+    expect(await getIngestUrl(store({ devIngestUrl: pages, preferredTld: 'com' })))
       .toBe(pages)
+  })
+})
+
+describe('identifying caches expire', () => {
+  const HOUR = 60 * 60 * 1000
+  const fakeStorage = (data) => {
+    const store = { ...data }
+    return {
+      get: async (k) => (k === null ? { ...store } : { [k]: store[k] }),
+      set: async (obj) => Object.assign(store, obj),
+      remove: async (keys) => [].concat(keys).forEach((k) => delete store[k]),
+      _dump: () => store,
+    }
+  }
+
+  it('keeps a fresh username', async () => {
+    const storage = fakeStorage({ [BBO_USERNAME_KEY]: { username: 'kemistry', stored_at: Date.now() } })
+    expect((await getBboUsername({ storage })).username).toBe('kemistry')
+  })
+
+  it('does not return a username past the TTL', async () => {
+    const storage = fakeStorage({
+      [BBO_USERNAME_KEY]: { username: 'kemistry', stored_at: Date.now() - 2 * HOUR },
+    })
+    expect((await getBboUsername({ storage })).username).toBeNull()
+  })
+
+  // Nothing personally identifying should outlive the game data, so the sweep
+  // has to reach these two as well as the pending- prefixes.
+  it('sweeps a stale username and batch result', async () => {
+    const storage = fakeStorage({
+      [BBO_USERNAME_KEY]: { username: 'kemistry', stored_at: Date.now() - 2 * HOUR },
+      'bbo-batch-result': { urls: ['https://x'], timestamp: Date.now() - 2 * HOUR },
+      preferredTld: 'org',
+    })
+    await sweepExpired({ storage })
+    expect(storage._dump()).toEqual({ preferredTld: 'org' })
+  })
+
+  it('leaves fresh ones alone', async () => {
+    const storage = fakeStorage({
+      [BBO_USERNAME_KEY]: { username: 'kemistry', stored_at: Date.now() },
+      'bbo-batch-result': { urls: [], timestamp: Date.now() },
+    })
+    await sweepExpired({ storage })
+    expect(Object.keys(storage._dump()).sort()).toEqual(['bbo-batch-result', 'bbo-username'])
+  })
+
+  // Earlier versions stored a bare string with no timestamp; it can't be aged,
+  // so it goes and is re-derived from any BBO page.
+  it('sweeps a legacy bare-string username', async () => {
+    const storage = fakeStorage({ [BBO_USERNAME_KEY]: 'kemistry' })
+    await sweepExpired({ storage })
+    expect(storage._dump()).toEqual({})
   })
 })

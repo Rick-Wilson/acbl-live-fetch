@@ -13,6 +13,7 @@ import { fetchAll } from '../../lib/rateLimiter.js'
 import { parseHandsList } from './parsers/handsList.js'
 import { parseTraveller, parseResultText } from './parsers/traveller.js'
 import { parseTournamentView, indexByUsername } from './parsers/tournamentView.js'
+import { parseLin, parseLinPlayers, deriveContract } from './parsers/lin.js'
 import {
   SCHEMA_VERSION,
   buildProvenance,
@@ -56,6 +57,9 @@ export function matchesUrl(url) {
     const u = new URL(url)
     if (u.hostname === 'webutil.bridgebase.com') return true
     if (u.hostname === 'www.bridgebase.com' && u.pathname.startsWith('/myhands/')) return true
+    // The hand viewer carries a whole deal in its own URL — the most reachable
+    // page right after playing a board.
+    if (u.hostname === 'www.bridgebase.com' && u.pathname === '/tools/handviewer.html') return true
     return false
   } catch {
     return false
@@ -71,6 +75,12 @@ export function classifyPage(url) {
     u.searchParams.get('t')
   ) {
     return 'tournament-view'
+  }
+  if (u.hostname === 'www.bridgebase.com' && u.pathname === '/tools/handviewer.html') {
+    // Two forms: lin= carries the deal inline (no fetch needed at all), while
+    // myhand= is an ID that fetchlin.php resolves.
+    if (u.searchParams.get('lin') || u.searchParams.get('myhand')) return 'handviewer'
+    return 'unknown'
   }
   if (u.hostname === 'www.bridgebase.com' && u.pathname === '/myhands/hands.php') {
     if (u.searchParams.get('tourney')) return 'hands-list'
@@ -95,11 +105,29 @@ export async function extractSession(url, options = {}) {
   } = options
 
   const pageType = classifyPage(url)
-  if (pageType !== 'tournament-view' && pageType !== 'hands-list') {
+  if (pageType !== 'tournament-view' && pageType !== 'hands-list' && pageType !== 'handviewer') {
     throw new Error(
-      `${SOURCE_NAME}: extractSession requires a tournament-view or hands-list URL; ` +
-        `got '${pageType}' for ${url}`
+      `${SOURCE_NAME}: extractSession requires a tournament-view, hands-list or ` +
+        `handviewer URL; got '${pageType}' for ${url}`
     )
+  }
+
+  if (pageType === 'handviewer') {
+    const u = new URL(url)
+    let linStr = u.searchParams.get('lin')
+    if (!linStr) {
+      // myhand=M-<id>-<ts> resolves through fetchlin.php, which needs no auth.
+      const m = /M-(\d+)-(\d+)/.exec(u.searchParams.get('myhand') ?? '')
+      if (!m) throw new Error(`${SOURCE_NAME}: handviewer URL has no lin= or myhand=`)
+      const fetchFn0 = fetch ?? globalThis.fetch
+      const res = await fetchFn0(
+        `https://www.bridgebase.com/myhands/fetchlin.php?id=${m[1]}&when_played=${m[2]}`,
+        { credentials: 'omit', signal }
+      )
+      if (!res?.ok) throw new Error(`${SOURCE_NAME}: fetchlin failed (HTTP ${res?.status})`)
+      linStr = (await res.text()).trim()
+    }
+    return buildHandviewerEnvelope(url, linStr, { now, capture })
   }
 
   // BBO's hands.php and traveller pages require the user's session cookie to
@@ -295,6 +323,86 @@ export async function extractSession(url, options = {}) {
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
+
+// A single deal from the hand viewer. The LIN is usually in the URL itself, so
+// this needs no network at all; the myhand= form resolves via fetchlin.php,
+// which is public. Coverage says user-table throughout: there is no field here,
+// just the one table.
+export const HANDVIEWER_COVERAGE = {
+  cardplay: CARDPLAY.USER_TABLE,
+  auction: AUCTION.USER_TABLE,
+  results: RESULTS.USER_TABLE,
+  sections: SECTIONS.NOT_APPLICABLE,
+  player_names: PLAYER_NAMES.USERNAMES,
+  sections_labelled: false,
+}
+
+export function buildHandviewerEnvelope(url, linStr, { now, capture } = {}) {
+  const lin = parseLin(linStr)
+  const players = parseLinPlayers(linStr) ?? { N: null, E: null, S: null, W: null }
+  const { contract, declarer } = deriveContract(lin.auction, lin.dealer)
+
+  // BBO writes the board number as free text, e.g. "Board 7".
+  const boardLabel = /(?:^|\|)ah\|([^|]*)\|/.exec(linStr)?.[1] ?? ''
+  const boardNumber = Number.parseInt(/(\d+)/.exec(boardLabel)?.[1] ?? '', 10)
+
+  const seat = (s) => ({ name: players[s], acbl_id: null,
+    external_ids: players[s] ? { bbo: players[s] } : {}, masterpoints_earned: [] })
+
+  const board = {
+    number: Number.isFinite(boardNumber) ? boardNumber : null,
+    section: null,
+    dealer: lin.dealer,
+    vulnerability: lin.vulnerability,
+    deal: lin.deal,
+    double_dummy: null,
+    par: [],
+    user_result_index: 0,
+    results: [{
+      contract,
+      declarer,
+      tricks: lin.tricks,
+      score: null,
+      matchpoints: null,
+      percentage: null,
+      imps: null,
+      ns_pair: { number: 1, section: null, strat: null, strat_ranks: [], players: [seat('N'), seat('S')] },
+      ew_pair: { number: 2, section: null, strat: null, strat_ranks: [], players: [seat('E'), seat('W')] },
+      auction: lin.auction?.length ? lin.auction : null,
+      play: lin.play?.length ? lin.play : null,
+      handviewer_url: url,
+    }],
+  }
+
+  return {
+    schema_version: SCHEMA_VERSION,
+    source: SOURCE_NAME,
+    ...buildProvenance({ coverage: HANDVIEWER_COVERAGE, capture }),
+    fetched_at: now(),
+    source_url: url,
+    tournaments: [{
+      sanction: null,
+      schedule_url: null,
+      name: null,
+      events: [{
+        event_id: null,
+        event_type: 'open_pairs',
+        name: boardLabel || null,
+        date: null,
+        scoring: null,
+        sessions: [{
+          session_number: 1,
+          time: null,
+          user_pair: null,
+          table_count: 1,
+          boards: [board],
+          partial: false,
+          warnings: [],
+        }],
+      }],
+    }],
+  }
+}
 
 // Derive the tournament-summary URL from either entry-point form.
 export function deriveTviewUrl(url) {

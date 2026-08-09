@@ -13,27 +13,27 @@
         "https://live.acbl.org/*",
         "https://my.acbl.org/*",
         "https://webutil.bridgebase.com/v2/tview.php*",
-        "https://www.bridgebase.com/myhands/hands.php*"
+        "https://www.bridgebase.com/myhands/hands.php*",
+        "https://www.bridgebase.com/tools/handviewer.html*"
       ],
-      "js": ["src/ui/sourceContent.js"],
-      "run_at": "document_idle"
-    },
-    {
-      "matches": ["https://www.bridgebase.com/v3/*"],
-      "js": ["src/ui/bboLobbyContent.js"],
+      "js": [
+        "src/ui/sourceContent.js"
+      ],
       "run_at": "document_idle"
     },
     {
       "matches": [
-        "https://bridge-classroom.org/game-analysis/*",
-        "https://bridge-classroom.com/game-analysis/*",
-        "http://localhost:3001/game-analysis/*"
+        "https://www.bridgebase.com/v3/*"
       ],
-      "js": ["src/ui/analyzerContent.js"],
-      "run_at": "document_start"
+      "js": [
+        "src/ui/bboLobbyContent.js"
+      ],
+      "run_at": "document_idle"
     },
     {
-      "js": ["src/ui/ingestContent.js"],
+      "js": [
+        "src/ui/ingestContent.js"
+      ],
       "matches": [
         "https://bridge-classroom.org/*",
         "https://bridge-classroom.com/*"
@@ -41,13 +41,14 @@
       "run_at": "document_start"
     }
   ],
-  "permissions": ["storage", "tabs", "scripting"],
+  "permissions": [
+    "storage",
+    "tabs",
+    "scripting"
+  ],
   "host_permissions": [
     "https://live.acbl.org/*",
     "https://my.acbl.org/*",
-    "https://bridge-classroom.org/game-analysis/*",
-    "https://bridge-classroom.com/game-analysis/*",
-    "http://localhost:3001/game-analysis/*",
     "https://webutil.bridgebase.com/*",
     "https://www.bridgebase.com/*"
   ]

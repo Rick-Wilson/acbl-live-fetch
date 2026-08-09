@@ -17,6 +17,8 @@ const BUTTON_ID = 'bridge-classroom-analyze-btn'
 //   * club-game-result  — my.acbl.org club-game page
 //   * tournament-view   — webutil.bridgebase.com/v2/tview.php
 //   * hands-list        — www.bridgebase.com/myhands/hands.php?tourney=
+//   * handviewer        — www.bridgebase.com/tools/handviewer.html?lin= or ?myhand=
+//                         (the most reachable page right after playing a board)
 const INJECT_PAGE_TYPES = new Set([
   'pair-scorecard',
   'event-summary',
@@ -25,6 +27,7 @@ const INJECT_PAGE_TYPES = new Set([
   'club-results-list',
   'tournament-view',
   'hands-list',
+  'handviewer',
 ])
 
 export function shouldInject(url) {
@@ -115,9 +118,18 @@ export function pickInjectionStrategy(url) {
   //   If Vue hasn't mounted yet, injectButton returns null and the
   //   MutationObserver retries once the nav appears.
   // BBO pages (bridgebase.com) have no obvious anchor; use a fixed overlay.
+  // The hand viewer is the exception: it has a real control row, and its
+  // corners are all taken — the auction sits top-right where the overlay would
+  // land, BBO's own controls run along the bottom, and BBO Helper (a commonly
+  // installed extension) draws a double-dummy table bottom-left. Joining the
+  // control row avoids all three and looks native.
   try {
-    const host = new URL(url).hostname
+    const u = new URL(url)
+    const host = u.hostname
     if (host === 'my.acbl.org') return 'club-nav'
+    if (host === 'www.bridgebase.com' && u.pathname === '/tools/handviewer.html') {
+      return 'button-row'
+    }
     if (host.endsWith('bridgebase.com')) return 'overlay'
     return 'inline'
   } catch {
@@ -267,6 +279,93 @@ export function buildDatePicker(doc, onSelect, onSingleGame = null) {
   return picker
 }
 
+// Match a sibling control and park the button past the rightmost one.
+//
+// The hand viewer lays its own row out in JS: hvstyles.css only says
+// `position: absolute; height: 100%`, while left, top and font size are assigned
+// at layout time and scale with the viewport. Both the geometry and the type
+// size therefore have to be copied from a real sibling, once the viewer has run.
+//
+// Knowing *when* it has run is the hard part, and two earlier attempts failed:
+// a backoff timer expired before the viewer finished, and a ResizeObserver on
+// the row never fired. The row is the wrong thing to watch — `.buttonDivStyle`
+// starts `visibility: hidden` and the row can hold its box while the controls
+// inside it are still unsized. What actually changes is each button's own
+// geometry, which is also exactly what gets measured here.
+export function placeAtRowEnd(row, btn, gap = 14, { log = defaultPlacementLog } = {}) {
+  const view = row.ownerDocument?.defaultView
+  let placed = false
+
+  const apply = () => {
+    let right = 0
+    let rightmost = null
+    for (const el of row.children) {
+      if (el === btn) continue
+      const edge = (el.offsetLeft ?? 0) + (el.offsetWidth ?? 0)
+      if (edge > right) { right = edge; rightmost = el }
+    }
+    // Nothing laid out yet. Leave the button alone rather than pinning it to 0,
+    // which stacks it on the first control — the original bug.
+    if (right <= 0 || !rightmost) return false
+
+    // The siblings are absolutely positioned by an element-qualified rule we
+    // can't inherit, so set that ourselves before any offset means anything.
+    if (btn.style.position !== 'absolute') btn.style.position = 'absolute'
+
+    const computed = view?.getComputedStyle?.(rightmost)
+    if (computed) {
+      for (const prop of ['fontSize', 'fontFamily', 'top', 'height', 'paddingTop', 'paddingBottom']) {
+        const value = computed[prop]
+        // Only write when it differs, so our own edit doesn't retrigger the
+        // observers below and loop.
+        if (value && btn.style[prop] !== value) btn.style[prop] = value
+      }
+    }
+    const left = `${right + gap}px`
+    if (btn.style.left !== left) {
+      btn.style.left = left
+      if (!placed) { placed = true; log(`placed at ${left}`) }
+    }
+    return true
+  }
+
+  // Wire the observers once per button. Calling this twice would leave two sets
+  // running, and if they disagreed — different gaps, say — each one's write
+  // would retrigger the other's observer forever.
+  if (btn.dataset && btn.dataset.bcRowPlacement === 'wired') {
+    apply()
+    return btn
+  }
+  if (btn.dataset) btn.dataset.bcRowPlacement = 'wired'
+
+  // Watch every control, not the container: a button going from unsized to
+  // sized is the event we're waiting for.
+  const resize = typeof view?.ResizeObserver === 'function'
+    ? new view.ResizeObserver(() => apply())
+    : null
+  const watchChildren = () => {
+    if (!resize) return
+    for (const el of row.children) if (el !== btn) resize.observe(el)
+  }
+
+  // Controls are added and restyled as the viewer builds the row; either is a
+  // reason to re-measure, and newly added ones need watching too.
+  if (typeof view?.MutationObserver === 'function') {
+    new view.MutationObserver(() => { watchChildren(); apply() })
+      .observe(row, { attributes: true, childList: true, subtree: true })
+  }
+  watchChildren()
+  view?.addEventListener?.('resize', apply)
+
+  apply()
+  return btn
+}
+
+function defaultPlacementLog(message) {
+  // eslint-disable-next-line no-console
+  console.log(`[bridge-classroom] ${message}`)
+}
+
 export function injectButton(deps) {
   const { document: doc, location, sendMessage } = deps
   if (!shouldInject(location.href)) return null
@@ -287,6 +386,41 @@ export function injectButton(deps) {
     li.appendChild(btn)
     li.appendChild(cancelBtn)
     ul.appendChild(li)
+    return btn
+  }
+
+  if (strategy === 'button-row') {
+    // #buttonDiv holds Rewind / Previous / Next / Options / Play. It exists in
+    // the static HTML, but the viewer populates it at runtime, so a null return
+    // here just lets the MutationObserver retry.
+    const row = doc.getElementById('buttonDiv')
+    if (!row) return null
+
+    // "Analyze" is wrong here: a single deal goes to double-dummy, not game
+    // analysis, and the ingest page decides which tool anyway.
+    btn.textContent = 'Bridge Classroom'
+
+    // Do NOT copy BBO's class. Its controls are <input type="button"> and the
+    // rule is element-qualified — `input.buttonStyle` — so a <button> wearing
+    // that class matches nothing, stays `position: static`, and ignores any
+    // `left` we set. That is exactly how this failed: the placement ran, logged
+    // a correct offset, and moved nothing.
+    //
+    // Instead drop our own chrome and let placeAtRowEnd copy the geometry from a
+    // real sibling. cssText is cleared wholesale rather than property by
+    // property because shorthands like `background` expand, so
+    // removeProperty('background') leaves background-color behind.
+    btn.style.cssText = ''
+    btn.style.cursor = 'pointer'
+    // BBO's own rule says `padding-left: 2` with no unit, which is invalid and
+    // so ignored — their controls get the browser default. Give ours a little
+    // more room around the label than that.
+    btn.style.paddingLeft = '12px'
+    btn.style.paddingRight = '12px'
+    // No cancel button here: a single deal is instant, so there is nothing to
+    // cancel and a second control would only crowd BBO's row.
+    row.appendChild(btn)
+    placeAtRowEnd(row, btn)
     return btn
   }
 

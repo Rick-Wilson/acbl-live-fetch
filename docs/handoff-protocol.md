@@ -1,4 +1,28 @@
-# Handoff Protocol
+# Handoff Protocol — superseded
+
+**This describes the retired `sessionStorage` hand-off to
+`/game-analysis/`. It is kept only as a record of why that design existed.**
+
+The extension now hands results to `bridge-classroom.{org,com}/ingest/?v=1`,
+which receives the payload and forwards it to whichever Bridge Classroom tool the
+user picks. See:
+
+- [ingest-protocol.md](ingest-protocol.md) — the current contract
+- [adr/0001-ingest-endpoint-and-postmessage-handoff.md](adr/0001-ingest-endpoint-and-postmessage-handoff.md)
+  — why it changed
+
+`src/ui/analyzerContent.js` and the `/game-analysis/` content-script match were
+removed when the ingest route became the only supported destination. The tracking
+of which domain the user prefers moved to `ingestContent.js`.
+
+The original design notes follow, unedited. They name
+`club-game-analysis.bridge-classroom.com` — an address the project had already
+moved away from twice before this document was retired, first to
+`game-analysis.bridge-classroom.org/analyze` and then to
+`bridge-classroom.{tld}/game-analysis/`. Nothing below describes anything the
+extension still does; it is kept for the reasoning, not the details.
+
+---
 
 This document specifies how the extension hands a parsed session to the analyzer SPA at `club-game-analysis.bridge-classroom.com`. It's the contract between three pieces of code:
 

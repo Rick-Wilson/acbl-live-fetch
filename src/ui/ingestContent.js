@@ -1,9 +1,9 @@
 // Ingest content script — the extension half of docs/ingest-protocol.md.
 //
 // Matched origin-wide (ADR 0001 Decision 1) but only activates on the /ingest
-// route. That gate matters: analyzerContent.js consumes the same `#sid=`
-// fragment on /game-analysis/, and both scripts calling consume-pending-session
-// would race for an entry that the first call deletes.
+// route, so it stays inert on the rest of the Bridge Classroom site. The ingest
+// page receives the payload and forwards it to whichever tool the user picks,
+// which is why this is now the extension's only hand-off path.
 //
 // Runs at document_start so the message listener is attached before any page
 // script can post `ready`. The page speaks first — see the protocol doc for why
@@ -15,8 +15,8 @@ export const READY_TIMEOUT_MS = 10_000
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-// Returns {kind, ref} or null. Mirrors analyzerContent's parsing, but returns
-// which flavour was found so the caller picks the right consume message.
+// Returns {kind, ref} or null, saying which flavour was found so the caller
+// picks the right consume message.
 export function parseRef(hash) {
   if (typeof hash !== 'string') return null
   const fragment = hash.startsWith('#') ? hash.slice(1) : hash
@@ -129,6 +129,19 @@ export async function runIngest(deps) {
 // polyfill import, because the page's inline script can post `ready` while that
 // import is still resolving.
 if (typeof globalThis.chrome !== 'undefined' || typeof globalThis.browser !== 'undefined') {
+  // Remember which domain the user actually uses, so later hand-offs open the
+  // same one. Runs on any Bridge Classroom page, not just /ingest — visiting the
+  // site at all is the signal. (Previously done by analyzerContent.js, removed
+  // with the sessionStorage hand-off.)
+  const host = window.location.hostname
+  if (host === 'bridge-classroom.org' || host === 'bridge-classroom.com') {
+    import('webextension-polyfill').then(({ default: browser }) => {
+      browser.storage.local
+        .set({ preferredTld: host.endsWith('.org') ? 'org' : 'com' })
+        .catch(() => {})
+    }).catch(() => {})
+  }
+
   const parsed = isIngestPath(window.location.pathname) ? parseRef(window.location.hash) : null
   if (parsed) {
     const shared = {

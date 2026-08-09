@@ -13,15 +13,22 @@ For what the data means once captured, see
 
 ## 1. Summary
 
-| Source | Host | Auth | Mechanism |
-|---|---|---|---|
-| ACBL Live tournaments | `live.acbl.org` | Session cookie | **Fetch inside a same-origin tab** |
-| ACBL club games | `my.acbl.org` | Session cookie | **Fetch inside a same-origin tab** |
-| BBO hands list | `www.bridgebase.com/myhands/` | Session cookie | Service-worker fetch, `credentials: 'include'` |
-| BBO traveller | `www.bridgebase.com/myhands/` | Session cookie | Service-worker fetch, `credentials: 'include'` |
-| BBO tournament summary | `webutil.bridgebase.com/v2/tview.php` | **None, deliberately** | Service-worker fetch, `credentials: 'omit'` |
-| BBO event listing | `www.bridgebase.com/myhands/` | Session cookie | **Off-screen minimized popup window** |
-| BBO replay LIN | `www.bridgebase.com/myhands/fetchlin.php` | None | **CLI, outside the browser** |
+| Source | Host | Auth | Testable logged out? | Mechanism |
+|---|---|---|---|---|
+| ACBL Live tournaments | `live.acbl.org` | ACBL login | **No** — Cloudflare, then a login prompt | **Fetch inside a same-origin tab** |
+| ACBL club games | `my.acbl.org` | **None** — results are public | **Yes**, after a Cloudflare check | **Fetch inside a same-origin tab** |
+| BBO hands list | `www.bridgebase.com/myhands/` | BBO login | **No** — redirects to `myhands_login.php` | Service-worker fetch, `credentials: 'include'` |
+| BBO traveller | `www.bridgebase.com/myhands/` | BBO login | **No** | Service-worker fetch, `credentials: 'include'` |
+| BBO event listing | `www.bridgebase.com/myhands/` | BBO login | **No** | **Off-screen minimized popup window** |
+| BBO tournament summary | `webutil.bridgebase.com/v2/tview.php` | **None, deliberately** | **Yes** | Service-worker fetch, `credentials: 'omit'` |
+| BBO replay LIN | `www.bridgebase.com/myhands/fetchlin.php` | None | **Yes** | **CLI, outside the browser** |
+| BBO hand viewer | `www.bridgebase.com/tools/handviewer.html` | None | **Yes** | **No fetch — the deal is in the URL** |
+
+"Testable logged out" is the property that matters for store review: it says
+whether someone with no account can exercise that path. Verified in a clean
+browser profile, August 2026. The hand viewer is the one entry point that needs
+no account, no cookies and no Cloudflare pass — see
+[store-review.md](store-review.md).
 
 ---
 
@@ -35,8 +42,9 @@ The default. Used for both authenticated BBO pages, with
 
 ### 2.2 Anonymous service-worker fetch
 
-`credentials: 'omit'` — used for exactly one thing, BBO's tournament summary,
-and the omission is the point. See [§ 3.3](#33-bbo-tournament-summary).
+`credentials: 'omit'` — used for BBO's tournament summary, where the omission is
+the point (see [§ 3.3](#33-bbo-tournament-summary)), and for `fetchlin.php` when
+the hand viewer's `myhand=` form has to be resolved.
 
 ### 2.3 Fetch inside a same-origin tab
 
@@ -195,7 +203,55 @@ were cardplay.
 At that rate a full history is a multi-day job, which is why it runs detached
 with a resumable journal rather than in the browser.
 
-### 3.6 BBO event listing — `bridgebase.com/v3/*`
+### 3.6 BBO hand viewer — `tools/handviewer.html`
+
+**Mechanism: usually none.** The `lin=` form carries the entire deal — players,
+dealer, vulnerability, all four hands, auction and every card played — in the
+URL itself, so extraction is pure parsing with no network access at all. The
+`myhand=M-<id>-<ts>` form resolves through `fetchlin.php` (§3.5), anonymously.
+
+The most reachable page immediately after playing a board, which makes it the
+natural entry point for checking one hand between rounds.
+
+**Yields:** one table, fully. Contract and declarer are *derived* from the
+auction rather than read — declarer being whoever on the declaring side named
+the strain first, not whoever made the final bid.
+
+**Coverage:** `user-table` throughout, `sections: not-applicable` — a single
+deal has no field to compare against.
+
+The button is injected into BBO's own control row (`#buttonDiv`) rather than as
+a floating overlay: the auction occupies top-right where the overlay pins, BBO's
+controls run along the bottom, and BBO Helper draws a double-dummy table
+bottom-left.
+
+### 3.7 BBO double-dummy — `dd.php` (observed, not used)
+
+**Not used.** Recorded because the question "why don't we just use BBO's own
+solver?" is otherwise easy to re-open.
+
+BBO's hand viewer computes double-dummy **server-side**. Its `DD` button issues
+XHR calls to `dd.php` from `handviewer.js`, one per position, passing the deal
+as a plain string (`s=s T543.QT73.AJ8…`) and receiving 0.5–0.8 kB back.
+Measured in DevTools: **320–480 ms per call**, six calls to step through a
+single hand.
+
+That latency is the reason stepping through a replay card by card feels slow in
+the existing tools — every step is a round trip.
+
+**Why it can't serve bulk analysis.** Card-by-card double-dummy over a
+14,280-replay backfill is roughly **743,000 positions**. At ~400 ms serial
+that is ~82 hours before any rate limiting, against someone else's solver. A
+local solver is the only workable route, and any display built on this data has
+to read precomputed results rather than call out per position.
+
+**Where it is still useful.** As a validation oracle. The `s=` parameter is a
+plain deal string constructible straight from `board.deal`, so spot-checking a
+few hundred local solver results against BBO's answers would catch a systematic
+error — a suit-order or seat-rotation bug — far more cheaply than reasoning
+about it. A few hundred calls is a couple of minutes and a polite volume.
+
+### 3.8 BBO event listing — `bridgebase.com/v3/*`
 
 **Mechanism:** off-screen minimized popup window (§2.4), driven by
 `bboLobbyContent.js`.
@@ -212,7 +268,7 @@ BBO hosts, **1 s** for ACBL hosts, which need more breathing room.
 |---|---|
 | `live.acbl.org` (403 without) | `webutil.bridgebase.com/v2/tview.php` |
 | `my.acbl.org` (403 without) | `www.bridgebase.com/myhands/fetchlin.php` |
-| `bridgebase.com/myhands/hands.php` (302 to login) | |
+| `bridgebase.com/myhands/hands.php` (302 to login) | `www.bridgebase.com/tools/handviewer.html` (deal is in the URL) |
 
 The split is what makes the replay backfill practical: the extension does the
 ~3,660 session-bound fetches for a 264-event history in about 20 minutes, and a
@@ -233,3 +289,6 @@ user's login, even though every replay it points to is then freely fetchable.
   played. Extracting them would produce plausible, wrong analysis.
 - **Other tables' cardplay during extraction.** Reachable only at ~0.5 req/s, so
   it belongs in the CLI backfill rather than an interactive fetch.
+- **Double-dummy from BBO's `dd.php`.** Server-side, ~400 ms per position — see
+  [§ 3.7](#37-bbo-double-dummy--ddphp-observed-not-used). Fine as a validation
+  oracle, unusable for bulk.
