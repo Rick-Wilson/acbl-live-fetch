@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import {
   findExportMenu,
-  injectDealMenuItem,
+  syncDealMenuItem,
   grabHandviewerShortlink,
   DEAL_MENU_ITEM_ID,
 } from '../../src/ui/bboLobbyContent.js'
@@ -45,10 +45,10 @@ describe('findExportMenu', () => {
   })
 })
 
-describe('injectDealMenuItem', () => {
+describe('syncDealMenuItem', () => {
   it('appends a seventh item that looks like BBO\'s own', () => {
     const m = menu(EXPORT)
-    const item = injectDealMenuItem(document, vi.fn())
+    const item = syncDealMenuItem(document, vi.fn())
 
     expect(m.children).toHaveLength(7)
     expect(m.lastElementChild).toBe(item)
@@ -61,23 +61,61 @@ describe('injectDealMenuItem', () => {
 
   it('does nothing on the top-level menu', () => {
     const m = menu(TOP_LEVEL)
-    expect(injectDealMenuItem(document, vi.fn())).toBeNull()
+    expect(syncDealMenuItem(document, vi.fn())).toBeNull()
     expect(m.children).toHaveLength(4)
   })
 
   it('is idempotent across repeated observer firings', () => {
     const m = menu(EXPORT)
-    injectDealMenuItem(document, vi.fn())
-    injectDealMenuItem(document, vi.fn())
+    syncDealMenuItem(document, vi.fn())
+    syncDealMenuItem(document, vi.fn())
     expect(m.querySelectorAll(`#${DEAL_MENU_ITEM_ID}`)).toHaveLength(1)
     expect(m.children).toHaveLength(7)
+  })
+
+  it('takes the item away when the menu drops back to the top level', () => {
+    // The bug this exists for: Angular swaps the container's rows in place and
+    // only manages the nodes it made, so our item survived the swap and sat on
+    // the top-level menu as a fifth entry that could never work.
+    const m = menu(EXPORT)
+    syncDealMenuItem(document, vi.fn())
+    expect(m.children).toHaveLength(7)
+
+    // Angular re-renders its own rows; ours is left behind.
+    const ours = document.getElementById(DEAL_MENU_ITEM_ID)
+    ;[...m.children].filter((c) => c !== ours).forEach((c) => c.remove())
+    TOP_LEVEL.forEach((label) => {
+      const item = ours.cloneNode(true)
+      item.removeAttribute('id')
+      item.querySelector('div').textContent = label
+      m.insertBefore(item, ours)
+    })
+
+    syncDealMenuItem(document, vi.fn())
+    expect(document.getElementById(DEAL_MENU_ITEM_ID)).toBeNull()
+    expect([...m.children].map((c) => c.textContent.trim())).toEqual(TOP_LEVEL)
+  })
+
+  it('comes back when Export is opened again', () => {
+    const m = menu(TOP_LEVEL)
+    expect(syncDealMenuItem(document, vi.fn())).toBeNull()
+
+    m.innerHTML = ''
+    EXPORT.forEach((label) => {
+      const item = document.createElement('menu-item')
+      item.innerHTML = `<div style="padding: 5px;">${label}</div>`
+      m.appendChild(item)
+    })
+
+    expect(syncDealMenuItem(document, vi.fn())).not.toBeNull()
+    expect(m.lastElementChild.textContent.trim()).toBe('Bridge Classroom')
   })
 
   it('does not carry BBO\'s own click handler across the clone', () => {
     const m = menu(EXPORT)
     const spy = vi.fn()
     m.children[0].querySelector('div').addEventListener('click', spy)
-    injectDealMenuItem(document, vi.fn())
+    syncDealMenuItem(document, vi.fn())
 
     // Drop the item our handler looks for, so clicking ours fails immediately
     // instead of leaving an 8-second poll running into the next test — two

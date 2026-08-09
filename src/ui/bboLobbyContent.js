@@ -416,12 +416,11 @@ const SHORTLINK_SELECTOR = 'a[href*="tinyurl.bridgebase.com"]'
 
 /** The visible Export submenu, identified by its contents rather than its class.
  *
- *  The live page carries six `.menuClass` containers at once — the account menu,
- *  the deal menu, this one, and others — all present in the DOM from the start
- *  and toggled by visibility rather than built on demand. So the class says
- *  nothing about which menu this is, and `offsetParent` is what says whether it
- *  is the one on screen. Matching on "Handviewer link" is what distinguishes it
- *  from the top-level deal menu. */
+ *  The page carries several `.menuClass` containers — the account menu, the deal
+ *  menu, and others — so the class identifies nothing, and `offsetParent` is
+ *  what says which is on screen. The deal menu then *reuses one container* for
+ *  both levels: choosing Export swaps its rows from the four top-level entries
+ *  to the six export ones. Only the contents distinguish them. */
 export function findExportMenu(doc) {
   return [...doc.querySelectorAll('.menuClass')].find((menu) =>
     menu.offsetParent !== null &&
@@ -491,16 +490,29 @@ function showToast(doc, text) {
   setTimeout(() => el.remove(), 6000)
 }
 
-/** Append our item to the Export submenu. Idempotent; no-op when that menu
- *  isn't showing.
+/** Add or remove our item so it appears on the Export submenu and nowhere else.
  *
- *  The container persists once BBO has built it, so the item is added once and
- *  stays put across opens and across deals — the click handler reads whichever
- *  menu is visible at the time, so a stale item is not a stale deal. The id
- *  guard is what makes the observer's repeated calls free. */
-export function injectDealMenuItem(doc, sendMessage) {
+ *  Removal is the whole point of this being a sync rather than an inject.
+ *  Angular swaps the container's rows in place when the menu changes level, and
+ *  it only manages the nodes it created — ours survives the swap and strands on
+ *  the top-level menu, where it looks like a fifth entry and cannot work,
+ *  because the "Handviewer link" it needs is no longer there. So every mutation
+ *  re-answers the question rather than injecting once and trusting it to stay.
+ *
+ *  Idempotent: when the item is already on the right menu this does nothing,
+ *  which is what makes the observer's constant firing free. */
+export function syncDealMenuItem(doc, sendMessage) {
   const menu = findExportMenu(doc)
-  if (!menu || doc.getElementById(DEAL_MENU_ITEM_ID)) return null
+  const existing = doc.getElementById(DEAL_MENU_ITEM_ID)
+
+  if (!menu) {
+    existing?.remove()
+    return null
+  }
+  if (existing) {
+    if (existing.parentElement === menu) return existing
+    existing.remove()
+  }
 
   // Clone one of BBO's own items rather than building one: Angular's scoped
   // styles key off `_ngcontent-*` attributes, so a hand-rolled element would
@@ -546,7 +558,7 @@ if (typeof globalThis.chrome !== 'undefined' || typeof globalThis.browser !== 'u
     // so there is nothing to hook but the mutation itself.
     const observer = new MutationObserver(() => {
       if (!document.getElementById(BUTTON_ID)) tryInject()
-      injectDealMenuItem(document, sendMessage)
+      syncDealMenuItem(document, sendMessage)
     })
     observer.observe(document.body, { childList: true, subtree: true })
 
