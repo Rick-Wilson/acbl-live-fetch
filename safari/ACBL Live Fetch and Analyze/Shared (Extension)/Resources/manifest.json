@@ -10,19 +10,20 @@
   "content_scripts": [
     {
       "js": [
-        "assets/sourceContent.js-loader-CvFB0Uw9.js"
+        "assets/sourceContent.js-loader-BK1fsHaU.js"
       ],
       "matches": [
         "https://live.acbl.org/*",
         "https://my.acbl.org/*",
         "https://webutil.bridgebase.com/v2/tview.php*",
-        "https://www.bridgebase.com/myhands/hands.php*"
+        "https://www.bridgebase.com/myhands/hands.php*",
+        "https://www.bridgebase.com/tools/handviewer.html*"
       ],
       "run_at": "document_idle"
     },
     {
       "js": [
-        "assets/bboLobbyContent.js-loader-DvFeRjts.js"
+        "assets/bboLobbyContent.js-loader-CmzkBL2w.js"
       ],
       "matches": [
         "https://www.bridgebase.com/v3/*"
@@ -31,12 +32,11 @@
     },
     {
       "js": [
-        "assets/analyzerContent.js-loader-BYlIb0VB.js"
+        "assets/ingestContent.js-loader-YThLzCxF.js"
       ],
       "matches": [
-        "https://game-analysis.bridge-classroom.org/analyze*",
-        "https://game-analysis.bridge-classroom.com/analyze*",
-        "http://localhost:3001/analyze*"
+        "https://bridge-classroom.org/*",
+        "https://bridge-classroom.com/*"
       ],
       "run_at": "document_start"
     }
@@ -49,9 +49,6 @@
   "host_permissions": [
     "https://live.acbl.org/*",
     "https://my.acbl.org/*",
-    "https://game-analysis.bridge-classroom.org/*",
-    "https://game-analysis.bridge-classroom.com/*",
-    "http://localhost:3001/*",
     "https://webutil.bridgebase.com/*",
     "https://www.bridgebase.com/*"
   ],
@@ -61,13 +58,14 @@
         "https://live.acbl.org/*",
         "https://my.acbl.org/*",
         "https://webutil.bridgebase.com/*",
+        "https://www.bridgebase.com/*",
         "https://www.bridgebase.com/*"
       ],
       "resources": [
         "assets/preload-helper-ckwbz45p.js",
-        "assets/index-xorZz522.js",
+        "assets/index-BpKWQ6iT.js",
         "assets/browser-polyfill-C8sOovTA.js",
-        "assets/sourceContent.js-473IQ7AU.js"
+        "assets/sourceContent.js-KrgStwI7.js"
       ],
       "use_dynamic_url": false
     },
@@ -78,20 +76,19 @@
       "resources": [
         "assets/preload-helper-ckwbz45p.js",
         "assets/browser-polyfill-C8sOovTA.js",
-        "assets/bboLobbyContent.js-CIo3-YKo.js"
+        "assets/bboLobbyContent.js-DwFzYMdT.js"
       ],
       "use_dynamic_url": false
     },
     {
       "matches": [
-        "http://localhost:3001/*",
-        "https://game-analysis.bridge-classroom.com/*",
-        "https://game-analysis.bridge-classroom.org/*"
+        "https://bridge-classroom.com/*",
+        "https://bridge-classroom.org/*"
       ],
       "resources": [
         "assets/preload-helper-ckwbz45p.js",
         "assets/browser-polyfill-C8sOovTA.js",
-        "assets/analyzerContent.js-PTt2cVJ8.js"
+        "assets/ingestContent.js-DKWPoPx4.js"
       ],
       "use_dynamic_url": false
     }

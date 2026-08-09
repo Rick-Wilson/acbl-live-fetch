@@ -107,6 +107,66 @@ A Cloudflare check appears first for a fresh browser profile.
 
 ---
 
+## 3a. Listing copy
+
+Reusable across all four stores. Each has a different length limit; the short
+summary below fits the tightest (Chrome's 132 characters).
+
+**Name:** ACBL Live Fetch and Analyze
+
+**Short summary** (132 chars):
+
+> Send your bridge results from ACBL Live, my.acbl.org and BBO to Bridge
+> Classroom for analysis, with one click.
+
+**Description:**
+
+> Bridge results are easy to look at and hard to learn from. This extension
+> takes the game you are already looking at — an ACBL tournament, a club game,
+> or a Bridge Base Online session — and sends it to Bridge Classroom, where it
+> can be analysed properly.
+>
+> Click the button on any supported results page. The extension reads that
+> game's boards, contracts, scores and comparisons, and opens Bridge Classroom
+> with them. No downloading files, no uploading them again.
+>
+> Supported sites:
+> • live.acbl.org — tournament results
+> • my.acbl.org — club game results
+> • Bridge Base Online — tournament results and single deals
+>
+> On Bridge Base Online it also captures the cardplay for your own table, so
+> your play can be reviewed hand by hand. Other players' real names are
+> deliberately not collected from BBO.
+>
+> The extension only runs on those sites, only when you click it, and sends
+> results only to Bridge Classroom. No analytics, no tracking, no accounts.
+>
+> Open source and public domain:
+> https://github.com/bridge-craftwork/acbl-live-fetch
+
+**Category:** Productivity (Chrome/Edge) · Other (Firefox) · Utilities (Mac App
+Store)
+
+**Support / homepage:** https://github.com/bridge-craftwork/acbl-live-fetch
+**Privacy policy:** the URL where `PRIVACY.md` is published
+
+## 3b. Per-store differences
+
+| | Chrome | Edge | Firefox | Safari |
+|---|---|---|---|---|
+| Artifact | `-chrome.zip` | `-edge.zip` | `-firefox.zip` **+ `-source.zip`** | Mac app from Xcode |
+| Built by | `scripts/package-stores.sh` | same | same | Xcode archive |
+| Extra manifest | — | — | `browser_specific_settings.gecko.id` (already in `vite.config.js`) | — |
+| Account | Chrome Web Store developer | Microsoft Partner Center | addons.mozilla.org | Apple Developer Program |
+| Notable | Permission justifications required per permission | Mirrors Chrome | **Source archive required** because the upload is minified; reviewers rebuild it | Ships as an app; needs an app icon set and its own version/build numbers |
+
+Firefox reviewers need to reproduce the build. The source archive is produced by
+`git archive` from `HEAD`, so commit before packaging; note `npm ci` then
+`BROWSER=firefox npm run build` in the reviewer notes.
+
+---
+
 ## 4. Screenshots to prepare
 
 Store listings need these; the parenthetical is what each has to make obvious.
@@ -214,6 +274,33 @@ the main document, not this section.
 > numbers, because those sites publish them.
 >
 > Once results reach Bridge Classroom, the rest of this policy applies to them.
+
+---
+
+## 6a. Blockers before any submission
+
+**Icons — nothing exists yet.** `manifest.json` declares no `icons` key and
+there is no `action`, so the extension currently ships with none. Every store
+needs them and two will reject outright without:
+
+| Store | Needs |
+|---|---|
+| Chrome | 128×128 store icon; manifest `icons` 16/32/48/128 expected |
+| Edge | 300×300 store logo, plus the manifest icons |
+| Firefox | at least 48×48 and 96×96 |
+| Safari | a full macOS AppIcon set, 16 through 1024 |
+
+This is a design decision rather than a packaging one, so it is deliberately not
+guessed at here. A placeholder set can be generated to prove the pipeline end to
+end, but the shipped artwork should be real.
+
+**Privacy policy URL.** `PRIVACY.md` is written and lives at the repo root, but
+the listing needs a URL. Either publish it on bridge-classroom.org, or link the
+rendered GitHub copy.
+
+**Version number.** Everything is `0.2.2`. Worth deciding whether the first
+public release is `1.0.0`; the version lives in `manifest.json` and is read from
+there by `PROVIDER.version`, so bumping it once updates the envelope too.
 
 ---
 
