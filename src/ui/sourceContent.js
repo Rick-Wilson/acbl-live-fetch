@@ -429,7 +429,7 @@ export function placeInTableHeader(doc, btn, cancelBtn) {
   cell.id = BUTTON_CELL_ID
   cell.setAttribute('colspan', String(span))
   cell.setAttribute('rowspan', '2')
-  Object.assign(cell.style, { textAlign: 'right', verticalAlign: 'middle', whiteSpace: 'nowrap' })
+  Object.assign(cell.style, { textAlign: 'center', verticalAlign: 'middle', whiteSpace: 'nowrap' })
 
   // Match the table rather than the overlay: inherit the header's typeface and
   // size, drop the header's bold (this is a control, not a heading), and lose
