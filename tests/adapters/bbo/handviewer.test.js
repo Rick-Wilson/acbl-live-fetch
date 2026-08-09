@@ -45,9 +45,11 @@ describe('handviewer page type', () => {
     expect(pickInjectionStrategy(PASSED_OUT_URL)).toBe('button-row')
   })
 
-  it('still uses the overlay on other BBO pages', () => {
+  it('uses the hands list\'s own header row, and the overlay elsewhere', () => {
+    // The hands list has two full-width header rows to merge into; tview has
+    // no such spare room, so it keeps floating.
     expect(pickInjectionStrategy('https://www.bridgebase.com/myhands/hands.php?tourney=1-2&username=x'))
-      .toBe('overlay')
+      .toBe('table-header')
     expect(pickInjectionStrategy('https://webutil.bridgebase.com/v2/tview.php?t=1-2&u=x'))
       .toBe('overlay')
   })

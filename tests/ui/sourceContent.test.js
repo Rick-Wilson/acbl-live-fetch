@@ -212,3 +212,73 @@ describe('injectButton', () => {
     expect(document.querySelectorAll('#bridge-classroom-analyze-btn')).toHaveLength(1)
   })
 })
+
+describe('hands-list header injection', () => {
+  // The real page: two full-width header rows above an 11-column body. Kept in
+  // sync with fixtures/bbo/hands-list-81382-kemistry.html.
+  const HANDS_URL =
+    'https://www.bridgebase.com/myhands/hands.php?tourney=81382-1777478400&username=kemistry'
+
+  function handsListPage(totalCols = 11) {
+    const heads = Array.from({ length: totalCols }, (_, i) => `<th>c${i}</th>`).join('')
+    document.body.innerHTML = `
+      <table class="body">
+        <tr><th colspan="${totalCols}">Tourney 81382 - played by kemistry</th></tr>
+        <tr><th colspan="${totalCols}">2026-04-29</th></tr>
+        <tr>${heads}</tr>
+        <tr class="tourney"><td>1</td></tr>
+      </table>`
+    return document.querySelector('table.body')
+  }
+
+  const opts = () => ({ document, location: { href: HANDS_URL }, sendMessage: vi.fn() })
+
+  it('merges the right third of the two header rows into one cell', () => {
+    const table = handsListPage()
+    const btn = injectButton(opts())
+
+    expect(btn.closest('th').id).toBe('bridge-classroom-header-cell')
+    expect(table.rows[0].cells[0].getAttribute('colspan')).toBe('7')
+    expect(table.rows[1].cells[0].getAttribute('colspan')).toBe('7')
+
+    const cell = table.rows[0].cells[1]
+    expect(cell.getAttribute('colspan')).toBe('4')
+    expect(cell.getAttribute('rowspan')).toBe('2')
+    // 7 + 4 must still equal the body's column count, or the table skews.
+    expect(table.rows[2].cells).toHaveLength(11)
+  })
+
+  it('inherits the table\'s typeface instead of imposing its own', () => {
+    handsListPage()
+    const btn = injectButton(opts())
+    expect(btn.style.fontFamily).toBe('inherit')
+    expect(btn.style.fontSize).toBe('inherit')
+    expect(btn.style.position).not.toBe('fixed')
+  })
+
+  it('re-splits from the original width, not the width it left behind', () => {
+    // A re-render can drop our cell while leaving the narrowed colspans. Without
+    // remembering the original 11 the next split would compound to 5 + 2.
+    const table = handsListPage()
+    injectButton(opts())
+    document.getElementById('bridge-classroom-header-cell').remove()
+    document.getElementById('bridge-classroom-analyze-btn')?.remove()
+
+    injectButton(opts())
+    expect(table.rows[0].cells[0].getAttribute('colspan')).toBe('7')
+    expect(table.rows[0].cells[1].getAttribute('colspan')).toBe('4')
+  })
+
+  it('falls back to the overlay rather than losing the button', () => {
+    // Only one header row — not the shape we know how to split.
+    document.body.innerHTML = `
+      <table class="body">
+        <tr><th colspan="11">Tourney</th></tr>
+        <tr><td>1</td></tr>
+        <tr><td>2</td></tr>
+      </table>`
+    const btn = injectButton(opts())
+    expect(btn).not.toBeNull()
+    expect(btn.style.position).toBe('fixed')
+  })
+})

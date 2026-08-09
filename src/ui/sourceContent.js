@@ -130,6 +130,12 @@ export function pickInjectionStrategy(url) {
     if (host === 'www.bridgebase.com' && u.pathname === '/tools/handviewer.html') {
       return 'button-row'
     }
+    // The hands list leads with two full-width header rows — the tourney name
+    // and the date — above an 11-column table. That is dead space on the right,
+    // and the overlay was landing on BBO's own controls at some zoom levels.
+    if (host === 'www.bridgebase.com' && u.pathname === '/myhands/hands.php') {
+      return 'table-header'
+    }
     if (host.endsWith('bridgebase.com')) return 'overlay'
     return 'inline'
   } catch {
@@ -366,6 +372,81 @@ function defaultPlacementLog(message) {
   console.log(`[bridge-classroom] ${message}`)
 }
 
+export const BUTTON_CELL_ID = 'bridge-classroom-header-cell'
+
+/** Put the button in the hands list's own header, instead of floating over it.
+ *
+ *  The table opens with two full-width rows — "Tourney NNN … played by <user>"
+ *  and the date — each a single `<th colspan="11">` above an 11-column body.
+ *  Carving the right third out of both and merging it into one cell gives a
+ *  home that scrolls with the page and cannot cover BBO's controls at any zoom.
+ *
+ *      before                          after
+ *      +---------------------+         +--------------+------+
+ *      | Tourney … (11)      |         | Tourney (7)  |      |
+ *      +---------------------+   ->    +--------------+ btn  |
+ *      | 2026-04-29 (11)     |         | date    (7)  | (4x2)|
+ *      +--+--+--+--+--+--+---+         +--+--+--+--+--+------+
+ *      |Nº|Time|North| … 11 cols       |Nº|Time|North| … 11 cols
+ *
+ *  Returns the button, or null if the table isn't the shape described — in
+ *  which case the caller falls back to the overlay.
+ *
+ *  The original column count is stashed on the table so a re-injection splits
+ *  from 11 again rather than from the 7 it left behind.
+ */
+export function placeInTableHeader(doc, btn, cancelBtn) {
+  const table = doc.querySelector('table.body')
+  if (!table || !table.rows || table.rows.length < 3) return null
+
+  const titleRow = table.rows[0]
+  const dateRow = table.rows[1]
+  if (titleRow.cells.length !== 1 || dateRow.cells.length !== 1) return null
+
+  const titleCell = titleRow.cells[0]
+  const dateCell = dateRow.cells[0]
+  // Both must genuinely be header cells spanning the same width. Without this a
+  // variant whose second row is already data — a single `<td>` — gets rewritten
+  // as though it were the date, skewing the table. Comparing the two colspans
+  // rather than checking against the stored total keeps this true on
+  // re-injection, when both have already been narrowed.
+  if (titleCell.tagName !== 'TH' || dateCell.tagName !== 'TH') return null
+  if (titleCell.getAttribute('colspan') !== dateCell.getAttribute('colspan')) return null
+
+  const stored = Number.parseInt(table.dataset?.bcTotalCols ?? '', 10)
+  const total = Number.isInteger(stored) && stored > 1
+    ? stored
+    : Number.parseInt(titleCell.getAttribute('colspan') ?? '', 10)
+  if (!Number.isInteger(total) || total < 3) return null
+  if (table.dataset) table.dataset.bcTotalCols = String(total)
+
+  // Right third, but never so wide it leaves the title nowhere to sit.
+  const span = Math.min(Math.max(Math.round(total / 3), 2), total - 1)
+  titleCell.setAttribute('colspan', String(total - span))
+  dateCell.setAttribute('colspan', String(total - span))
+
+  const cell = doc.createElement('th')
+  cell.id = BUTTON_CELL_ID
+  cell.setAttribute('colspan', String(span))
+  cell.setAttribute('rowspan', '2')
+  Object.assign(cell.style, { textAlign: 'right', verticalAlign: 'middle', whiteSpace: 'nowrap' })
+
+  // Match the table rather than the overlay: inherit the header's typeface and
+  // size, drop the header's bold (this is a control, not a heading), and lose
+  // the drop shadow that only made sense floating above the page.
+  // Longhands, not the `font` shorthand: `style.font = 'inherit'` is accepted
+  // inconsistently (jsdom drops it silently, leaving buildButton's 14px), and a
+  // font size that only looks right in the browser is not worth the ambiguity.
+  const inheritFont = { fontFamily: 'inherit', fontSize: 'inherit', fontWeight: 'normal' }
+  Object.assign(btn.style, inheritFont, { padding: '4px 12px', boxShadow: 'none' })
+  Object.assign(cancelBtn.style, inheritFont)
+
+  cell.appendChild(btn)
+  cell.appendChild(cancelBtn)
+  titleRow.appendChild(cell)
+  return btn
+}
+
 export function injectButton(deps) {
   const { document: doc, location, sendMessage } = deps
   if (!shouldInject(location.href)) return null
@@ -424,7 +505,14 @@ export function injectButton(deps) {
     return btn
   }
 
-  if (strategy === 'overlay') {
+  if (strategy === 'table-header') {
+    const placed = placeInTableHeader(doc, btn, cancelBtn)
+    if (placed) return placed
+    // Markup we didn't expect. Costing the user placement is acceptable;
+    // costing them the button is not — fall through to the overlay.
+  }
+
+  if (strategy === 'overlay' || strategy === 'table-header') {
     // Fixed-position floating button. Resilient to SPA re-renders because
     // it doesn't depend on any specific anchor element. zIndex is
     // intentionally extreme so the host page's stacking can't hide it.
