@@ -436,6 +436,11 @@ function menuItemLabel(item) {
 // panel clip whatever doesn't fit. Six items already run to the edge; a seventh
 // as long as "Bridge Classroom" is cut off. Shrinking the container scales every
 // row, since the rows set colour and padding but no size of their own.
+// BBO's menu highlight, taken from its stylesheet rather than picked by eye:
+// both `.menu-item:hover` and `div.name-tag-menu button.mat-menu-item:hover`
+// set exactly this.
+const MENU_HOVER_COLOR = 'rgb(255, 206, 0)'
+
 const MENU_FONT_SCALE = 0.75
 const MENU_FONT_MIN_PX = 16
 const MENU_FONT_MARKER = 'bcOriginalFontSize'
@@ -562,6 +567,16 @@ export function syncDealMenuItem(doc, sendMessage) {
   item.id = DEAL_MENU_ITEM_ID
   const label = menuItemLabel(item)
   label.textContent = 'Bridge Classroom'
+
+  // Hover, done the hard way. BBO's rows carry their background as an inline
+  // style, which no `:hover` rule can override, so the highlight has to be
+  // driven in script — and cloning dropped whatever BBO uses. The colour is
+  // BBO's own: `rgb(255, 206, 0)` is what its two menu hover rules set. The
+  // base is read from the clone rather than assumed, so it follows if BBO
+  // restyles the menu.
+  const base = label.style.backgroundColor
+  label.addEventListener('mouseenter', () => { label.style.backgroundColor = MENU_HOVER_COLOR })
+  label.addEventListener('mouseleave', () => { label.style.backgroundColor = base })
 
   label.addEventListener('click', async (event) => {
     event.stopPropagation()

@@ -224,3 +224,32 @@ describe('menu sizing and dialog cleanup', () => {
     expect(document.querySelector('a[href*="tinyurl"]')).toBeNull()
   })
 })
+
+describe('hover highlight', () => {
+  const hover = (el, type) => el.dispatchEvent(new window.MouseEvent(type, { bubbles: false }))
+
+  it('highlights on hover in BBO\'s own colour, and clears again', () => {
+    menu(EXPORT)
+    const label = syncDealMenuItem(document, vi.fn()).querySelector('div')
+    const base = label.style.backgroundColor
+    expect(base).toBe('rgb(191, 214, 153)')
+
+    hover(label, 'mouseenter')
+    expect(label.style.backgroundColor).toBe('rgb(255, 206, 0)')
+
+    hover(label, 'mouseleave')
+    expect(label.style.backgroundColor).toBe(base)
+  })
+
+  it('restores whatever BBO was using, not a colour of ours', () => {
+    // If BBO restyles the menu, the clone carries the new base and hover must
+    // fall back to that rather than to a value baked in here.
+    const m = menu(EXPORT)
+    m.querySelectorAll('menu-item > div').forEach((d) => { d.style.backgroundColor = 'rgb(1, 2, 3)' })
+    const label = syncDealMenuItem(document, vi.fn()).querySelector('div')
+
+    hover(label, 'mouseenter')
+    hover(label, 'mouseleave')
+    expect(label.style.backgroundColor).toBe('rgb(1, 2, 3)')
+  })
+})
