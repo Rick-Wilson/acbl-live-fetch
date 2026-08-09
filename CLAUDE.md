@@ -34,16 +34,23 @@ Read `docs/architecture.md` for full detail. Key points:
 
 ## Current state (August 2026)
 
-Working and merged to `main`. 344 unit tests, 5 Playwright e2e tests, all passing.
+Working and merged to `main`. 348 unit tests, 5 Playwright e2e tests, all passing.
 
-**Four entry points**, each with an injected button:
+**Four entry points**, each with an injected button. Five injection points, since
+BBO takes three:
 
-| Source | Notes |
-|---|---|
-| `live.acbl.org` | Tournaments. All sections. Needs an ACBL login |
-| `my.acbl.org` | Club games. Results are public |
-| BBO hands list / lobby | Session and multi-event batch. Needs a BBO login |
-| BBO hand viewer | One deal, straight out of the URL — no network at all |
+| Source | Notes | Button goes |
+|---|---|---|
+| `live.acbl.org` | Tournaments. All sections. Needs an ACBL login | In flow, beside the `h1` |
+| `my.acbl.org` | Club games. Results are public | The navbar (`ul.navbar-nav`) |
+| BBO lobby (`/v3/*`) | Multi-event batch. Needs a BBO login | Above the history list |
+| BBO hands list (`hands.php?tourney=`) | One session | Merged into the table's header rows |
+| BBO tournament view (`tview.php?t=`) | Whole-event batch | Floating overlay |
+| BBO hand viewer | One deal, straight out of the URL — no network at all | BBO's control row |
+
+`hands.php?traveller=` is matched and classified but deliberately gets no button.
+The overlay is the fallback everywhere, not the preference — see
+`docs/data-sources.md` § 3.6a.
 
 **Hand-off**: results go to `bridge-classroom.{org,com}/ingest/?v=1`, which
 forwards them to whichever Bridge Classroom tool the user picks. This is the
