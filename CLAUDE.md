@@ -48,9 +48,10 @@ BBO takes three:
 | BBO tournament view (`tview.php?t=`) | Whole-event batch | Floating overlay |
 | BBO hand viewer | One deal, straight out of the URL — no network at all | BBO's control row |
 
-`hands.php?traveller=` is matched and classified but deliberately gets no button.
-The overlay is the fallback everywhere, not the preference — see
-`docs/data-sources.md` § 3.6a.
+`hands.php?traveller=` is matched and classified but deliberately gets **no**
+button: BBO already analyses that board across the field, and every route to it
+passes a page that does have one. Don't "fix" it. The overlay is the fallback
+elsewhere, not the preference — see `docs/data-sources.md` § 3.6a.
 
 **Hand-off**: results go to `bridge-classroom.{org,com}/ingest/?v=1`, which
 forwards them to whichever Bridge Classroom tool the user picks. This is the

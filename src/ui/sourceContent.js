@@ -19,6 +19,12 @@ const BUTTON_ID = 'bridge-classroom-analyze-btn'
 //   * hands-list        — www.bridgebase.com/myhands/hands.php?tourney=
 //   * handviewer        — www.bridgebase.com/tools/handviewer.html?lin= or ?myhand=
 //                         (the most reachable page right after playing a board)
+//
+// `traveller` (hands.php?traveller=) is classified but deliberately absent, and
+// should stay absent. It is BBO's own analysis of one board across the field —
+// a view we would be duplicating rather than improving — and it takes several
+// clicks to reach, every one of which passes a page that does have a button. A
+// user who wanted the whole session has already had three chances to say so.
 const INJECT_PAGE_TYPES = new Set([
   'pair-scorecard',
   'event-summary',

@@ -235,8 +235,8 @@ Where a page has somewhere of its own to put the button, it goes there.
 |---|---|
 | Lobby (`/v3/*`) | Above the history list (`historic-tournament-list .listClass`), by the separate lobby content script |
 | Hands list (`hands.php?tourney=`) | Merged into the table's own header: the two full-width rows (tourney name, date) shrink from `colspan="11"` to `7`, and a `<th colspan="4" rowspan="2">` holds the button |
-| Traveller (`hands.php?traveller=`) | No button — classified but not in `INJECT_PAGE_TYPES` |
-| Tournament view (`tview.php?t=`) | Floating overlay — no comparable spare row to merge |
+| Traveller (`hands.php?traveller=`) | **No button, by decision.** BBO already analyses one board across the field there, so we would be duplicating it; and reaching it takes several clicks past pages that *do* have a button |
+| Tournament view (`tview.php?t=`) | Floating overlay — no comparable spare row to merge, and it lands on ad margin rather than any control |
 | Hand viewer (`handviewer.html`) | BBO's control row, as above |
 
 Both in-page placements fall back to the overlay if the markup isn't the shape
