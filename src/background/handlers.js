@@ -44,24 +44,38 @@ export const PENDING_TTL_MS = 60 * 60 * 1000 // 1 hour
 //
 // Trailing slash is deliberate: /ingest 301s to /ingest/, and pointing at the
 // final URL avoids a redirect on every hand-off.
-export const analyzerUrlForTld = (tld) =>
+export const ingestUrlForTld = (tld) =>
   `https://bridge-classroom.${tld}/ingest/?v=1`
-export const DEFAULT_ANALYZER_URL = analyzerUrlForTld('org')
-const ANALYZER_TLDS = new Set(['org', 'com'])
+export const DEFAULT_INGEST_URL = ingestUrlForTld('org')
+const INGEST_TLDS = new Set(['org', 'com'])
+
+export const DEV_INGEST_URL_KEY = 'devIngestUrl'
+export const PREFERRED_TLD_KEY = 'preferredTld'
+// Read once more under the pre-rename names so an existing install doesn't
+// silently change destination on upgrade. Removable after a release.
+const LEGACY_DEV_URL_KEY = 'devAnalyzerUrl'
+const LEGACY_TLD_KEY = 'preferredAnalyzerTld'
+
 /** Returns the hand-off URL. Resolution order:
- *  1. devAnalyzerUrl (manual override for local dev — set via:
- *       chrome.storage.local.set({ devAnalyzerUrl: 'http://localhost:3001/ingest/?v=1' })
- *     clear with: chrome.storage.local.remove('devAnalyzerUrl'))
- *  2. preferredAnalyzerTld (auto-tracked: whenever the user visits Bridge
- *     Classroom on .com or .org, ingestContent.js writes that TLD here so
- *     subsequent hand-offs stay on the same domain)
- *  3. DEFAULT_ANALYZER_URL (.org) */
-export async function getAnalyzerUrl(storage) {
-  const result = await storage.get(['devAnalyzerUrl', 'preferredAnalyzerTld'])
-  if (result?.devAnalyzerUrl) return result.devAnalyzerUrl
-  const tld = result?.preferredAnalyzerTld
-  if (tld && ANALYZER_TLDS.has(tld)) return analyzerUrlForTld(tld)
-  return DEFAULT_ANALYZER_URL
+ *  1. devIngestUrl (manual override for local dev — set via:
+ *       chrome.storage.local.set({ devIngestUrl: 'http://localhost:3001/ingest/?v=1' })
+ *     clear with: chrome.storage.local.remove('devIngestUrl'))
+ *     Only ever written from an extension context. A destination a *page* could
+ *     set would be an exfiltration vector, since the payload comes from the
+ *     user's authenticated sessions.
+ *  2. preferredTld (auto-tracked: whenever the user visits Bridge Classroom on
+ *     .com or .org, ingestContent.js writes that TLD here so subsequent
+ *     hand-offs stay on the same domain)
+ *  3. DEFAULT_INGEST_URL (.org) */
+export async function getIngestUrl(storage) {
+  const result = await storage.get([
+    DEV_INGEST_URL_KEY, PREFERRED_TLD_KEY, LEGACY_DEV_URL_KEY, LEGACY_TLD_KEY,
+  ])
+  const override = result?.[DEV_INGEST_URL_KEY] ?? result?.[LEGACY_DEV_URL_KEY]
+  if (override) return override
+  const tld = result?.[PREFERRED_TLD_KEY] ?? result?.[LEGACY_TLD_KEY]
+  if (tld && INGEST_TLDS.has(tld)) return ingestUrlForTld(tld)
+  return DEFAULT_INGEST_URL
 }
 // Per-host pause between batch items to avoid rate-limiting. ACBL needs more
 // breathing room than BBO (we got a 403 on my.acbl.org with no delay; BBO has
@@ -139,8 +153,8 @@ export async function runExtraction(url, deps) {
   const key = `${PENDING_PREFIX}${sid}`
   await storage.set({ [key]: { stored_at: Date.now(), envelope } })
   await cacheBboUsername(url, storage)
-  const analyzerUrl = await getAnalyzerUrl(storage)
-  await tabs.create({ url: `${analyzerUrl}#sid=${sid}` })
+  const ingestUrl = await getIngestUrl(storage)
+  await tabs.create({ url: `${ingestUrl}#sid=${sid}` })
   return { type: 'extraction-complete', sid }
 }
 
@@ -224,7 +238,7 @@ export async function runBatchExtraction(listUrl, deps, since = null, max = null
   const total = urls.length
 
   await storage.set({ [storageKey]: { stored_at: Date.now(), total, completed: 0, items: [], errors: [], done: false } })
-  const analyzerUrl = await getAnalyzerUrl(storage)
+  const ingestUrl = await getIngestUrl(storage)
 
   // Return the key immediately so the UI can start showing progress, then
   // continue processing in the background (network requests keep the SW alive).
@@ -265,7 +279,7 @@ export async function runBatchExtraction(listUrl, deps, since = null, max = null
     await storage.remove(cancelKey).catch(() => {})
     // Don't open the analyzer if the batch was cancelled with no items.
     if (!cancelled || items.length > 0) {
-      await tabs.create({ url: `${analyzerUrl}#batch=${key}` })
+      await tabs.create({ url: `${ingestUrl}#batch=${key}` })
     }
   }
 

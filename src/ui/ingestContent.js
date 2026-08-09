@@ -137,7 +137,7 @@ if (typeof globalThis.chrome !== 'undefined' || typeof globalThis.browser !== 'u
   if (host === 'bridge-classroom.org' || host === 'bridge-classroom.com') {
     import('webextension-polyfill').then(({ default: browser }) => {
       browser.storage.local
-        .set({ preferredAnalyzerTld: host.endsWith('.org') ? 'org' : 'com' })
+        .set({ preferredTld: host.endsWith('.org') ? 'org' : 'com' })
         .catch(() => {})
     }).catch(() => {})
   }

@@ -146,7 +146,7 @@ Chrome requires a written justification per permission. Current manifest:
 
 - ~~Remove `http://localhost:3001/game-analysis/*` from `host_permissions`.~~
   Done — removed when the `/game-analysis/` hand-off was retired. Local
-  development now uses the `devAnalyzerUrl` override, which needs no manifest
+  development now uses the `devIngestUrl` override, which needs no manifest
   entry.
 - **Do not ship the `INGEST_TEST=1` build.** It adds `localhost`, `127.0.0.1`
   and a GitHub Pages origin for end-to-end testing.

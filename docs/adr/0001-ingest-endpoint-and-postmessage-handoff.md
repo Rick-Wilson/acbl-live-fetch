@@ -114,7 +114,7 @@ than silent — the ingest page should say plainly that the capture is local to
 this domain and that signing in makes it available everywhere. Two consequences
 follow that the implementation has to handle:
 
-- `preferredAnalyzerTld` currently follows whichever domain the user last
+- `preferredTld` (formerly `preferredAnalyzerTld`) currently follows whichever domain the user last
   visited, so a signed-out user can split their own captures across origins
   without ever making a choice. Either pin signed-out ingest to one origin or
   make the landing page state which domain it just wrote to.
@@ -186,7 +186,7 @@ magnitude past it.
   lifts it on **Firefox and Safari**, not just Chrome. The Chrome behaviour is
   documented; the others are assumed here and should be measured.
 - For signed-out ingest, whether to pin one origin or follow
-  `preferredAnalyzerTld` and disclose the destination on the landing page
+  `preferredTld` and disclose the destination on the landing page
   (Decision 5).
 - The claim-and-upload path for a user who captures signed-out and registers
   afterwards.
