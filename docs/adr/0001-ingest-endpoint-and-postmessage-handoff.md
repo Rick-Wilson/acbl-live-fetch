@@ -190,9 +190,19 @@ magnitude past it.
   (Decision 5).
 - The claim-and-upload path for a user who captures signed-out and registers
   afterwards.
-- Whether `/ingest` replaces the `/game-analysis/` landing entirely or runs
-  alongside it during migration. A versioned route makes a parallel period cheap.
-- [handoff-protocol.md](../handoff-protocol.md) still documents the analyzer at
-  `club-game-analysis.bridge-classroom.com`, which is stale — the analyzer moved
-  to `bridge-classroom.{tld}/game-analysis/`. It needs rewriting alongside this
-  work, not before.
+
+---
+
+## Resolved
+
+- **Does `/ingest` replace `/game-analysis/` entirely, or run alongside it?**
+  Replaced entirely, 2026-08-08. No parallel period was needed: the extension
+  has two users, and the ingest page forwards to whichever tool is wanted, so
+  keeping a second hand-off mechanism bought nothing.
+  `src/ui/analyzerContent.js`, its content-script match and its `sessionStorage`
+  bridge are removed; `/game-analysis/` is now reached by the ingest page
+  forwarding to it, not by the extension.
+- **handoff-protocol.md.** Retired rather than rewritten — the mechanism it
+  describes no longer exists. It carries a header pointing here and at
+  [ingest-protocol.md](../ingest-protocol.md), and is kept only as a record of
+  why `sessionStorage` was chosen originally.

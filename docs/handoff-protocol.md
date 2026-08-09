@@ -15,9 +15,12 @@ user picks. See:
 removed when the ingest route became the only supported destination. The tracking
 of which domain the user prefers moved to `ingestContent.js`.
 
-The original design notes follow, unedited, for historical reference. Note that
-they name `club-game-analysis.bridge-classroom.com`, an address two moves out of
-date even before this document was superseded.
+The original design notes follow, unedited. They name
+`club-game-analysis.bridge-classroom.com` — an address the project had already
+moved away from twice before this document was retired, first to
+`game-analysis.bridge-classroom.org/analyze` and then to
+`bridge-classroom.{tld}/game-analysis/`. Nothing below describes anything the
+extension still does; it is kept for the reasoning, not the details.
 
 ---
 
