@@ -1,3 +1,7 @@
+> **Historical.** This described the first task when the project was scaffolded in 2026. It is long complete — see the *Current state* section of `CLAUDE.md` for where things actually stand.
+
+---
+
 # Start Here
 
 Welcome. Read `CLAUDE.md` and the files in `docs/` first. Then come back here.

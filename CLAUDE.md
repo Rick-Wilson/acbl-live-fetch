@@ -32,16 +32,60 @@ Read `docs/architecture.md` for full detail. Key points:
 - **Service worker orchestrates**: takes a request from the UI, picks the adapter, fetches all needed pages with bounded concurrency, runs parsers, assembles the normalized JSON.
 - **One JSON schema** for all sources (`docs/normalized-schema.md`).
 
-## What's been done
+## Current state (August 2026)
 
-- Project structure and docs are scaffolded.
-- HTML format for ACBL Live's board-detail page is well-documented in `docs/acbl-live-format.md`.
-- Normalized JSON schema is defined in `docs/normalized-schema.md`.
-- HTML fixtures will be saved by Rick in `fixtures/acbl-live/` — confirm they exist before writing parsers.
+Working and merged to `main`. 344 unit tests, 5 Playwright e2e tests, all passing.
 
-## What to do (read `START_HERE.md`)
+**Four entry points**, each with an injected button:
 
-The first concrete task is in `START_HERE.md`. Do not skip it — it sets up the testing harness and gets you a working `parseBoardDetail()` against a real fixture before you build anything else.
+| Source | Notes |
+|---|---|
+| `live.acbl.org` | Tournaments. All sections. Needs an ACBL login |
+| `my.acbl.org` | Club games. Results are public |
+| BBO hands list / lobby | Session and multi-event batch. Needs a BBO login |
+| BBO hand viewer | One deal, straight out of the URL — no network at all |
+
+**Hand-off**: results go to `bridge-classroom.{org,com}/ingest/?v=1`, which
+forwards them to whichever Bridge Classroom tool the user picks. This is the
+*only* path — the old `sessionStorage` hand-off to `/game-analysis/` and its
+`analyzerContent.js` were removed. See `docs/ingest-protocol.md` and
+`docs/adr/0001-*.md`.
+
+**`tools/fetch-replays.js`** backfills other tables' cardplay from BBO's public
+`fetchlin.php`, outside the browser, at roughly 0.5 req/s. Resumable via a
+journal; filters compose and are *nested*, so widening a run only adds work.
+
+### Read these before changing anything
+
+- `docs/data-sources.md` — what each site yields and how it is fetched. The
+  *how* matters: three sites each broke a naive `fetch()` differently
+- `docs/normalized-schema.md` — the envelope, including `coverage` and the
+  deliberate decision not to collect BBO opponents' real names
+- `docs/adr/0001-*.md` — why the ingest route exists
+- `docs/store-review.md` — store submission, test procedures, blockers
+- `docs/prior-art.md` — what three other bridge extensions do
+
+### Next up: store release
+
+Packaging is done — `scripts/package-stores.sh` builds Chrome, Edge, Firefox and
+refreshes the Safari resources. Outstanding, all needing Rick:
+
+1. **Icons — none exist.** No `icons` key, no `action`. Chrome and Edge reject
+   without them
+2. **A published URL for `PRIVACY.md`**
+3. **Screenshots** — five listed in `docs/store-review.md`
+4. **Version** — everything is `0.2.2`; decide whether the first release is
+   `1.0.0`
+
+Open questions live at the end of ADR 0001.
+
+### Working style that has paid off here
+
+Verify against real data rather than reasoning from documentation. Several
+confident conclusions in this project turned out wrong and were only caught by
+checking: BBO events *do* have sections, `pn|` seat order, whether ACBL sites
+need a login, and which extension fetches cardplay. When a claim is checkable in
+a minute, check it.
 
 ## Things to be careful about
 
