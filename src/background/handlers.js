@@ -124,6 +124,7 @@ export async function handleMessage(msg, deps) {
     }
   }
   if (msg.type === 'extract-session') return runExtraction(msg.url, deps)
+  if (msg.type === 'extract-shortlink') return runShortlinkExtraction(msg.url, deps)
   if (msg.type === 'consume-pending-session') return consumePending(msg.sid, deps)
   if (msg.type === 'extract-batch') return runBatchExtraction(msg.listUrl, deps, msg.since ?? null, msg.max ?? null, msg.urls ?? null)
   if (msg.type === 'consume-pending-batch') return consumePendingBatch(msg.key, deps)
@@ -133,6 +134,50 @@ export async function handleMessage(msg, deps) {
     type: 'extraction-error',
     error: { code: 'unknown-message-type', message: `Unknown message type '${msg.type}'` },
   }
+}
+
+const BBO_SHORTLINK_HOST = 'tinyurl.bridgebase.com'
+
+/** Resolve a BBO short link, then extract whatever it points at.
+ *
+ *  The v3 lobby's Export ▸ Handviewer link does not hand over the deal — it
+ *  mints a `tinyurl.bridgebase.com` short link, so following the redirect is the
+ *  only route from that menu to a LIN. What comes back is worth the round trip:
+ *  a hand viewer URL carrying the players, the deal, the full auction *with*
+ *  alert explanations, and all 52 cards played.
+ *
+ *  `redirect: 'follow'` and then reading `res.url` rather than `'manual'` and
+ *  reading Location: a manual redirect in a service worker yields an opaque
+ *  response whose headers cannot be read at all.
+ */
+export async function runShortlinkExtraction(url, deps) {
+  const doFetch = deps.fetch ?? globalThis.fetch
+  let resolved
+  try {
+    const u = new URL(url)
+    // Only ever follow BBO's own shortener. An open redirector reachable from a
+    // content script is not something to hand a fetch to.
+    if (u.hostname !== BBO_SHORTLINK_HOST) {
+      return {
+        type: 'extraction-error',
+        error: { code: 'bad-request', message: `Not a BBO short link: ${u.hostname}` },
+      }
+    }
+    const res = await doFetch(url, { redirect: 'follow', signal: deps.signal })
+    resolved = res?.url
+  } catch (err) {
+    return {
+      type: 'extraction-error',
+      error: { code: classifyError(err), message: err?.message ?? 'Could not resolve the BBO link' },
+    }
+  }
+  if (!resolved || !resolved.includes('/tools/handviewer.html')) {
+    return {
+      type: 'extraction-error',
+      error: { code: 'parse-error', message: 'That BBO link did not lead to a hand viewer' },
+    }
+  }
+  return runExtraction(resolved, deps)
 }
 
 export async function runExtraction(url, deps) {

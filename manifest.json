@@ -50,6 +50,7 @@
     "https://live.acbl.org/*",
     "https://my.acbl.org/*",
     "https://webutil.bridgebase.com/*",
-    "https://www.bridgebase.com/*"
+    "https://www.bridgebase.com/*",
+    "https://tinyurl.bridgebase.com/*"
   ]
 }

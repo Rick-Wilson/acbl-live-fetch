@@ -397,6 +397,140 @@ export function injectHistoryButton(sendMessage, storage) {
   }
 }
 
+// ── Deal menu: Export ▸ Bridge Classroom ─────────────────────────────────────
+//
+// The History panel's deal view has a hamburger whose Export submenu offers
+// "Handviewer link". Reaching our analysis from there took four clicks: Export,
+// Handviewer link, the link in the dialog, then our button on the page that
+// finally loads. This adds a seventh item that does all of it at once.
+//
+// The deal itself is not readable from the page — the v3 client is a production
+// Angular build with no component handles, and its globals carry only config.
+// The short link is the only route to a LIN, so this drives BBO's own menu item
+// and reads the dialog it opens. That makes the label text and dialog markup
+// load-bearing; both are checked rather than assumed, and failure is reported
+// rather than swallowed.
+
+export const DEAL_MENU_ITEM_ID = 'bridge-classroom-deal-menu-item'
+const SHORTLINK_SELECTOR = 'a[href*="tinyurl.bridgebase.com"]'
+
+/** The visible Export submenu, identified by its contents rather than its class.
+ *
+ *  The live page carries six `.menuClass` containers at once — the account menu,
+ *  the deal menu, this one, and others — all present in the DOM from the start
+ *  and toggled by visibility rather than built on demand. So the class says
+ *  nothing about which menu this is, and `offsetParent` is what says whether it
+ *  is the one on screen. Matching on "Handviewer link" is what distinguishes it
+ *  from the top-level deal menu. */
+export function findExportMenu(doc) {
+  return [...doc.querySelectorAll('.menuClass')].find((menu) =>
+    menu.offsetParent !== null &&
+    [...menu.children].some((item) => /handviewer link/i.test(item.textContent || ''))
+  ) ?? null
+}
+
+function menuItemLabel(item) {
+  return item.querySelector('div') ?? item
+}
+
+/** Poll until `fn()` returns something truthy, or give up. */
+function waitFor(fn, { timeoutMs = 8000, intervalMs = 100 } = {}) {
+  return new Promise((resolve) => {
+    const deadline = Date.now() + timeoutMs
+    const tick = () => {
+      let hit = null
+      try { hit = fn() } catch { hit = null }
+      if (hit) return resolve(hit)
+      if (Date.now() >= deadline) return resolve(null)
+      setTimeout(tick, intervalMs)
+    }
+    tick()
+  })
+}
+
+/** Drive BBO's own "Handviewer link" and read the short link out of the dialog.
+ *
+ *  Returns the URL, or throws with something the user can act on. The dialog is
+ *  closed either way — leaving BBO's modal open over the app after a failure
+ *  would be worse than the failure. */
+export async function grabHandviewerShortlink(doc, { timeoutMs = 8000 } = {}) {
+  const menu = findExportMenu(doc)
+  if (!menu) throw new Error('the Export menu closed')
+
+  const hvItem = [...menu.children].find((i) => /handviewer link/i.test(i.textContent || ''))
+  if (!hvItem) throw new Error('BBO has renamed its "Handviewer link" item')
+
+  // Angular binds the click to the inner div, not the <menu-item> host.
+  menuItemLabel(hvItem).click()
+
+  const anchor = await waitFor(() => {
+    const a = doc.querySelector(SHORTLINK_SELECTOR)
+    return a && a.offsetParent !== null ? a : null
+  }, { timeoutMs })
+
+  const href = anchor?.href ?? null
+  // Close whatever opened, found or not.
+  const closer = [...doc.querySelectorAll('button, div')].find(
+    (e) => e.offsetParent !== null && e.textContent.trim() === 'Close'
+  )
+  closer?.click()
+
+  if (!href) throw new Error("BBO didn't return a hand viewer link")
+  return href
+}
+
+function showToast(doc, text) {
+  const el = doc.createElement('div')
+  el.textContent = text
+  Object.assign(el.style, {
+    position: 'fixed', bottom: '16px', right: '16px', zIndex: '2147483647',
+    background: '#333', color: '#fff', padding: '10px 16px', borderRadius: '4px',
+    font: '14px sans-serif', maxWidth: '320px', boxShadow: '0 2px 8px rgba(0,0,0,.3)',
+  })
+  doc.body.appendChild(el)
+  setTimeout(() => el.remove(), 6000)
+}
+
+/** Append our item to the Export submenu. Idempotent; no-op when that menu
+ *  isn't showing.
+ *
+ *  The container persists once BBO has built it, so the item is added once and
+ *  stays put across opens and across deals — the click handler reads whichever
+ *  menu is visible at the time, so a stale item is not a stale deal. The id
+ *  guard is what makes the observer's repeated calls free. */
+export function injectDealMenuItem(doc, sendMessage) {
+  const menu = findExportMenu(doc)
+  if (!menu || doc.getElementById(DEAL_MENU_ITEM_ID)) return null
+
+  // Clone one of BBO's own items rather than building one: Angular's scoped
+  // styles key off `_ngcontent-*` attributes, so a hand-rolled element would
+  // inherit none of the menu's appearance. Cloning copies the attributes and
+  // the inline styling, and drops BBO's click handler in the process.
+  const template = menu.querySelector('menu-item')
+  if (!template) return null
+
+  const item = template.cloneNode(true)
+  item.id = DEAL_MENU_ITEM_ID
+  const label = menuItemLabel(item)
+  label.textContent = 'Bridge Classroom'
+
+  label.addEventListener('click', async (event) => {
+    event.stopPropagation()
+    try {
+      const shortlink = await grabHandviewerShortlink(doc)
+      const res = await sendMessage({ type: 'extract-shortlink', url: shortlink })
+      if (res?.type === 'extraction-error') {
+        showToast(doc, `Bridge Classroom: ${res.error?.message ?? 'extraction failed'}`)
+      }
+    } catch (err) {
+      showToast(doc, `Bridge Classroom: ${err?.message ?? 'could not read the deal'}`)
+    }
+  })
+
+  menu.appendChild(item)
+  return item
+}
+
 // ── Entry point ──────────────────────────────────────────────────────────────
 
 if (typeof globalThis.chrome !== 'undefined' || typeof globalThis.browser !== 'undefined') {
@@ -407,9 +541,12 @@ if (typeof globalThis.chrome !== 'undefined' || typeof globalThis.browser !== 'u
 
     const tryInject = () => injectHistoryButton(sendMessage, storage)
 
-    // Watch for the history panel to mount or its content to change.
+    // Watch for the history panel to mount or its content to change. The deal
+    // menu rides the same observer: it is created and destroyed on every open,
+    // so there is nothing to hook but the mutation itself.
     const observer = new MutationObserver(() => {
       if (!document.getElementById(BUTTON_ID)) tryInject()
+      injectDealMenuItem(document, sendMessage)
     })
     observer.observe(document.body, { childList: true, subtree: true })
 
