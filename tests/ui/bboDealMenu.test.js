@@ -166,3 +166,61 @@ describe('grabHandviewerShortlink', () => {
       .rejects.toThrow(/didn't return a hand viewer link/)
   })
 })
+
+describe('menu sizing and dialog cleanup', () => {
+  function exportMenuSized(px) {
+    const m = menu(EXPORT)
+    m.style.fontSize = `${px}px`
+    return m
+  }
+
+  it('shrinks the menu so a seventh item fits, and puts it back after', () => {
+    const m = exportMenuSized(26)
+    syncDealMenuItem(document, vi.fn())
+    expect(m.style.fontSize).toBe('20px') // 26 * 0.75, rounded
+
+    // Angular drops back to the top level; our item goes and so does our sizing.
+    const ours = document.getElementById(DEAL_MENU_ITEM_ID)
+    ;[...m.children].filter((c) => c !== ours).forEach((c) => c.remove())
+    TOP_LEVEL.forEach((label) => {
+      const item = document.createElement('menu-item')
+      item.innerHTML = `<div>${label}</div>`
+      m.insertBefore(item, ours)
+    })
+    syncDealMenuItem(document, vi.fn())
+    expect(m.style.fontSize).toBe('26px')
+  })
+
+  it('never shrinks below a legible floor', () => {
+    const m = exportMenuSized(18)
+    syncDealMenuItem(document, vi.fn())
+    expect(m.style.fontSize).toBe('16px')
+  })
+
+  it('leaves the size alone when BBO sets it somewhere other than inline', () => {
+    const m = menu(EXPORT) // no inline font-size
+    syncDealMenuItem(document, vi.fn())
+    expect(m.style.fontSize).toBe('')
+  })
+
+  it('clicks the dialog\'s button, not the wrapper that shares its text', async () => {
+    menu(EXPORT)
+    const hv = [...document.querySelector('.menuClass').children]
+      .find((i) => /handviewer link/i.test(i.textContent))
+
+    const wrapperClicks = vi.fn()
+    hv.querySelector('div').addEventListener('click', () => {
+      const wrapper = document.createElement('div')
+      // Real shape: the wrapper's textContent is "Close" too, and it comes
+      // first in document order — matching on text alone picks the wrong one.
+      wrapper.innerHTML = '<a href="https://tinyurl.bridgebase.com/zz">l</a><button>Close</button>'
+      wrapper.addEventListener('click', wrapperClicks)
+      wrapper.querySelector('button').addEventListener('click', () => wrapper.remove())
+      document.body.appendChild(wrapper)
+    })
+
+    const got = await grabHandviewerShortlink(document, { timeoutMs: 1000 })
+    expect(got).toBe('https://tinyurl.bridgebase.com/zz')
+    expect(document.querySelector('a[href*="tinyurl"]')).toBeNull()
+  })
+})

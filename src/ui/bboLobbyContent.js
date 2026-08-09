@@ -432,6 +432,36 @@ function menuItemLabel(item) {
   return item.querySelector('div') ?? item
 }
 
+// BBO sets the menu's font size inline (26px on a desktop layout) and lets the
+// panel clip whatever doesn't fit. Six items already run to the edge; a seventh
+// as long as "Bridge Classroom" is cut off. Shrinking the container scales every
+// row, since the rows set colour and padding but no size of their own.
+const MENU_FONT_SCALE = 0.75
+const MENU_FONT_MIN_PX = 16
+const MENU_FONT_MARKER = 'bcOriginalFontSize'
+
+/** Shrink the menu so our item fits, remembering what it was. */
+function shrinkMenuFont(menu) {
+  if (!menu?.style || menu.dataset?.[MENU_FONT_MARKER] !== undefined) return
+  const current = Number.parseFloat(menu.style.fontSize)
+  // Nothing inline to scale from means BBO is sizing it elsewhere; leave it be
+  // rather than imposing a size we guessed.
+  if (!Number.isFinite(current)) return
+  const next = Math.max(Math.round(current * MENU_FONT_SCALE), MENU_FONT_MIN_PX)
+  if (next >= current) return
+  menu.dataset[MENU_FONT_MARKER] = menu.style.fontSize
+  menu.style.fontSize = `${next}px`
+}
+
+/** Put the menu's own font size back. Ours is the only reason it changed, so
+ *  leaving BBO's menu shrunk after our item goes would be our bug to own. */
+function restoreMenuFont(menu) {
+  const original = menu?.dataset?.[MENU_FONT_MARKER]
+  if (original === undefined) return
+  menu.style.fontSize = original
+  delete menu.dataset[MENU_FONT_MARKER]
+}
+
 /** Poll until `fn()` returns something truthy, or give up. */
 function waitFor(fn, { timeoutMs = 8000, intervalMs = 100 } = {}) {
   return new Promise((resolve) => {
@@ -468,10 +498,15 @@ export async function grabHandviewerShortlink(doc, { timeoutMs = 8000 } = {}) {
   }, { timeoutMs })
 
   const href = anchor?.href ?? null
-  // Close whatever opened, found or not.
-  const closer = [...doc.querySelectorAll('button, div')].find(
+
+  // Close whatever opened, found or not. The dialog's wrapper `div` reads
+  // "Close" exactly as the button does and comes first in document order, so
+  // matching on text alone clicks the wrapper — which carries no handler and
+  // leaves BBO's modal sitting over the app. Prefer a real button.
+  const closers = [...doc.querySelectorAll('button, [role="button"], div')].filter(
     (e) => e.offsetParent !== null && e.textContent.trim() === 'Close'
   )
+  const closer = closers.find((e) => e.tagName === 'BUTTON') ?? closers[closers.length - 1]
   closer?.click()
 
   if (!href) throw new Error("BBO didn't return a hand viewer link")
@@ -506,11 +541,13 @@ export function syncDealMenuItem(doc, sendMessage) {
   const existing = doc.getElementById(DEAL_MENU_ITEM_ID)
 
   if (!menu) {
+    if (existing) restoreMenuFont(existing.parentElement)
     existing?.remove()
     return null
   }
   if (existing) {
     if (existing.parentElement === menu) return existing
+    restoreMenuFont(existing.parentElement)
     existing.remove()
   }
 
@@ -540,6 +577,7 @@ export function syncDealMenuItem(doc, sendMessage) {
   })
 
   menu.appendChild(item)
+  shrinkMenuFont(menu)
   return item
 }
 
