@@ -13,8 +13,8 @@
 		1D2C35C82FA6462700466053 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 1D2C35C62FA6462700466053 /* Main.storyboard */; };
 		1D2C35D12FA6462700466053 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D2C35D02FA6462700466053 /* AppDelegate.swift */; };
 		1D2C35D42FA6462700466053 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 1D2C35D22FA6462700466053 /* Main.storyboard */; };
-		1D2C35DB2FA6462700466053 /* ACBL Live Fetch and Analyze Extension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 1D2C35DA2FA6462700466053 /* ACBL Live Fetch and Analyze Extension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-		1D2C35E52FA6462700466053 /* ACBL Live Fetch and Analyze Extension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 1D2C35E42FA6462700466053 /* ACBL Live Fetch and Analyze Extension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		1D2C35DB2FA6462700466053 /* Bridge Classroom Fetch Extension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 1D2C35DA2FA6462700466053 /* Bridge Classroom Fetch Extension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		1D2C35E52FA6462700466053 /* Bridge Classroom Fetch Extension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 1D2C35E42FA6462700466053 /* Bridge Classroom Fetch Extension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		1D2C35EA2FA6462700466053 /* Main.html in Resources */ = {isa = PBXBuildFile; fileRef = 1D2C35AF2FA6462600466053 /* Main.html */; };
 		1D2C35EB2FA6462700466053 /* Main.html in Resources */ = {isa = PBXBuildFile; fileRef = 1D2C35AF2FA6462600466053 /* Main.html */; };
 		1D2C35EC2FA6462700466053 /* Icon.png in Resources */ = {isa = PBXBuildFile; fileRef = 1D2C35B12FA6462600466053 /* Icon.png */; };
@@ -43,14 +43,14 @@
 			containerPortal = 1D2C35A92FA6462600466053 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 1D2C35D92FA6462700466053;
-			remoteInfo = "ACBL Live Fetch and Analyze Extension (iOS)";
+			remoteInfo = "Bridge Classroom Fetch Extension (iOS)";
 		};
 		1D2C35E62FA6462700466053 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 1D2C35A92FA6462600466053 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 1D2C35E32FA6462700466053;
-			remoteInfo = "ACBL Live Fetch and Analyze Extension (macOS)";
+			remoteInfo = "Bridge Classroom Fetch Extension (macOS)";
 		};
 /* End PBXContainerItemProxy section */
 
@@ -61,7 +61,7 @@
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				1D2C35DB2FA6462700466053 /* ACBL Live Fetch and Analyze Extension.appex in Embed Foundation Extensions */,
+				1D2C35DB2FA6462700466053 /* Bridge Classroom Fetch Extension.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -72,7 +72,7 @@
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				1D2C35E52FA6462700466053 /* ACBL Live Fetch and Analyze Extension.appex in Embed Foundation Extensions */,
+				1D2C35E52FA6462700466053 /* Bridge Classroom Fetch Extension.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -87,19 +87,19 @@
 		1D2C35B42FA6462600466053 /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
 		1D2C35B52FA6462700466053 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		1D2C35B72FA6462700466053 /* SafariWebExtensionHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafariWebExtensionHandler.swift; sourceTree = "<group>"; };
-		1D2C35BC2FA6462700466053 /* ACBL Live Fetch and Analyze.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "ACBL Live Fetch and Analyze.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		1D2C35BC2FA6462700466053 /* Bridge Classroom Fetch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Bridge Classroom Fetch.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		1D2C35BF2FA6462700466053 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		1D2C35C12FA6462700466053 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		1D2C35C42FA6462700466053 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		1D2C35C72FA6462700466053 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		1D2C35C92FA6462700466053 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		1D2C35CE2FA6462700466053 /* ACBL Live Fetch and Analyze.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "ACBL Live Fetch and Analyze.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		1D2C35CE2FA6462700466053 /* Bridge Classroom Fetch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Bridge Classroom Fetch.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		1D2C35D02FA6462700466053 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		1D2C35D32FA6462700466053 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		1D2C35D52FA6462700466053 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		1D2C35DA2FA6462700466053 /* ACBL Live Fetch and Analyze Extension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "ACBL Live Fetch and Analyze Extension.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
+		1D2C35DA2FA6462700466053 /* Bridge Classroom Fetch Extension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "Bridge Classroom Fetch Extension.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
 		1D2C35DF2FA6462700466053 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		1D2C35E42FA6462700466053 /* ACBL Live Fetch and Analyze Extension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "ACBL Live Fetch and Analyze Extension.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
+		1D2C35E42FA6462700466053 /* Bridge Classroom Fetch Extension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "Bridge Classroom Fetch Extension.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
 		1D2C35E92FA6462700466053 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		1D2C36092FA6462800466053 /* service-worker-loader.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = "service-worker-loader.js"; path = "Resources/service-worker-loader.js"; sourceTree = "<group>"; };
 		1D2C360A2FA6462800466053 /* manifest.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = manifest.json; path = Resources/manifest.json; sourceTree = "<group>"; };
@@ -184,10 +184,10 @@
 		1D2C35BD2FA6462700466053 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				1D2C35BC2FA6462700466053 /* ACBL Live Fetch and Analyze.app */,
-				1D2C35CE2FA6462700466053 /* ACBL Live Fetch and Analyze.app */,
-				1D2C35DA2FA6462700466053 /* ACBL Live Fetch and Analyze Extension.appex */,
-				1D2C35E42FA6462700466053 /* ACBL Live Fetch and Analyze Extension.appex */,
+				1D2C35BC2FA6462700466053 /* Bridge Classroom Fetch.app */,
+				1D2C35CE2FA6462700466053 /* Bridge Classroom Fetch.app */,
+				1D2C35DA2FA6462700466053 /* Bridge Classroom Fetch Extension.appex */,
+				1D2C35E42FA6462700466053 /* Bridge Classroom Fetch Extension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -244,9 +244,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		1D2C35BB2FA6462700466053 /* ACBL Live Fetch and Analyze (iOS) */ = {
+		1D2C35BB2FA6462700466053 /* Bridge Classroom Fetch (iOS) */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 1D2C35FE2FA6462700466053 /* Build configuration list for PBXNativeTarget "ACBL Live Fetch and Analyze (iOS)" */;
+			buildConfigurationList = 1D2C35FE2FA6462700466053 /* Build configuration list for PBXNativeTarget "Bridge Classroom Fetch (iOS)" */;
 			buildPhases = (
 				1D2C35B82FA6462700466053 /* Sources */,
 				1D2C35B92FA6462700466053 /* Frameworks */,
@@ -258,16 +258,16 @@
 			dependencies = (
 				1D2C35DD2FA6462700466053 /* PBXTargetDependency */,
 			);
-			name = "ACBL Live Fetch and Analyze (iOS)";
+			name = "Bridge Classroom Fetch (iOS)";
 			packageProductDependencies = (
 			);
-			productName = "ACBL Live Fetch and Analyze (iOS)";
-			productReference = 1D2C35BC2FA6462700466053 /* ACBL Live Fetch and Analyze.app */;
+			productName = "Bridge Classroom Fetch (iOS)";
+			productReference = 1D2C35BC2FA6462700466053 /* Bridge Classroom Fetch.app */;
 			productType = "com.apple.product-type.application";
 		};
-		1D2C35CD2FA6462700466053 /* ACBL Live Fetch and Analyze (macOS) */ = {
+		1D2C35CD2FA6462700466053 /* Bridge Classroom Fetch (macOS) */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 1D2C36052FA6462700466053 /* Build configuration list for PBXNativeTarget "ACBL Live Fetch and Analyze (macOS)" */;
+			buildConfigurationList = 1D2C36052FA6462700466053 /* Build configuration list for PBXNativeTarget "Bridge Classroom Fetch (macOS)" */;
 			buildPhases = (
 				1D2C35CA2FA6462700466053 /* Sources */,
 				1D2C35CB2FA6462700466053 /* Frameworks */,
@@ -279,16 +279,16 @@
 			dependencies = (
 				1D2C35E72FA6462700466053 /* PBXTargetDependency */,
 			);
-			name = "ACBL Live Fetch and Analyze (macOS)";
+			name = "Bridge Classroom Fetch (macOS)";
 			packageProductDependencies = (
 			);
-			productName = "ACBL Live Fetch and Analyze (macOS)";
-			productReference = 1D2C35CE2FA6462700466053 /* ACBL Live Fetch and Analyze.app */;
+			productName = "Bridge Classroom Fetch (macOS)";
+			productReference = 1D2C35CE2FA6462700466053 /* Bridge Classroom Fetch.app */;
 			productType = "com.apple.product-type.application";
 		};
-		1D2C35D92FA6462700466053 /* ACBL Live Fetch and Analyze Extension (iOS) */ = {
+		1D2C35D92FA6462700466053 /* Bridge Classroom Fetch Extension (iOS) */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 1D2C35FA2FA6462700466053 /* Build configuration list for PBXNativeTarget "ACBL Live Fetch and Analyze Extension (iOS)" */;
+			buildConfigurationList = 1D2C35FA2FA6462700466053 /* Build configuration list for PBXNativeTarget "Bridge Classroom Fetch Extension (iOS)" */;
 			buildPhases = (
 				1D2C35D62FA6462700466053 /* Sources */,
 				1D2C35D72FA6462700466053 /* Frameworks */,
@@ -298,16 +298,16 @@
 			);
 			dependencies = (
 			);
-			name = "ACBL Live Fetch and Analyze Extension (iOS)";
+			name = "Bridge Classroom Fetch Extension (iOS)";
 			packageProductDependencies = (
 			);
-			productName = "ACBL Live Fetch and Analyze Extension (iOS)";
-			productReference = 1D2C35DA2FA6462700466053 /* ACBL Live Fetch and Analyze Extension.appex */;
+			productName = "Bridge Classroom Fetch Extension (iOS)";
+			productReference = 1D2C35DA2FA6462700466053 /* Bridge Classroom Fetch Extension.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
-		1D2C35E32FA6462700466053 /* ACBL Live Fetch and Analyze Extension (macOS) */ = {
+		1D2C35E32FA6462700466053 /* Bridge Classroom Fetch Extension (macOS) */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 1D2C36012FA6462700466053 /* Build configuration list for PBXNativeTarget "ACBL Live Fetch and Analyze Extension (macOS)" */;
+			buildConfigurationList = 1D2C36012FA6462700466053 /* Build configuration list for PBXNativeTarget "Bridge Classroom Fetch Extension (macOS)" */;
 			buildPhases = (
 				1D2C35E02FA6462700466053 /* Sources */,
 				1D2C35E12FA6462700466053 /* Frameworks */,
@@ -317,11 +317,11 @@
 			);
 			dependencies = (
 			);
-			name = "ACBL Live Fetch and Analyze Extension (macOS)";
+			name = "Bridge Classroom Fetch Extension (macOS)";
 			packageProductDependencies = (
 			);
-			productName = "ACBL Live Fetch and Analyze Extension (macOS)";
-			productReference = 1D2C35E42FA6462700466053 /* ACBL Live Fetch and Analyze Extension.appex */;
+			productName = "Bridge Classroom Fetch Extension (macOS)";
+			productReference = 1D2C35E42FA6462700466053 /* Bridge Classroom Fetch Extension.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
@@ -348,7 +348,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 1D2C35AC2FA6462600466053 /* Build configuration list for PBXProject "ACBL Live Fetch and Analyze" */;
+			buildConfigurationList = 1D2C35AC2FA6462600466053 /* Build configuration list for PBXProject "Bridge Classroom Fetch" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -362,10 +362,10 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				1D2C35BB2FA6462700466053 /* ACBL Live Fetch and Analyze (iOS) */,
-				1D2C35CD2FA6462700466053 /* ACBL Live Fetch and Analyze (macOS) */,
-				1D2C35D92FA6462700466053 /* ACBL Live Fetch and Analyze Extension (iOS) */,
-				1D2C35E32FA6462700466053 /* ACBL Live Fetch and Analyze Extension (macOS) */,
+				1D2C35BB2FA6462700466053 /* Bridge Classroom Fetch (iOS) */,
+				1D2C35CD2FA6462700466053 /* Bridge Classroom Fetch (macOS) */,
+				1D2C35D92FA6462700466053 /* Bridge Classroom Fetch Extension (iOS) */,
+				1D2C35E32FA6462700466053 /* Bridge Classroom Fetch Extension (macOS) */,
 			);
 		};
 /* End PBXProject section */
@@ -461,12 +461,12 @@
 /* Begin PBXTargetDependency section */
 		1D2C35DD2FA6462700466053 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 1D2C35D92FA6462700466053 /* ACBL Live Fetch and Analyze Extension (iOS) */;
+			target = 1D2C35D92FA6462700466053 /* Bridge Classroom Fetch Extension (iOS) */;
 			targetProxy = 1D2C35DC2FA6462700466053 /* PBXContainerItemProxy */;
 		};
 		1D2C35E72FA6462700466053 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 1D2C35E32FA6462700466053 /* ACBL Live Fetch and Analyze Extension (macOS) */;
+			target = 1D2C35E32FA6462700466053 /* Bridge Classroom Fetch Extension (macOS) */;
 			targetProxy = 1D2C35E62FA6462700466053 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
@@ -628,7 +628,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "iOS (Extension)/Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = "ACBL Live Fetch and Analyze Extension";
+				INFOPLIST_KEY_CFBundleDisplayName = "Bridge Classroom Fetch Extension";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -641,8 +641,8 @@
 					"-framework",
 					SafariServices,
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "org.bridge-classroom.acbl-live-fetch.Extension";
-				PRODUCT_NAME = "ACBL Live Fetch and Analyze Extension";
+				PRODUCT_BUNDLE_IDENTIFIER = "org.bridge-classroom.bridge-classroom-fetch.Extension";
+				PRODUCT_NAME = "Bridge Classroom Fetch Extension";
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -661,7 +661,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "iOS (Extension)/Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = "ACBL Live Fetch and Analyze Extension";
+				INFOPLIST_KEY_CFBundleDisplayName = "Bridge Classroom Fetch Extension";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -674,8 +674,8 @@
 					"-framework",
 					SafariServices,
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "org.bridge-classroom.acbl-live-fetch.Extension";
-				PRODUCT_NAME = "ACBL Live Fetch and Analyze Extension";
+				PRODUCT_BUNDLE_IDENTIFIER = "org.bridge-classroom.bridge-classroom-fetch.Extension";
+				PRODUCT_NAME = "Bridge Classroom Fetch Extension";
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -697,7 +697,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "iOS (App)/Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = "ACBL Live Fetch and Analyze";
+				INFOPLIST_KEY_CFBundleDisplayName = "Bridge Classroom Fetch";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UIMainStoryboardFile = Main;
@@ -715,8 +715,8 @@
 					"-framework",
 					WebKit,
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "org.bridge-classroom.acbl-live-fetch";
-				PRODUCT_NAME = "ACBL Live Fetch and Analyze";
+				PRODUCT_BUNDLE_IDENTIFIER = "org.bridge-classroom.bridge-classroom-fetch";
+				PRODUCT_NAME = "Bridge Classroom Fetch";
 				SDKROOT = iphoneos;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -737,7 +737,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "iOS (App)/Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = "ACBL Live Fetch and Analyze";
+				INFOPLIST_KEY_CFBundleDisplayName = "Bridge Classroom Fetch";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UIMainStoryboardFile = Main;
@@ -755,8 +755,8 @@
 					"-framework",
 					WebKit,
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "org.bridge-classroom.acbl-live-fetch";
-				PRODUCT_NAME = "ACBL Live Fetch and Analyze";
+				PRODUCT_BUNDLE_IDENTIFIER = "org.bridge-classroom.bridge-classroom-fetch";
+				PRODUCT_NAME = "Bridge Classroom Fetch";
 				SDKROOT = iphoneos;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -779,7 +779,7 @@
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "macOS (Extension)/Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = "ACBL Live Fetch and Analyze Extension";
+				INFOPLIST_KEY_CFBundleDisplayName = "Bridge Classroom Fetch Extension";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -792,8 +792,8 @@
 					"-framework",
 					SafariServices,
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "org.bridge-classroom.acbl-live-fetch.Extension";
-				PRODUCT_NAME = "ACBL Live Fetch and Analyze Extension";
+				PRODUCT_BUNDLE_IDENTIFIER = "org.bridge-classroom.bridge-classroom-fetch.Extension";
+				PRODUCT_NAME = "Bridge Classroom Fetch Extension";
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -814,7 +814,7 @@
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "macOS (Extension)/Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = "ACBL Live Fetch and Analyze Extension";
+				INFOPLIST_KEY_CFBundleDisplayName = "Bridge Classroom Fetch Extension";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -827,8 +827,8 @@
 					"-framework",
 					SafariServices,
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "org.bridge-classroom.acbl-live-fetch.Extension";
-				PRODUCT_NAME = "ACBL Live Fetch and Analyze Extension";
+				PRODUCT_BUNDLE_IDENTIFIER = "org.bridge-classroom.bridge-classroom-fetch.Extension";
+				PRODUCT_NAME = "Bridge Classroom Fetch Extension";
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -852,7 +852,7 @@
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "macOS (App)/Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = "ACBL Live Fetch and Analyze";
+				INFOPLIST_KEY_CFBundleDisplayName = "Bridge Classroom Fetch";
 				INFOPLIST_KEY_NSMainStoryboardFile = Main;
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -867,8 +867,8 @@
 					"-framework",
 					WebKit,
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "org.bridge-classroom.acbl-live-fetch";
-				PRODUCT_NAME = "ACBL Live Fetch and Analyze";
+				PRODUCT_BUNDLE_IDENTIFIER = "org.bridge-classroom.bridge-classroom-fetch";
+				PRODUCT_NAME = "Bridge Classroom Fetch";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = macosx;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -893,7 +893,7 @@
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "macOS (App)/Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = "ACBL Live Fetch and Analyze";
+				INFOPLIST_KEY_CFBundleDisplayName = "Bridge Classroom Fetch";
 				INFOPLIST_KEY_NSMainStoryboardFile = Main;
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -908,8 +908,8 @@
 					"-framework",
 					WebKit,
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "org.bridge-classroom.acbl-live-fetch";
-				PRODUCT_NAME = "ACBL Live Fetch and Analyze";
+				PRODUCT_BUNDLE_IDENTIFIER = "org.bridge-classroom.bridge-classroom-fetch";
+				PRODUCT_NAME = "Bridge Classroom Fetch";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = macosx;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -924,7 +924,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		1D2C35AC2FA6462600466053 /* Build configuration list for PBXProject "ACBL Live Fetch and Analyze" */ = {
+		1D2C35AC2FA6462600466053 /* Build configuration list for PBXProject "Bridge Classroom Fetch" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				1D2C35F82FA6462700466053 /* Debug */,
@@ -933,7 +933,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		1D2C35FA2FA6462700466053 /* Build configuration list for PBXNativeTarget "ACBL Live Fetch and Analyze Extension (iOS)" */ = {
+		1D2C35FA2FA6462700466053 /* Build configuration list for PBXNativeTarget "Bridge Classroom Fetch Extension (iOS)" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				1D2C35FB2FA6462700466053 /* Debug */,
@@ -942,7 +942,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		1D2C35FE2FA6462700466053 /* Build configuration list for PBXNativeTarget "ACBL Live Fetch and Analyze (iOS)" */ = {
+		1D2C35FE2FA6462700466053 /* Build configuration list for PBXNativeTarget "Bridge Classroom Fetch (iOS)" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				1D2C35FF2FA6462700466053 /* Debug */,
@@ -951,7 +951,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		1D2C36012FA6462700466053 /* Build configuration list for PBXNativeTarget "ACBL Live Fetch and Analyze Extension (macOS)" */ = {
+		1D2C36012FA6462700466053 /* Build configuration list for PBXNativeTarget "Bridge Classroom Fetch Extension (macOS)" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				1D2C36022FA6462700466053 /* Debug */,
@@ -960,7 +960,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		1D2C36052FA6462700466053 /* Build configuration list for PBXNativeTarget "ACBL Live Fetch and Analyze (macOS)" */ = {
+		1D2C36052FA6462700466053 /* Build configuration list for PBXNativeTarget "Bridge Classroom Fetch (macOS)" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				1D2C36062FA6462700466053 /* Debug */,

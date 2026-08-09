@@ -31,7 +31,7 @@ function envelope({ date = '2026-04-29', boards = 2, results = 3 } = {}) {
   return {
     schema_version: '1.1',
     source: 'bbo',
-    provider: { id: 'acbl-live-fetch', version: '9.9.9', kind: 'browser-extension' },
+    provider: { id: 'bridge-classroom-fetch', version: '9.9.9', kind: 'browser-extension' },
     capture: { context: 'last 1 month for kemistry', subject: { bbo: 'kemistry' } },
     coverage: {
       cardplay: 'user-table',
@@ -157,7 +157,7 @@ test.describe('ingest handoff', () => {
     await expect(page.getByTestId('row-sources')).toHaveText('bbo')
     // Provenance travels with the envelope and is surfaced without decoding
     // the whole archive.
-    await expect(page.getByTestId('row-provider')).toHaveText('acbl-live-fetch 9.9.9')
+    await expect(page.getByTestId('row-provider')).toHaveText('bridge-classroom-fetch 9.9.9')
     await expect(page.getByTestId('row-context')).toHaveText('last 1 month for kemistry')
     await expect(page.getByTestId('row-cardplay')).toHaveText('user-table')
     await expect(page.getByTestId('row-sections')).toHaveText('all')

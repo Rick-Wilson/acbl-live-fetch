@@ -16,7 +16,7 @@ import SafariServices
 typealias PlatformViewController = NSViewController
 #endif
 
-let extensionBundleIdentifier = "org.bridge-classroom.acbl-live-fetch.Extension"
+let extensionBundleIdentifier = "org.bridge-classroom.bridge-classroom-fetch.Extension"
 
 class ViewController: PlatformViewController, WKNavigationDelegate, WKScriptMessageHandler {
 

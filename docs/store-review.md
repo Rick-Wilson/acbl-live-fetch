@@ -112,7 +112,7 @@ A Cloudflare check appears first for a fresh browser profile.
 Reusable across all four stores. Each has a different length limit; the short
 summary below fits the tightest (Chrome's 132 characters).
 
-**Name:** ACBL Live Fetch and Analyze
+**Name:** Bridge Classroom Fetch
 
 **Short summary** (132 chars):
 
@@ -143,12 +143,12 @@ summary below fits the tightest (Chrome's 132 characters).
 > results only to Bridge Classroom. No analytics, no tracking, no accounts.
 >
 > Open source and public domain:
-> https://github.com/bridge-craftwork/acbl-live-fetch
+> https://github.com/bridge-craftwork/bridge-classroom-fetch
 
 **Category:** Productivity (Chrome/Edge) · Other (Firefox) · Utilities (Mac App
 Store)
 
-**Support / homepage:** https://github.com/bridge-craftwork/acbl-live-fetch
+**Support / homepage:** https://github.com/bridge-craftwork/bridge-classroom-fetch
 **Privacy policy:** the URL where `PRIVACY.md` is published
 
 ## 3b. Per-store differences

@@ -23,7 +23,7 @@ const PER_BROWSER_OVERRIDES = {
     },
     browser_specific_settings: {
       gecko: {
-        id: 'acbl-live-fetch@bridge-classroom.org',
+        id: 'bridge-classroom-fetch@bridge-classroom.org',
         strict_min_version: '121.0',
       },
     },

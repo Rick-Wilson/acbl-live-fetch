@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "ACBL Live Fetch",
+  "name": "Bridge Classroom Fetch",
   "version": "0.2.2",
-  "description": "One-click extraction of bridge results from supported sites for analysis at bridge-classroom.org.",
+  "description": "Send your bridge results from ACBL Live, ACBL Live for Clubs and Bridge Base Online to Bridge Classroom for analysis, with one click.",
   "background": {
     "service_worker": "src/background.js",
     "type": "module"

@@ -1,10 +1,10 @@
-# Privacy Policy — ACBL Live Fetch and Analyze
+# Privacy Policy — Bridge Classroom Fetch
 
 **Last updated:** 9 August 2026
 
 ## Overview
 
-ACBL Live Fetch and Analyze is a browser extension that reads bridge results
+Bridge Classroom Fetch is a browser extension that reads bridge results
 from pages you are already looking at, and hands them to Bridge Classroom for
 analysis. It runs only on the sites listed below, and only when you click its
 button.
@@ -86,12 +86,12 @@ the names are the point of the analysis.
 ## Source code
 
 This extension is open source and released into the public domain under
-[The Unlicense](https://github.com/bridge-craftwork/acbl-live-fetch/blob/main/LICENSE).
+[The Unlicense](https://github.com/bridge-craftwork/bridge-classroom-fetch/blob/main/LICENSE).
 You can read exactly what it does:
 
-https://github.com/bridge-craftwork/acbl-live-fetch
+https://github.com/bridge-craftwork/bridge-classroom-fetch
 
 ## Contact
 
 Questions about this policy: open an issue at
-https://github.com/bridge-craftwork/acbl-live-fetch/issues
+https://github.com/bridge-craftwork/bridge-classroom-fetch/issues

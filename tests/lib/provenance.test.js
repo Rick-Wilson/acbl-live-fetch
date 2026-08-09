@@ -18,7 +18,7 @@ describe('provenance', () => {
 
   it('takes its version from the manifest so the two cannot drift', () => {
     expect(PROVIDER.version).toBe(manifest.version)
-    expect(PROVIDER.id).toBe('acbl-live-fetch')
+    expect(PROVIDER.id).toBe('bridge-classroom-fetch')
     expect(PROVIDER.kind).toBe('browser-extension')
   })
 

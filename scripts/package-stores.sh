@@ -43,7 +43,7 @@ git archive --format=zip --prefix="$NAME-$VERSION/" HEAD \
 echo "==> refreshing Safari resources"
 BROWSER=safari npx vite build --outDir dist/safari >/dev/null
 guard_test_origins dist/safari/manifest.json
-SAFARI_RES="safari/ACBL Live Fetch and Analyze/Shared (Extension)/Resources"
+SAFARI_RES="safari/Bridge Classroom Fetch/Shared (Extension)/Resources"
 if [ -d "$SAFARI_RES" ]; then
   rm -rf "${SAFARI_RES:?}/"*
   cp -R dist/safari/* "$SAFARI_RES/"

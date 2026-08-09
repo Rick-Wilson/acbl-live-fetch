@@ -1,6 +1,6 @@
 # Third-Party Licences
 
-ACBL Live Fetch and Analyze is released under [The Unlicense](LICENSE). It
+Bridge Classroom Fetch is released under [The Unlicense](LICENSE). It
 bundles the following third-party code into its published builds.
 
 Both are compiled into the extension bundle by Vite, so their licence terms

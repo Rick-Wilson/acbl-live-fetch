@@ -1,4 +1,4 @@
-# ACBL Live Fetch
+# Bridge Classroom Fetch
 
 Browser extension that extracts bridge results from supported sites and hands them to [Bridge Game Analysis](https://game-analysis.bridge-classroom.com) for board-by-board cause analysis.
 

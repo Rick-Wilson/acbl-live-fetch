@@ -263,12 +263,12 @@ describe('getIngestUrl', () => {
   // override is returned verbatim, with no host restriction, so an operator can
   // redirect the hand-off without a rebuild.
   it('returns devIngestUrl verbatim, including a Pages ingest URL', async () => {
-    const pages = 'https://bridge-craftwork.github.io/acbl-live-fetch/ingest/?v=1'
+    const pages = 'https://bridge-craftwork.github.io/bridge-classroom-fetch/ingest/?v=1'
     expect(await getIngestUrl(store({ devIngestUrl: pages }))).toBe(pages)
   })
 
   it('lets the override win over a tracked TLD', async () => {
-    const pages = 'https://bridge-craftwork.github.io/acbl-live-fetch/ingest/?v=1'
+    const pages = 'https://bridge-craftwork.github.io/bridge-classroom-fetch/ingest/?v=1'
     expect(await getIngestUrl(store({ devIngestUrl: pages, preferredTld: 'com' })))
       .toBe(pages)
   })

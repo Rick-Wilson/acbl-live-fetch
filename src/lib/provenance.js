@@ -13,7 +13,7 @@ export const SCHEMA_VERSION = '1.1'
 // Single source of truth for the version: read from the manifest so the two
 // can't drift.
 export const PROVIDER = Object.freeze({
-  id: 'acbl-live-fetch',
+  id: 'bridge-classroom-fetch',
   version: manifest.version,
   kind: 'browser-extension',
 })

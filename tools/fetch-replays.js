@@ -57,7 +57,7 @@ const DEFAULTS = {
 }
 
 const USER_AGENT =
-  'acbl-live-fetch/replay-backfill (+https://github.com/bridge-craftwork/acbl-live-fetch)'
+  'bridge-classroom-fetch/replay-backfill (+https://github.com/bridge-craftwork/bridge-classroom-fetch)'
 
 // ── CLI ──────────────────────────────────────────────────────────────────────
 
