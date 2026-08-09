@@ -317,8 +317,9 @@ describe('buildHandviewerEnvelope', () => {
   })
 
   it('seats the players as BBO renders them', () => {
+    // Seat order, not a list: [N, S] and [W, E]. See docs/normalized-schema.md.
     expect(board.results[0].ns_pair.players.map((p) => p.name)).toEqual(['archin3531', 'bassenbill'])
-    expect(board.results[0].ew_pair.players.map((p) => p.name)).toEqual(['zapnow', 'stevew13'])
+    expect(board.results[0].ew_pair.players.map((p) => p.name)).toEqual(['stevew13', 'zapnow'])
   })
 
   it('records a passed-out board as such rather than failing', () => {
@@ -392,8 +393,9 @@ describe('a played board from the hand viewer', () => {
   })
 
   it('seats the players as BBO renders them', () => {
+    // [W, E] — matches how BBO's own hand viewer renders this deal.
     expect(board.results[0].ns_pair.players.map((p) => p.name)).toEqual(['brosh', 'Fairways4'])
-    expect(board.results[0].ew_pair.players.map((p) => p.name)).toEqual(['kemistry', 'aam135'])
+    expect(board.results[0].ew_pair.players.map((p) => p.name)).toEqual(['aam135', 'kemistry'])
   })
 
   it('needs no network', async () => {

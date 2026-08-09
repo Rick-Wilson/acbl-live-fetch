@@ -367,11 +367,14 @@ function parsePairsCell(cell, section) {
       section,
       strat: null,
       strat_ranks: [],
-      // ACBL Live's board-detail HTML lists EW players in [W, E] order; the
-      // analyzer (and the BWS+PBN file-load path) expects PBN-canonical
-      // [E, W]. Reverse here to match. Confirmed by side-by-side comparison
-      // — same asymmetry as the club adapter's pair_summaries.
-      players: [parsePlayerSpan(nameEls[3]), parsePlayerSpan(nameEls[2])],
+      // ACBL Live's board-detail HTML lists EW players in [W, E] order, which
+      // is the schema's order too — take them as they come.
+      //
+      // This used to reverse to [E, W] on the belief that the analyzer wanted
+      // PBN's tag order. It does not (builder.rs and every analyzer seat lookup
+      // read [W, E]), and the reversal is what swapped West and East in the
+      // analyzer. See docs/normalized-schema.md.
+      players: [parsePlayerSpan(nameEls[2]), parsePlayerSpan(nameEls[3])],
     },
   }
 }

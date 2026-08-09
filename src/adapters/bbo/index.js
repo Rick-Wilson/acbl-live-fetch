@@ -367,7 +367,7 @@ export function buildHandviewerEnvelope(url, linStr, { now, capture } = {}) {
       percentage: null,
       imps: null,
       ns_pair: { number: 1, section: null, strat: null, strat_ranks: [], players: [seat('N'), seat('S')] },
-      ew_pair: { number: 2, section: null, strat: null, strat_ranks: [], players: [seat('E'), seat('W')] },
+      ew_pair: { number: 2, section: null, strat: null, strat_ranks: [], players: [seat('W'), seat('E')] },
       auction: lin.auction?.length ? lin.auction : null,
       play: lin.play?.length ? lin.play : null,
       handviewer_url: url,
@@ -608,8 +608,8 @@ function buildResult(row, scoring, rowIndex) {
       strat: null,
       strat_ranks: [],
       players: [
-        { name: row.players.E, acbl_id: null, external_ids: { bbo: row.players.E }, masterpoints_earned: [] },
         { name: row.players.W, acbl_id: null, external_ids: { bbo: row.players.W }, masterpoints_earned: [] },
+        { name: row.players.E, acbl_id: null, external_ids: { bbo: row.players.E }, masterpoints_earned: [] },
       ],
     },
     auction: null,

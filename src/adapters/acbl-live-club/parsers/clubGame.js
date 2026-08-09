@@ -88,11 +88,6 @@ function buildSession(session, data) {
   }
 }
 
-function reverseEwPlayers(pair) {
-  if (!pair || !Array.isArray(pair.players) || pair.players.length !== 2) return pair
-  return { ...pair, players: [pair.players[1], pair.players[0]] }
-}
-
 function synthesizePair(number, sectionName) {
   // Used when the pair index doesn't carry an entry for a pair_number that
   // appears on a result row. Players aren't recoverable in this case, but
@@ -384,12 +379,15 @@ function buildResult(br, sectionName, pairIndex, top, bboGameLinks, boardNumber)
   // is missing entries — synthesize a minimal Pair with empty players.
   const ns = pairIndex.get(`${sectionName}|NS|${nsNum}`) ?? synthesizePair(nsNum, sectionName)
   const ewRaw = pairIndex.get(`${sectionName}|EW|${ewNum}`) ?? synthesizePair(ewNum, sectionName)
-  // my.acbl.org's pair_summaries[].players is in [N, S] order for NS pairs
-  // (matches PBN [North]/[South] tags) but in [W, E] order for EW pairs.
-  // The analyzer's seat convention (and PBN's [East]/[West] tags) is [E, W],
-  // so reverse the EW pair's players. Confirmed against a side-by-side
-  // comparison with the same game loaded via BWS+PBN files.
-  const ew = reverseEwPlayers(ewRaw)
+  // my.acbl.org's pair_summaries[].players is [N, S] for NS pairs and [W, E]
+  // for EW pairs — which is already the schema's order, so nothing to do here.
+  //
+  // This used to reverse EW to [E, W], on the belief that the analyzer wanted
+  // PBN's [East]/[West] tag order. It does not: builder.rs and every seat
+  // lookup in the analyzer read ew_pair.players as [W, E], so the reversal is
+  // what made West and East swap places for club games — the flip players
+  // reported. See docs/normalized-schema.md, which now pins the order down.
+  const ew = ewRaw
 
   const contract = parseContract(br.contract)
 

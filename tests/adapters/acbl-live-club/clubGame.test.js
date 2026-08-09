@@ -96,12 +96,11 @@ describe('parseClubGame (Livermore Bridge Club, 2026-04-20)', () => {
       // to "Firstname Lastname" to match the tournament adapter and the
       // analyzer's downstream UI.
       expect(r.ns_pair.players.map((p) => p.name)).toEqual(['Wayne Vondera', 'Lynn Gast'])
-      // The source emits the EW pair's players in [W, E] order; the parser
-      // reverses to PBN-canonical [E, W]. Confirmed against the same game
-      // loaded via BWS+PBN.
+      // The source emits the EW pair's players in [W, E], which is the schema's
+      // order too — passed through, not reversed.
       expect(r.ew_pair.players.map((p) => p.name)).toEqual([
-        'Dan Bergmann',
         'Arthur Mirin',
+        'Dan Bergmann',
       ])
     })
 
@@ -360,8 +359,8 @@ describe('parseClubGame (Livermore Bridge Club, 2026-04-20)', () => {
                 {
                   pair_number: 5,
                   direction: 'EW',
-                  // EW players come in [W, E] order; the parser reverses to
-                  // [E, W], so post-parse order is [Louis Meola, Barbara Meola].
+                  // EW players come in [W, E] order and stay that way, so
+                  // post-parse order is [Barbara Meola, Louis Meola].
                   players: [
                     { name: 'Mrs Barbara Meola', id_number: '333' },
                     { name: 'Mr Louis J Meola', id_number: '444' },
@@ -402,10 +401,10 @@ describe('parseClubGame (Livermore Bridge Club, 2026-04-20)', () => {
 
     it('leaves a title-only name as just the cleaned name (no middle to strip)', () => {
       // "Mrs Barbara Meola" → "Barbara Meola"; "Mr Louis J Meola" → "Louis
-      // Meola". (EW reversed to [E, W].)
+      // Meola". Source [W, E] order is preserved.
       expect(result.ew_pair.players.map((p) => p.name)).toEqual([
-        'Louis Meola',
         'Barbara Meola',
+        'Louis Meola',
       ])
     })
 

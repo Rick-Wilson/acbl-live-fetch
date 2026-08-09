@@ -238,6 +238,23 @@ Always from N-S perspective. `+980` = N-S won 980. `-100` = N-S lost 100 (E-W ga
 
 Adapters that don't have strat/placement data (ACBL Live tournament, BBO) emit `strat: null` and `strat_ranks: []`.
 
+### Player order is seat order: `[N, S]` and `[W, E]`
+
+`players[0]` and `players[1]` are **seats, not a list** — `ns_pair` is
+`[North, South]` and `ew_pair` is `[West, East]`. Nothing in the payload records
+a player's seat, so this order is the only thing that does. Get it backwards and
+every consumer silently attributes each result to the wrong opponent.
+
+`[W, E]` rather than PBN's `[East]`/`[West]` tag order because that is what every
+consumer reads: `builder.rs` in the parser service, and `findPlayerSeat`,
+`partnerOf` and the seat tags in the Game Analysis app.
+
+Both ACBL sources publish EW as `[W, E]` already, so adapters pass them through.
+Until August 2026 both ACBL adapters reversed them to `[E, W]`, each carrying a
+confident comment saying the analyzer wanted it that way. It didn't, and players
+reported West and East swapped in club games. If a source's order ever needs
+changing, verify against a consumer rather than against PBN.
+
 ## Player
 
 ```jsonc
