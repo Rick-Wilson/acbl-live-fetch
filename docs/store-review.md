@@ -299,6 +299,14 @@ This is a design decision rather than a packaging one, so it is deliberately not
 guessed at here. A placeholder set can be generated to prove the pipeline end to
 end, but the shipped artwork should be real.
 
+**The green spade is taken.** Bridge Solver (see [prior-art.md](prior-art.md))
+ships a spade on a green tile, does an adjacent job — "extract bridge hands from
+results pages and load them into Bridge Solver Online" — and sits in the same
+toolbar as us on the machines that matter. Reusing the site's green spade
+favicon, the obvious move, would produce two near-identical 16px icons side by
+side. Differentiate on **silhouette**, not shade: at 16px the outline is all
+anyone reads, and colour alone won't separate them.
+
 **~~Privacy policy URL~~ — done.** https://bridge-classroom.org/privacy#extension
 (see *Where the policy lives* above). Needs the `Bridge-Classroom` repo deployed
 before it resolves.
