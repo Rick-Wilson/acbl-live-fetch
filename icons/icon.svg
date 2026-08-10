@@ -1,0 +1,34 @@
+<!--
+  Bridge Classroom Fetch — toolbar and store icon.
+
+  A mortarboard, not a suit. Bridge Solver already ships a spade on a green tile
+  and does an adjacent job, so a spade of any shade would read as that extension
+  at 16px, where the silhouette is all anyone sees. The cap says the half of the
+  name that actually distinguishes this: Classroom.
+
+  Blue (#1a73e8) is the colour of the button this extension injects into results
+  pages, so the toolbar icon matches what users have already clicked.
+
+  Drawn on a 64px grid, in draw order: tile, cap body, board, tassel — the board
+  covers the cap's square top edge, so that edge is never trimmed to fit.
+  Everything is a flat fill: gradients and hairlines disappear at 16px.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <rect width="64" height="64" rx="13" fill="#1a73e8"/>
+
+  <g fill="#fff">
+    <!-- Cap body. Drawn first; its top is hidden behind the board. Kept narrow
+         so it reads as a distinct bump under the board rather than merging with
+         it — a wide cap turns the whole mark into a t-shirt at 16px. -->
+    <path d="M23 30 L23 40 C23 45 41 45 41 40 L41 30 Z"/>
+
+    <!-- Board. Nearly the full width of the tile: it carries the silhouette,
+         and at 16px only its outline survives. -->
+    <path d="M32 16 L58 26 L32 36 L6 26 Z"/>
+  </g>
+
+  <!-- Tassel. Deliberately chunky: at 16px a 4-unit stroke is one pixel, and
+       anything finer vanishes into the tile. -->
+  <path d="M58 26 L58 37" stroke="#fff" stroke-width="4" stroke-linecap="round" fill="none"/>
+  <circle cx="58" cy="41" r="4" fill="#fff"/>
+</svg>

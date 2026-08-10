@@ -284,9 +284,22 @@ way they are. Keep that boundary if either is edited.
 
 ## 6a. Blockers before any submission
 
-**Icons — nothing exists yet.** `manifest.json` declares no `icons` key and
-there is no `action`, so the extension currently ships with none. Every store
-needs them and two will reject outright without:
+**~~Icons — nothing exists yet~~ — drawn, wired, and rendered.** A mortarboard
+in white on the `#1a73e8` tile that matches the injected button. Source is
+`icons/icon.svg`; `node scripts/render-icons.mjs` rasterises every size below
+via Chromium and fills the Safari asset catalog. `manifest.json` now has both
+`icons` and an `action`, so there is a toolbar button where there was none.
+
+Two things still want Rick rather than a script:
+
+- **Sign-off on the artwork.** It is a real mark, not a placeholder, but it was
+  drawn here rather than designed.
+- **The macOS app icon should not be the same square.** Apple's icons sit on a
+  rounded-square grid with the artwork inset from the canvas; ours fills it edge
+  to edge. It will pass review and look slightly unlike its neighbours in the
+  Dock. Worth a pass before the Safari submission, not before the others.
+
+Sizes, for reference:
 
 | Store | Needs |
 |---|---|
