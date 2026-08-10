@@ -76,14 +76,16 @@ journal; filters compose and are *nested*, so widening a run only adds work.
 ### Next up: store release
 
 Packaging is done — `scripts/package-stores.sh` builds Chrome, Edge, Firefox and
-refreshes the Safari resources. Outstanding, all needing Rick:
+refreshes the Safari resources. Submitting to all four in parallel, at **1.0.0**.
 
-1. **Icons — none exist.** No `icons` key, no `action`. Chrome and Edge reject
-   without them
-2. **A published URL for `PRIVACY.md`**
-3. **Screenshots** — five listed in `docs/store-review.md`
-4. **Version** — everything is `0.2.2`; decide whether the first release is
-   `1.0.0`
+Done: icons (a mortarboard — `icons/icon.svg`, rendered by
+`scripts/render-icons.mjs`; deliberately not a spade, see `docs/store-review.md`),
+the toolbar `action`, the published privacy URL, and the version.
+
+Outstanding, needing Rick:
+
+1. **Screenshots** — five listed in `docs/store-review.md`
+2. **Sign-off on the icon artwork**, which was drawn here rather than designed
 
 Open questions live at the end of ADR 0001.
 

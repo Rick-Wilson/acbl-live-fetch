@@ -13,7 +13,7 @@ Every adapter emits this JSON schema regardless of source. The downstream analyz
   // output from a results site exporting directly from its own server.
   "provider": {
     "id": "bridge-classroom-fetch",
-    "version": "0.2.2",
+    "version": "1.0.0",
     "kind": "browser-extension"   // "browser-extension" | "server" | "manual"
   },
 
@@ -349,7 +349,7 @@ The analyzer should validate `schema_version` and refuse data from unknown major
 {
   "schema_version": "1.1",
   "source": "acbl-live",
-  "provider": { "id": "bridge-classroom-fetch", "version": "0.2.2", "kind": "browser-extension" },
+  "provider": { "id": "bridge-classroom-fetch", "version": "1.0.0", "kind": "browser-extension" },
   "coverage": {
     "cardplay": "none", "auction": "none", "results": "all-tables",
     "sections": "all", "sections_labelled": true

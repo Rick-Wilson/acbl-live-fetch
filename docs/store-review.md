@@ -327,9 +327,18 @@ anyone reads, and colour alone won't separate them.
 (see *Where the policy lives* above). Needs the `Bridge-Classroom` repo deployed
 before it resolves.
 
-**Version number.** Everything is `0.2.2`. Worth deciding whether the first
-public release is `1.0.0`; the version lives in `manifest.json` and is read from
-there by `PROVIDER.version`, so bumping it once updates the envelope too.
+**~~Version number~~ — 1.0.0.** The first public release. Four places carry it,
+and they are not all the same string by default:
+
+| Where | Note |
+|---|---|
+| `manifest.json` | canonical; `PROVIDER.version` reads it, so the payload follows |
+| `package.json` + lock | `npm version 1.0.0 --no-git-tag-version` |
+| Xcode `MARKETING_VERSION` | was the template's `1.0`, which is *not* `1.0.0` |
+| Xcode `CURRENT_PROJECT_VERSION` | build number, left at 1; bump per Safari upload, not per release |
+
+`safari/…/Shared (Extension)/Resources/manifest.json` also carries it, but that
+is packaging output — re-run `package-stores.sh` rather than editing it.
 
 ---
 
