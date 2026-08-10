@@ -3,6 +3,20 @@
   "name": "Bridge Classroom Fetch",
   "version": "0.2.2",
   "description": "Send your bridge results from ACBL Live, ACBL Live for Clubs and Bridge Base Online to Bridge Classroom for analysis, with one click.",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "action": {
+    "default_title": "Bridge Classroom Fetch",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "24": "icons/icon-24.png",
+      "32": "icons/icon-32.png"
+    }
+  },
   "background": {
     "service_worker": "service-worker-loader.js",
     "type": "module"
@@ -10,7 +24,7 @@
   "content_scripts": [
     {
       "js": [
-        "assets/sourceContent.js-loader-DQGXUus0.js"
+        "assets/sourceContent.js-loader-hbkZVxzH.js"
       ],
       "matches": [
         "https://live.acbl.org/*",
@@ -23,7 +37,7 @@
     },
     {
       "js": [
-        "assets/bboLobbyContent.js-loader-CmzkBL2w.js"
+        "assets/bboLobbyContent.js-loader-DehxJG53.js"
       ],
       "matches": [
         "https://www.bridgebase.com/v3/*"
@@ -50,7 +64,8 @@
     "https://live.acbl.org/*",
     "https://my.acbl.org/*",
     "https://webutil.bridgebase.com/*",
-    "https://www.bridgebase.com/*"
+    "https://www.bridgebase.com/*",
+    "https://tinyurl.bridgebase.com/*"
   ],
   "web_accessible_resources": [
     {
@@ -63,9 +78,9 @@
       ],
       "resources": [
         "assets/preload-helper-ckwbz45p.js",
-        "assets/index-oACUo7tF.js",
+        "assets/index-BXazYyAI.js",
         "assets/browser-polyfill-C8sOovTA.js",
-        "assets/sourceContent.js-eJKpswB6.js"
+        "assets/sourceContent.js-CHAd9Bc9.js"
       ],
       "use_dynamic_url": false
     },
@@ -76,7 +91,7 @@
       "resources": [
         "assets/preload-helper-ckwbz45p.js",
         "assets/browser-polyfill-C8sOovTA.js",
-        "assets/bboLobbyContent.js-DwFzYMdT.js"
+        "assets/bboLobbyContent.js-CKtIjG9p.js"
       ],
       "use_dynamic_url": false
     },
