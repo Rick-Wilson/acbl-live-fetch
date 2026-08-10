@@ -290,14 +290,17 @@ in white on the `#1a73e8` tile that matches the injected button. Source is
 via Chromium and fills the Safari asset catalog. `manifest.json` now has both
 `icons` and an `action`, so there is a toolbar button where there was none.
 
-Two things still want Rick rather than a script:
+The Mac app gets its own canvas, because a toolbar icon and a Dock icon are not
+the same object: Apple's grid insets the artwork to 824×824 within a 1024 canvas
+with a 185.4 corner radius, and a full-bleed tile reads as visibly larger and
+squarer than everything beside it. The script composes that variant by lifting
+`<g id="glyph">` out of `icon.svg`, so the two icons cannot drift apart — edit
+the mark once.
 
-- **Sign-off on the artwork.** It is a real mark, not a placeholder, but it was
-  drawn here rather than designed.
-- **The macOS app icon should not be the same square.** Apple's icons sit on a
-  rounded-square grid with the artwork inset from the canvas; ours fills it edge
-  to edge. It will pass review and look slightly unlike its neighbours in the
-  Dock. Worth a pass before the Safari submission, not before the others.
+Still wants Rick: **sign-off on the artwork.** It is a real mark rather than a
+placeholder, but it was drawn here, not designed. The dark and tinted iOS
+variants in the asset catalog are also deliberately empty; Xcode falls back to
+the light one, and filling them means drawing them.
 
 Sizes, for reference:
 

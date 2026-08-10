@@ -16,6 +16,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
   <rect width="64" height="64" rx="13" fill="#1a73e8"/>
 
+  <!-- Everything below is the mark itself, kept in one group with this id so
+       scripts/render-icons.mjs can lift it out and re-mount it on the macOS
+       canvas, where Apple wants the artwork inset rather than full-bleed.
+       Edit the mark here and both icons follow; there is no second copy. -->
+  <g id="glyph">
   <g fill="#fff">
     <!-- Cap body. Drawn first; its top is hidden behind the board. Kept narrow
          so it reads as a distinct bump under the board rather than merging with
@@ -31,4 +36,5 @@
        anything finer vanishes into the tile. -->
   <path d="M58 26 L58 37" stroke="#fff" stroke-width="4" stroke-linecap="round" fill="none"/>
   <circle cx="58" cy="41" r="4" fill="#fff"/>
+  </g>
 </svg>

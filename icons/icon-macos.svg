@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <rect x="100" y="100" width="824" height="824" rx="185.4" fill="#1a73e8"/>
+  <g transform="translate(100 100) scale(12.875)">
+  <g fill="#fff">
+    <!-- Cap body. Drawn first; its top is hidden behind the board. Kept narrow
+         so it reads as a distinct bump under the board rather than merging with
+         it — a wide cap turns the whole mark into a t-shirt at 16px. -->
+    <path d="M23 30 L23 40 C23 45 41 45 41 40 L41 30 Z"/>
+
+    <!-- Board. Nearly the full width of the tile: it carries the silhouette,
+         and at 16px only its outline survives. -->
+    <path d="M32 16 L58 26 L32 36 L6 26 Z"/>
+  </g>
+
+  <!-- Tassel. Deliberately chunky: at 16px a 4-unit stroke is one pixel, and
+       anything finer vanishes into the tile. -->
+  <path d="M58 26 L58 37" stroke="#fff" stroke-width="4" stroke-linecap="round" fill="none"/>
+  <circle cx="58" cy="41" r="4" fill="#fff"/>
+  </g>
+</svg>

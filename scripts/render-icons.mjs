@@ -32,11 +32,38 @@ const SAFARI_SIZES = [16, 32, 64, 128, 256, 512, 1024]
 
 const svg = fs.readFileSync(SRC, 'utf8')
 
-async function render(page, size, outPath) {
+// ── The macOS variant ────────────────────────────────────────────────────────
+//
+// A browser toolbar icon is full-bleed; a Mac app icon is not. Apple's grid
+// puts the rounded square at 824x824 inside a 1024 canvas — a 100px margin all
+// round — with a 185.4 corner radius. Shipping the toolbar tile as the app icon
+// would leave it visibly larger and squarer than everything beside it in the
+// Dock, which is the tell of an extension that was ported rather than built.
+//
+// The mark is lifted out of icon.svg rather than redrawn, so the two icons
+// cannot drift apart.
+const MACOS_CANVAS = 1024
+const MACOS_INSET = 100
+const MACOS_SIDE = MACOS_CANVAS - MACOS_INSET * 2   // 824
+const MACOS_RADIUS = 185.4
+const GLYPH_GRID = 64                               // icon.svg's viewBox
+
+function macosSvg() {
+  const glyph = svg.match(/<g id="glyph">([\s\S]*?)<\/g>\s*<\/svg>/)
+  if (!glyph) throw new Error('icon.svg has no <g id="glyph"> to lift — did the source change?')
+  const scale = MACOS_SIDE / GLYPH_GRID
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${MACOS_CANVAS} ${MACOS_CANVAS}" width="${MACOS_CANVAS}" height="${MACOS_CANVAS}">
+  <rect x="${MACOS_INSET}" y="${MACOS_INSET}" width="${MACOS_SIDE}" height="${MACOS_SIDE}" rx="${MACOS_RADIUS}" fill="#1a73e8"/>
+  <g transform="translate(${MACOS_INSET} ${MACOS_INSET}) scale(${scale})">${glyph[1]}</g>
+</svg>
+`
+}
+
+async function render(page, size, outPath, source = svg, grid = GLYPH_GRID) {
   await page.setViewportSize({ width: size, height: size })
   await page.setContent(
     '<style>html,body{margin:0;padding:0;background:transparent}svg{display:block}</style>' +
-    svg.replace('width="64" height="64"', `width="${size}" height="${size}"`)
+    source.replace(`width="${grid}" height="${grid}"`, `width="${size}" height="${size}"`)
   )
   await page.locator('svg').screenshot({ path: outPath, omitBackground: true })
 }
@@ -49,9 +76,14 @@ for (const size of EXTENSION_SIZES) {
   await render(page, size, path.join(OUT, `icon-${size}.png`))
 }
 
+// The Mac app icon is the inset variant, written out beside the source so it
+// can be opened and looked at rather than only existing inside this script.
+const macos = macosSvg()
+fs.writeFileSync(path.join(OUT, 'icon-macos.svg'), macos)
+
 fs.mkdirSync(SAFARI, { recursive: true })
 for (const size of SAFARI_SIZES) {
-  await render(page, size, path.join(SAFARI, `icon-${size}.png`))
+  await render(page, size, path.join(SAFARI, `icon-${size}.png`), macos, MACOS_CANVAS)
 }
 
 await browser.close()
