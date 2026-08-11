@@ -6,8 +6,13 @@ declare.
 
 The central fact: **three of the four sources can be exercised with no account at
 all**, including a real club game with a full field. Reviewers should be pointed
-at those first. Only the BBO history features and ACBL Live tournaments need a
-third-party login, which is friction we cannot remove.
+at those first — they demonstrate every part of the extension, and a reviewer
+can reproduce them completely.
+
+**We supply no test credentials.** The BBO history features and ACBL Live
+tournaments need a third-party login, and neither account can responsibly be
+handed over — see § 3, which also covers what to say instead and the screen
+recording that stands in for them.
 
 ---
 
@@ -105,32 +110,67 @@ The button appears as a top-right overlay on this page and extracts the event.
 
 ---
 
-## 3. Procedures that need credentials
+## 3. Procedures that need credentials — and why we supply none
 
-Supply test accounts in each store's reviewer-notes field. **Two separate
-accounts are needed**; they are unrelated services.
+**We cannot hand a reviewer a BBO account, and should not hand over an ACBL
+one.** This is a constraint to design the reviewer notes around, not a gap to
+apologise for.
 
-| Service | Needed for | Where to sign in |
-|---|---|---|
-| BBO (free) | hands list, travellers, history batch | `bridgebase.com` |
-| ACBL | `live.acbl.org` tournaments only | `live.acbl.org` |
+- **BBO allows one session per user.** A reviewer signing in with our account
+  signs us out, and four stores reviewing in parallel would evict each other
+  mid-test. Sharing one login cannot work even in principle.
+- **A fresh BBO account would not help.** The features that need the login —
+  hands list, travellers, history batch — read *results of sessions you have
+  played*. A new account has none, so a reviewer would sign in and correctly
+  find nothing. Manufacturing history means actually playing tournaments.
+- **The ACBL account is a real membership** tied to a person, with masterpoint
+  records and personal data behind it. Handing those credentials to reviewers
+  at four companies is not something to do casually.
 
-`my.acbl.org` needs no account — see the previous section.
+### What to put in the reviewer-notes field instead
 
-Suggested reviewer note:
+> **No account is needed to test this extension end to end.** Three of the four
+> supported sources are fully public, including a real club game with a
+> complete field of results — the procedure below takes about a minute and
+> exercises the whole pipeline: injection, extraction, and hand-off.
+>
+> Two further sources need a third-party login (Bridge Base Online, ACBL Live).
+> We cannot supply credentials for these: BBO permits only one active session
+> per account, so a shared login would sign reviewers out of each other's
+> sessions, and a new account has no played history to read. The ACBL account
+> is a personal membership record. **A screen recording of both authenticated
+> paths is linked below**, showing the same behaviour the public paths
+> demonstrate, against data that requires a login.
+>
+> A Cloudflare check may appear on the ACBL links. It clears by itself, is not
+> part of the extension, and if a fetch is refused the extension now says so
+> and asks you to reload.
 
-> You can test this extension end to end **without any account** — see the three
-> URLs in the test procedure, which need no login. A Cloudflare check may appear
-> on the ACBL links; it clears by itself and is not part of the extension. Test
-> credentials for the two account-based paths are below.
+Lead with § 2's public procedure. It is the strongest thing we have: a reviewer
+can reproduce it completely, and it shows every part of the extension working.
 
-**BBO path:** sign in at bridgebase.com, then open
-`https://www.bridgebase.com/myhands/hands.php?tourney=<id>-&username=<account>`.
-The button appears top-right; clicking it fetches every board in that session.
+### The video, if a store wants one
 
-**ACBL Live path:** sign in at live.acbl.org, open any event scorecard
-(`/event/<sanction>/<event>/<session>/scores/<section>/<direction>/<pair>`).
-A Cloudflare check appears first for a fresh browser profile.
+Both Apple and Google accept a demo recording for features that cannot be
+exercised without credentials. One recording covers both paths — keep it short
+and let it show, in order:
+
+1. **BBO hands list** — the button in the table header, clicked; the fetch
+   running; the analyzer opening with the session.
+2. **BBO history batch** — the lobby's date-range menu, a range chosen, the
+   progress counter, the batch result.
+3. **ACBL Live tournament** — a scorecard on `live.acbl.org`, the button beside
+   the `h1`, and the multi-section extraction that follows.
+
+Record it in a clean profile with other bridge extensions disabled, for the
+reason in § 2. Blur or relabel opponents' names as the screenshots do — a video
+is no less public than a screenshot, and BBO travellers show a full field.
+
+Host it somewhere stable and unlisted, and put the URL in each store's notes.
+It is unlisted rather than private: a reviewer must be able to open it without
+requesting access, or it fails the purpose.
+
+**Not yet recorded.** This is the one submission asset still outstanding.
 
 ---
 

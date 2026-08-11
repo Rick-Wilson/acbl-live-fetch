@@ -80,12 +80,22 @@ refreshes the Safari resources. Submitting to all four in parallel, at **1.0.0**
 
 Done: icons (a mortarboard — `icons/icon.svg`, rendered by
 `scripts/render-icons.mjs`; deliberately not a spade, see `docs/store-review.md`),
-the toolbar `action`, the published privacy URL, and the version.
+the toolbar `action`, the published privacy URL, the version, the artwork
+sign-off, and the five screenshots (in `screenshots/`, 2560x1600, one set for
+all four stores).
 
-Outstanding, needing Rick:
+All four browsers are QA'd against both no-account paths — see
+`docs/architecture.md` § Cross-browser builds.
 
-1. **Screenshots** — five listed in `docs/store-review.md`
-2. **Sign-off on the icon artwork**, which was drawn here rather than designed
+Outstanding:
+
+1. **A screen recording of the two authenticated paths.** We supply no test
+   credentials: BBO allows one session per account, so a shared login would
+   sign reviewers out of each other, and a fresh account has no played history
+   to read. The ACBL login is a personal membership. `docs/store-review.md` § 3
+   has the reviewer-note wording and what the recording must show.
+2. **Bump `CURRENT_PROJECT_VERSION`** per Safari upload — one `agvtool`
+   command, in `docs/store-review.md`. The first upload can go as build 1.
 
 Open questions live at the end of ADR 0001.
 
