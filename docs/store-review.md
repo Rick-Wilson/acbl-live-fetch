@@ -183,37 +183,25 @@ ingester, on any push touching those paths.
 
 - Clean profile, other bridge extensions disabled — BBO Helper injects into the
   same rows (§ 2).
-- **Names have to be obscured in the edit, not only before the take.** The
-  console swaps live in the DOM, so anything that re-renders mid-run brings the
-  real names straight back on camera — the analyzer opening in a new tab is the
-  obvious one, and a traveller loading mid-fetch is another. Pre-applying the
-  swaps still helps, but it cannot be the whole answer.
+- **Blur, record, blur again, cut the middle.** The console swaps live in the
+  DOM, so the moment the analyzer renders in its new tab the real names are on
+  camera. The fix is not region masking — it is sequencing:
 
-  Two ways to finish the job, cheapest first:
+  1. On the source page, run the blur/relabel snippet.
+  2. Start recording. Click the button.
+  3. Let the result render, then stop or pause.
+  4. Run the snippet again on the page that just rendered.
+  5. Resume, and record the rest.
+  6. Trim out the seconds between steps 3 and 4, where the names were clear.
 
-  1. **Cut around it.** If names are on screen only during a transition, trim
-     those seconds out. At 30 seconds a clip, losing two is nothing, and an
-     edit is far quicker than tracked blur.
-  2. **Blur a fixed rectangle for a fixed window.** Screen recordings hold
-     still, so the region rarely moves:
-
-     ```bash
-     ffmpeg -i raw.mov -filter_complex \
-       "[0:v]crop=520:300:180:420,boxblur=24[b];\
-        [0:v][b]overlay=180:420:enable='between(t,6.5,11)'" \
-        -c:a copy blurred.mp4
-     ```
-
-     `crop=W:H:X:Y` picks the region, `overlay=X:Y` puts it back, and
-     `enable='between(t,…)'` limits it to the seconds that need it. Repeat the
-     pair for each region.
-
-  If regions do move, DaVinci Resolve's free edition does tracked blur and is
-  the right tool rather than fighting ffmpeg.
+  If the recorder has no pause — QuickTime and macOS's own ⌘⇧5 do not — record
+  straight through and cut that stretch in the edit instead. Same result.
 
   A video is no less public than a screenshot, and a BBO traveller shows a full
-  field — so check the finished file frame by frame around every transition
-  before publishing.
+  field, so **check the finished file around the cut** before publishing. One
+  stray frame is a lot of real names, and unlike a screenshot you cannot see it
+  in a glance.
+
 - 1280×800 keeps it consistent with the screenshots and keeps the files small.
 
 **Encoding.** At 30 seconds these land at a few MB each, comfortably inside
