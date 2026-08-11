@@ -1,4 +1,5 @@
 import { ParseError } from '../../../lib/parseError.js'
+import { assertSession } from './session.js'
 
 // Unicode suit symbols BBO uses in rendered result cells.
 const SUIT_SYMBOL_TO_LETTER = {
@@ -27,6 +28,7 @@ export function parseTraveller(htmlString) {
     throw new ParseError('parseTraveller expects a non-empty HTML string')
   }
   const doc = new DOMParser().parseFromString(htmlString, 'text/html')
+  assertSession(htmlString, doc)
 
   // All result rows: standard rows (.tourney) and the user's highlighted row (.highlight).
   const rows = [

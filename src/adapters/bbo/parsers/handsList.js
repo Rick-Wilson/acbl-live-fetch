@@ -1,5 +1,6 @@
 import { ParseError } from '../../../lib/parseError.js'
 import { extractLinFromOnclick, parseLin } from './lin.js'
+import { assertSession } from './session.js'
 
 // Unicode suit symbols BBO uses in rendered result cells.
 const SUIT_SYMBOL_TO_LETTER = {
@@ -38,12 +39,17 @@ export function parseHandsList(htmlString) {
     throw new ParseError('parseHandsList expects a non-empty HTML string')
   }
   const doc = new DOMParser().parseFromString(htmlString, 'text/html')
+  assertSession(htmlString, doc)
 
   // --- Tournament summary row ---
   const summaryRow = doc.querySelector('tr.tourneySummary')
   if (!summaryRow) {
+    // assertSession has already ruled out the sign-in page, which is the
+    // common cause. Reaching here means the page really is unfamiliar — but a
+    // reload is still the cheap first move, so say so before blaming BBO.
     throw new ParseError(
-      'Could not find tr.tourneySummary — has BBO hands list format changed?',
+      'Could not find tr.tourneySummary. Reload the page and retry; if it persists, ' +
+        'the BBO hands list format may have changed.',
       { selector: 'tr.tourneySummary' }
     )
   }

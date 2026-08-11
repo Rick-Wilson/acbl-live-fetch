@@ -9,12 +9,14 @@
 // Returns an array of event objects, one per tourneySummary row.
 
 import { ParseError } from '../../../lib/parseError.js'
+import { assertSession } from './session.js'
 
 export function parseBboHistoryList(htmlString) {
   if (typeof htmlString !== 'string' || htmlString.length === 0) {
     throw new ParseError('parseBboHistoryList expects a non-empty HTML string')
   }
   const doc = new DOMParser().parseFromString(htmlString, 'text/html')
+  assertSession(htmlString, doc)
   const events = []
 
   for (const row of doc.querySelectorAll('tr.tourneySummary')) {
