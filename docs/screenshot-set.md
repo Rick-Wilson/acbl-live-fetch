@@ -22,7 +22,7 @@ All shots: **2560×1600**, page content only, no browser chrome. Downscale to
 
 | # | Source | before | after | notes |
 |---|---|:--:|:--:|---|
-| 1 | BBO hand viewer | ✅ | ⬜ | also `bbo-handviewer-no-extension.png`, the page without us |
+| 1 | BBO hand viewer | ✅ | ✅ | also `bbo-handviewer-no-extension.png`, the page without us |
 | 2 | BBO hands list (`myhands`) | ✅ | ⬜ | blur East/West before shooting |
 | 3 | BBO tournament view (`tview`) | ⬜ | ⬜ | heaviest anonymising of the set |
 | 4 | BBO lobby (`/v3/`) | ⬜ | ⬜ | needs a BBO login |
@@ -30,7 +30,26 @@ All shots: **2560×1600**, page content only, no browser chrome. Downscale to
 | 6 | ACBL club — single game | ✅ | ✅ | |
 | 7 | ACBL Live tournament | ⬜ | ⬜ | needs an ACBL login, real Chrome |
 
-Eight shots outstanding.
+Seven shots outstanding.
+
+## The five submitted to the stores
+
+`screenshots/listing/` holds the set actually uploaded, numbered in the order a
+reviewer sees them, with names that say what each is. `screenshots/listing-1280/`
+is the same five at 1280×800 for Chrome, Edge and AMO; the Mac App Store takes
+the masters.
+
+| | Shot | Why it is here |
+|---|---|---|
+| 1 | ACBL clubs — choose a date range | The button clicked, showing the choice on offer |
+| 2 | ACBL clubs — the analysis | What that produced: five events, error rates over time |
+| 3 | BBO session results | The button on a third site, merged into BBO's own header |
+| 4 | BBO hand viewer | The button on a single deal, integrating rather than covering |
+| 5 | BBO hand viewer — the analysis | The payoff: where the contract went wrong, trick by trick |
+
+1→2 and 4→5 are both complete stories; 3 shows breadth. Chrome caps at five, so
+the pairs earn their slots and the remaining sources sit in the record set
+above.
 
 ## What to capture, and how
 
