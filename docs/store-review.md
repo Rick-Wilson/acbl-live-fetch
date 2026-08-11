@@ -451,10 +451,12 @@ squarer than everything beside it. The script composes that variant by lifting
 `<g id="glyph">` out of `icon.svg`, so the two icons cannot drift apart — edit
 the mark once.
 
-Still wants Rick: **sign-off on the artwork.** It is a real mark rather than a
-placeholder, but it was drawn here, not designed. The dark and tinted iOS
-variants in the asset catalog are also deliberately empty; Xcode falls back to
-the light one, and filling them means drawing them.
+**~~Sign-off on the artwork~~ — approved, 10 August 2026.** Rick approved the
+mortarboard after seeing it render in Chrome, Edge and Safari. It is a drawn
+mark rather than a designed one, and it ships as it stands.
+
+The dark and tinted iOS variants in the asset catalog remain deliberately
+empty; Xcode falls back to the light one, and filling them means drawing them.
 
 Sizes, for reference:
 
@@ -489,7 +491,22 @@ and they are not all the same string by default:
 | `manifest.json` | canonical; `PROVIDER.version` reads it, so the payload follows |
 | `package.json` + lock | `npm version 1.0.0 --no-git-tag-version` |
 | Xcode `MARKETING_VERSION` | was the template's `1.0`, which is *not* `1.0.0` |
-| Xcode `CURRENT_PROJECT_VERSION` | build number, left at 1; bump per Safari upload, not per release |
+| Xcode `CURRENT_PROJECT_VERSION` | build number, at 1; bump per Safari **upload**, not per release |
+
+Bump it with one command, from the folder holding the `.xcodeproj`:
+
+```bash
+cd "safari/Bridge Classroom Fetch"
+xcrun agvtool new-version -all 2      # what-version -terse to check
+```
+
+That updates all four targets across both configurations and leaves
+`MARKETING_VERSION` alone. Only `project.pbxproj` changes — the Info.plists
+agvtool names are generated.
+
+The first upload can go as build 1. App Store Connect refuses a second upload
+reusing a build number, so this is for re-uploading against the same 1.0.0
+after a rejection.
 
 `safari/…/Shared (Extension)/Resources/manifest.json` also carries it, but that
 is packaging output — re-run `package-stores.sh` rather than editing it.
