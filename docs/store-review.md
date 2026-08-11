@@ -53,13 +53,21 @@ construction, and hand-off to the analyzer. **Takes about a minute.**
 
 3. **Expected:** a **"Bridge Classroom"** button appears in the row of controls
    at the bottom of the page, alongside Rewind / Previous / Next / Options / DD
-   / Play.
+   / Play — all of which are BBO's own.
 
    The label is the short one here. Everywhere else the button reads "Analyze
    in Bridge Classroom"; on the hand viewer it is shortened to fit BBO's
    control row (`sourceContent.js`, the `btn.textContent` beside the control-row
    injection). A reviewer following this script literally would otherwise look
    for the wrong text.
+
+   **Take screenshots in a profile with other bridge extensions disabled.**
+   BBO Helper injects into the same rows we do — on the hands list it adds
+   PBN / LIN / HTML buttons under Movie and Traveller. The two coexist happily
+   in daily use, since they cover different ground (see
+   [prior-art.md](prior-art.md)); the problem is only in a screenshot, where a
+   viewer has no way to tell whose button is whose and would reasonably assume
+   every one of them is ours.
 4. Click it.
 5. **Expected:** a new tab opens at `bridge-classroom.org` showing the deal's
    analysis. No login is requested at any point.
