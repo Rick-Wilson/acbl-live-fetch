@@ -219,12 +219,14 @@ Source files use `browser.*` via `webextension-polyfill`:
 Today only Chrome is published.
 
 **Edge is QA'd (August 2026)** — on Windows, under Parallels, which is where
-the great majority of Edge users are. `dist/edge` was loaded unpacked and the
-hand viewer's button injected and handed off correctly. `dist/edge` is
-byte-for-byte identical to `dist/chrome` (Edge's entry in
-`PER_BROWSER_OVERRIDES` is `{}`) and to the contents of the packaged
-`-edge.zip`, so loading the directory tests exactly the bytes that go to
-Partner Center.
+the great majority of Edge users are. `dist/edge` was loaded unpacked and both
+no-account paths pass: the hand viewer injects and hands off, and the
+`my.acbl.org` club game extracts a full field. That second one matters most —
+it is the only test so far that exercises the `scripting` path, since the hand
+viewer makes no network request at all. `dist/edge` is byte-for-byte identical
+to `dist/chrome` (Edge's entry in `PER_BROWSER_OVERRIDES` is `{}`) and to the
+contents of the packaged `-edge.zip`, so loading the directory tested exactly
+the bytes that go to Partner Center.
 
 **Safari is partly QA'd (August 2026).** `dist/safari` loads via Safari's *Add Temporary Extension…*, the content script injects, the hand viewer's button appears, and the hand-off to the analyzer works. The toolbar icon renders. Verified against the full-deal URL in [store-review.md](store-review.md) § 2. Note the icons were absent from the Safari bundle until the Xcode project was taught to reference them — see § 3bb there, which also gives the diff command to check the built `.appex` against `dist/safari`.
 
@@ -232,7 +234,7 @@ Still unverified on Safari: whether the **packaged app** registers its extension
 
 **Firefox is partly QA'd (August 2026).** `dist/firefox` loads via `web-ext run`, the content script injects, the hand viewer's button appears in BBO's control row, and clicking it hands the deal off to the analyzer. `web-ext lint` reports 0 errors (see § 3c there). Verified on the hand viewer URL in [store-review.md](store-review.md) § 2.
 
-**What remains unverified on both Firefox and Safari is the same thing: the `scripting` path that both ACBL sites need.** Their 403s on background-worker fetches are why the request is issued from inside one of the user's own tabs, and that is the most platform-sensitive machinery in the extension — Firefox and Safari each differ from Chrome on what an injected fetch inherits and on how host permissions are prompted. Everything QA'd so far exercises the hand viewer, which makes no network request at all.
+**What remains unverified on Firefox and Safari is the same thing: the `scripting` path that both ACBL sites need.** Edge has now cleared it, but Edge is Chromium running identical bytes, so it says nothing about the other two. Their 403s on background-worker fetches are why the request is issued from inside one of the user's own tabs, and that is the most platform-sensitive machinery in the extension — Firefox and Safari each differ from Chrome on what an injected fetch inherits and on how host permissions are prompted. Everything QA'd so far exercises the hand viewer, which makes no network request at all.
 
 ## Future considerations
 
