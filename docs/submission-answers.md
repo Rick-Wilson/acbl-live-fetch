@@ -102,32 +102,44 @@ Opens the Bridge Classroom page with the extracted results, and locates an alrea
 Both ACBL sites reject requests made from the extension's background service worker with HTTP 403. The fetch is therefore issued from inside one of the user's own tabs on that site, so the site's own protections are satisfied: an authenticated session on live.acbl.org, and bot-protection clearance on my.acbl.org. No code is injected into pages beyond this same-origin fetch.
 ```
 
-**Host: `live.acbl.org`, `my.acbl.org`**
+**Host permissions** — Chrome asks for a single justification covering all
+hosts, not one per host. Paste this whole block.
 
 ```
-Reading the user's own tournament and club game results, which is the purpose of the extension.
+The extension reads the user's own bridge results from the sites that publish them, and only those sites:
+
+• live.acbl.org and my.acbl.org — the user's tournament and club game results.
+• www.bridgebase.com and webutil.bridgebase.com — the user's Bridge Base Online results: the hands list, the travellers for boards they played, and the tournament summary.
+• tinyurl.bridgebase.com — BBO's lobby does not hand over a deal directly. Its Export ▸ Handviewer menu mints a tinyurl.bridgebase.com short link, so the redirect has to be followed to reach the deal it points at. This host is used for nothing else.
+
+No other origin is requested. Nothing is read until the user clicks the extension's button on one of those pages, and results are sent only to bridge-classroom.org — the analyser the user chose by clicking. There is no analytics, no telemetry and no third-party endpoint.
 ```
 
-**Host: `www.bridgebase.com`, `webutil.bridgebase.com`**
+**Content script on `bridge-classroom.org` / `.com`** — no host permission is
+requested for these; the content-script match is sufficient. If a field asks:
 
 ```
-Reading the user's own Bridge Base Online results — the hands list, travellers and tournament summary for sessions the user played.
-```
-
-**Host: `tinyurl.bridgebase.com`**
-
-```
-BBO's lobby does not hand over a deal directly: its Export ▸ Handviewer menu mints a tinyurl.bridgebase.com short link, so the redirect must be followed to reach the deal it points at. Used only to resolve those links.
-```
-
-**Content script on `bridge-classroom.org` / `.com`**
-
-```
-Delivering the results to the page the user is taken to, which forwards them to whichever Bridge Classroom tool the user picks. No host permission is requested for these domains; the content-script match is sufficient.
+Delivering the extracted results to the page the user is taken to, which forwards them to whichever Bridge Classroom tool the user picks.
 ```
 
 **Remote code** — answer **No**. Everything executed ships in the package;
-nothing is fetched and evaluated.
+nothing is fetched and evaluated. No `eval`, no remotely-hosted scripts, no
+`<script src>` to an external origin. The one runtime dependency, linkedom, is
+bundled into the package at build time.
+
+### The in-depth review warning
+
+Requesting host permissions triggers Chrome's warning that the extension "may
+require an in-depth review which will delay publishing". This is expected and
+unavoidable: reading the user's results from four sites is what the extension
+does, and there is no narrower permission that would allow it. `activeTab`
+would not, because the extension fetches further pages of the same site — the
+board details behind a scorecard — not only the tab in front of the user.
+
+Nothing needs changing in response to the warning. Expect a longer review than
+a no-permission extension gets, and answer the justification precisely rather
+than broadly — the single-purpose statement and the host justification are what
+the reviewer reads.
 
 ---
 
