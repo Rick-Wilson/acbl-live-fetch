@@ -43,15 +43,34 @@ construction, and hand-off to the analyzer. **Takes about a minute.**
 2. Open this URL — a complete bridge deal encoded in the URL itself:
 
    ```
-   https://www.bridgebase.com/tools/handviewer.html?bbo=y&lin=pn%7CFairways4%2Caam135%2Cbrosh%2Ckemistry%7Cst%7C%7Cmd%7C4ST543HQT73DAJ875C%2CS976H92DT3CJ87432%2CSQHAJ64DQ94CKQT65%2CSAKJ82HK85DK62CA9%7Csv%7Cn%7Crh%7C%7Cah%7CBoard+2%7Cmb%7C1S%7Cmb%7CP%7Cmb%7CP%7Cmb%7CP%7Cpc%7CDA%7Cpc%7CD3%7Cpc%7CD4%7Cpc%7CD6%7C
+   https://www.bridgebase.com/tools/handviewer.html?bbo=y&lin=pn%7CSouth%2CWest%2CNorth%2CEast%7Cst%7C%7Cmd%7C3S789TQH5KD2C2478T%2CS2456JAH6TD57TKC6%2CS3H78JD4689JQC39J%2C%7Crh%7C%7Cah%7CBoard%201%7Csv%7Co%7Cmb%7Cp%7Cmb%7C2C%7Cmb%7C2S%7Cmb%7Cp%7Cmb%7Cp%7Cmb%7C3H%7Cmb%7Cp%7Cmb%7C3N%7Cmb%7Cp%7Cmb%7Cp%7Cmb%7Cp%7Cpc%7CDQ%7Cpc%7CD3%7Cpc%7CD2%7Cpc%7CDK%7Cpc%7CHT%7Cpc%7CH7%7Cpc%7CH2%7Cpc%7CHK%7Cpc%7CST%7Cpc%7CS2%7Cpc%7CS3%7Cpc%7CSK%7Cpc%7CHA%7Cpc%7CH5%7Cpc%7CH6%7Cpc%7CH8%7Cpc%7CHQ%7Cpc%7CS7%7Cpc%7CS4%7Cpc%7CHJ%7Cpc%7CH9%7Cpc%7CS8%7Cpc%7CS5%7Cpc%7CD4%7Cpc%7CH4%7Cpc%7CS9%7Cpc%7CS6%7Cpc%7CD6%7Cpc%7CH3%7Cpc%7CSQ%7Cpc%7CSJ%7Cpc%7CD8%7Cpc%7CDA%7Cpc%7CC2%7Cpc%7CD5%7Cpc%7CD9%7Cpc%7CCA%7Cpc%7CC4%7Cpc%7CC6%7Cpc%7CC3%7Cpc%7CCK%7Cpc%7CC7%7Cpc%7CD7%7Cpc%7CC9%7Cpc%7CCQ%7Cpc%7CC8%7Cpc%7CDT%7Cpc%7CCJ%7Cpc%7CC5%7Cpc%7CCT%7Cpc%7CSA%7Cpc%7CDJ%7C
    ```
 
-3. **Expected:** an "Analyze in Bridge Classroom" button appears in the row of
-   controls at the bottom of the page, alongside Rewind / Previous / Next /
-   Options / Play.
+   A complete deal: 3NT, an eleven-call auction, and all 52 cards. The four
+   `pn|` names are the seat names rather than real BBO handles — the players are
+   embedded in the URL in plain text, so there is no reason to put anyone's
+   account name into store reviewer notes or a screenshot.
+
+3. **Expected:** a **"Bridge Classroom"** button appears in the row of controls
+   at the bottom of the page, alongside Rewind / Previous / Next / Options / DD
+   / Play.
+
+   The label is the short one here. Everywhere else the button reads "Analyze
+   in Bridge Classroom"; on the hand viewer it is shortened to fit BBO's
+   control row (`sourceContent.js`, the `btn.textContent` beside the control-row
+   injection). A reviewer following this script literally would otherwise look
+   for the wrong text.
 4. Click it.
 5. **Expected:** a new tab opens at `bridge-classroom.org` showing the deal's
    analysis. No login is requested at any point.
+
+   All thirteen tricks should appear. **Test with complete deals** — or with
+   deals that run to a claim, which is as complete as a real one gets. A LIN
+   that stops early transfers faithfully and then looks broken at the far end:
+   an earlier version of this procedure used a deal carrying four cards, and the
+   analyzer's empty play was mistaken for a failure to transfer. It was not.
+   Nothing downstream can distinguish "the data stops here" from "the extension
+   dropped it", so do not hand a reviewer a deal that stops.
 
 **No network request is made to fetch the deal** — it is read from the URL. This
 is the cheapest possible demonstration that the extension does what it claims.
@@ -164,6 +183,38 @@ Store)
 Firefox reviewers need to reproduce the build. The source archive is produced by
 `git archive` from `HEAD`, so commit before packaging; note `npm ci` then
 `BROWSER=firefox npm run build` in the reviewer notes.
+
+### 3c. addons-linter, and what it says
+
+AMO runs Mozilla's `addons-linter` on upload. Run it first:
+
+```bash
+npm run build:firefox
+npx web-ext lint --source-dir dist/firefox
+```
+
+**Current state: 0 errors, 2 warnings**, both expected and both explainable.
+
+**`UNSAFE_VAR_ASSIGNMENT` ×2 — false positives, and worth pre-empting in the
+reviewer notes.** Both land in the bundled `background.js` chunk, and both are
+inside **linkedom's own DOM implementation** — its `innerHTML` accessor and its
+fragment parser. We bundle linkedom because MV3 service workers do not expose
+`DOMParser` and the parsers need one (`src/background.js`). Nothing in our
+source assigns to `innerHTML` at all; `grep -rn innerHTML src/` returns nothing.
+The linter is flagging a vendored library implementing the DOM, not this
+extension writing markup into a page.
+
+**`data_collection_permissions` is required for new Firefox extensions.** It is
+declared in `vite.config.js` as the explicit `required: ['none']` — the
+extension collects nothing, and Mozilla wants that said rather than omitted.
+
+That key set the version floors. It landed in Firefox 140 and Firefox for
+Android 142, so the previous `strict_min_version: 121.0` (chosen only for MV3
+service-worker support) made the declaration a lint error. The manifest now
+carries `gecko.strict_min_version: 140.0` and a separate
+`gecko_android.strict_min_version: 142.0`. **This drops Firefox 121–139**, which
+is the cost of the declaration; the alternative is shipping without it and
+arguing with a reviewer.
 
 ---
 

@@ -41,7 +41,7 @@ div.sectionbreak              — section label, e.g. "Section 3 E/W"
 div.onesection                — immediately follows sectionbreak; contains per-section ranking
   table.sectiontable
     tr.highlight              — the viewing user's row; id="row-N"
-      td.username             — "kemistry+aam135" (pair: user+partner)
+      td.username             — "user+partner", the two handles joined by "+"
       td > a                  — link to user's hands page; href contains tourney id & username
       td.score                — session score (IMP total or matchpoints total)
       td.pts                  — masterpoints earned

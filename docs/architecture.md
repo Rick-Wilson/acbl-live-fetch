@@ -216,7 +216,9 @@ Source files use `browser.*` via `webextension-polyfill`:
 - Service worker imports it directly at the top.
 - Content scripts dynamic-import it inside the entry-point branch — keeps test imports of those modules clean (no extension-API dependency surfaces during `vitest run`).
 
-Today only Chrome is published. Firefox / Edge / Safari builds are produced for local smoke-testing until they're explicitly QA'd.
+Today only Chrome is published. Edge and Safari builds are produced for local smoke-testing until they're explicitly QA'd.
+
+**Firefox is partly QA'd (August 2026).** `dist/firefox` loads in Firefox via `web-ext run`, the content script injects, and the hand viewer's button appears in BBO's control row — verified on the no-account hand viewer URL in [store-review.md](store-review.md) § 2. `web-ext lint` reports 0 errors (see § 3c there). Still unverified: the hand-off click, and the `scripting` path both ACBL sites need — that is the platform-sensitive one, since Firefox differs from Chrome on what an injected fetch inherits.
 
 ## Future considerations
 

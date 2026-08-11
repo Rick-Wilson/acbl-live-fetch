@@ -17,6 +17,17 @@ const PER_BROWSER_OVERRIDES = {
   // It also uses the event-page background.scripts form rather than
   // background.service_worker (the @crxjs/vite-plugin firefox build path
   // requires this).
+  //
+  // data_collection_permissions is required for all new Firefox extensions;
+  // addons-linter warns without it. The extension collects nothing — results
+  // live in browser.storage.local for an hour and go only to the ingest page
+  // the user is sent to — so the declaration is the explicit "none", which is
+  // Mozilla's way of saying so rather than an omission.
+  //
+  // That key forces the version floors: it landed in Firefox 140 and in
+  // Firefox for Android 142, so 121 (which was only ever about MV3
+  // service-worker support) would make the declaration a lint error. The two
+  // floors differ, hence the separate gecko_android block.
   firefox: {
     background: {
       scripts: ['src/background.js'],
@@ -24,7 +35,13 @@ const PER_BROWSER_OVERRIDES = {
     browser_specific_settings: {
       gecko: {
         id: 'bridge-classroom-fetch@bridge-classroom.org',
-        strict_min_version: '121.0',
+        strict_min_version: '140.0',
+        data_collection_permissions: {
+          required: ['none'],
+        },
+      },
+      gecko_android: {
+        strict_min_version: '142.0',
       },
     },
   },
