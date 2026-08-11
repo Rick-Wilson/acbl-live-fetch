@@ -20,16 +20,32 @@
 
 ## Adapter registry
 
-The service worker holds an ordered registry of adapters in `src/background/handlers.js`. When an `extract-session` message arrives, the dispatcher picks the first adapter whose `matchesUrl(url)` returns true and delegates the rest of the work to it. New sources are added by writing an adapter and appending it to the registry — no other code path needs to change.
+The service worker holds an ordered registry of adapters in
+`src/background/handlers.js`. When an `extract-session` message arrives, the
+dispatcher picks the first adapter whose `matchesUrl(url)` returns true and
+delegates the rest of the work to it. New sources are added by writing an
+adapter and appending it to the registry — no other code path needs to change.
 
-Adapters today:
+Adapters today, in registry order:
 
-| Adapter | Hostname | Page types | Output `source` |
+| Adapter | Hostname | Page types | `source` |
 |---|---|---|---|
+| `acbl-live-club` | `my.acbl.org` | `club-game-result`, `club-results-list` | `"acbl-live-club"` |
 | `acbl-live` | `live.acbl.org` | `pair-scorecard`, `board-detail`, `event-summary`, `player-history` | `"acbl-live"` |
-| `acbl-live-club` | `my.acbl.org` | `club-game-result` | `"acbl-live-club"` |
+| `bbo` | `bridgebase.com` | `handviewer`, `hands-list`, `traveller`, `tournament-view` | `"bbo"` |
 
-Both emit the same envelope shape (top-level `tournaments[]`, `Tournament > Event > Session > Board > Result`); only the `source` field differs. See [normalized-schema.md](normalized-schema.md).
+Order matters only where match patterns could overlap; today they are disjoint
+by hostname, so the registry order is not load-bearing.
+
+All three emit the same envelope shape (top-level `tournaments[]`,
+`Tournament > Event > Session > Board > Result`); only `source` and `coverage`
+differ. Each adapter exports its own `COVERAGE` describing what it can and
+cannot see — BBO cannot name sections, ACBL Live derives them from the pair
+directory. See [normalized-schema.md](normalized-schema.md).
+
+Each adapter also classifies pages it will not extract. `bbo` matches
+`hands.php?traveller=` and returns `traveller`, but the UI deliberately injects
+no button there — see [data-sources.md](data-sources.md) § 3.6a.
 
 ## Component contracts
 
@@ -78,44 +94,80 @@ Bounded concurrency. Polite delays between batches. Honors AbortSignal.
 
 ## Service worker message protocol
 
-Content script sends to background:
+Content scripts talk to the background over `browser.runtime.sendMessage`.
+Every message is an object with a `type`. The main ones:
 
-```js
-{
-  type: 'extract-session',
-  url: 'https://live.acbl.org/event/2604321/2501/2/scores/A/E/4',
-  options: { /* future: deep / shallow modes */ }
-}
-```
+| From the page side | Purpose |
+|---|---|
+| `extract-session` | Extract the one session at `url` |
+| `extract-batch` | Extract many events — the ACBL club list and BBO lobby paths |
+| `extract-shortlink` | Resolve a BBO shortlink, then extract |
+| `cancel-batch` | Stop an in-flight batch, keyed by its batch key |
+| `get-bbo-username` | Ask the worker who is signed in to BBO |
+| `open-bbo-batch-tab`, `close-current-tab` | Tab plumbing for the lobby flow |
 
-Background responds:
+The worker replies with `extraction-complete` (carrying the envelope),
+`extraction-error`, or `batch-started` for the batch paths. Batch progress is
+**not** pushed as messages — it is written to `browser.storage.local` under a
+progress key and polled by the button, because the worker may be suspended and
+respun between updates and a message would be delivered to nobody. This is the
+same reason nothing is kept in module-level variables (design principle 7).
 
-```js
-{ type: 'extraction-progress', completed: 3, total: 27 }
-{ type: 'extraction-progress', completed: 27, total: 27 }
-{ type: 'extraction-complete', data: NormalizedSession }
-// or
-{ type: 'extraction-error', error: { code, message } }
-```
+`extraction-error` carries a `code`: `bad-request` for a malformed message,
+`parse-error` when a parser rejects the page's structure, `unknown-message-type`
+for an unrecognised `type`, and `unexpected` for anything else. The message
+text is user-facing — it is what the injected button displays — so it should
+say what to do, not just what failed. See the Cloudflare-challenge case in
+`src/lib/rateLimiter.js` for the shape to aim for.
+
+The ingest bridge (`begin` / `chunk` / `finish` / `ack` / `ready`) is a separate
+`postMessage` channel between page and content script, not this one — see
+[ingest-protocol.md](ingest-protocol.md).
+
+There is also `dev-bulk-extract`, a developer-only path triggered by the
+`#bcdev-mega` hash on the BBO lobby. It bypasses the analyzer and saves raw
+JSON for offline work; it is deliberately not surfaced in the production UI.
 
 ## Handoff to the analyzer
 
-The session payload is handed to the analyzer SPA (`club-game-analysis.bridge-classroom.com`) via the user's own `window.sessionStorage`, bridged by a second content script. No server round-trip; data is ephemeral and per-tab.
+Results go to a versioned ingest page, which forwards them to whichever Bridge
+Classroom tool the user picks:
 
-Sketch of the flow:
+```
+https://bridge-classroom.{org,com}/ingest?v=1#sid=<uuid>     one session
+https://bridge-classroom.{org,com}/ingest?v=1#batch=<uuid>   many events
+```
 
-1. Service worker finishes extraction → generates a UUID → writes `{ <uuid>: NormalizedSession }` to `chrome.storage.local` under a `pending-sessions:` namespace.
-2. Service worker opens `https://club-game-analysis.bridge-classroom.com/analyze#sid=<uuid>` via `chrome.tabs.create`.
-3. The analyzer content script (`src/ui/analyzerContent.js`, `run_at: "document_start"`) reads the fragment, requests the session from the service worker via `chrome.runtime.sendMessage`, writes the JSON envelope to `window.sessionStorage` under the key `pending-session`, and the service worker deletes the `chrome.storage.local` entry.
-4. The SPA reads `sessionStorage.getItem('pending-session')` on mount, removes the key, and renders.
+`?v=1` versions the **transport**, not the payload: every envelope carries its
+own `schema_version`, and the page dispatches on that for shape. Bump `v` only
+when the message sequence changes.
 
-Why this shape:
+The service worker stores the envelope in `browser.storage.local` under a
+pending key, opens the ingest URL with the reference in the fragment, and
+`src/ui/ingestContent.js` bridges page and worker over `window.postMessage`.
+Every message carries `channel: 'bc-ingest'`, `v: 1`, a `type`, and the `ref`.
 
-- **No server endpoint required** — the analyzer is a static SPA today, and we don't want to provision storage/auth for ephemeral data.
-- **Same-origin** — `sessionStorage` is partitioned per origin and per tab, so the payload never crosses tabs and dies when the tab closes.
-- **Per-tab navigation works** — opening the same URL in a new tab triggers a fresh handoff via the new fragment.
+**The page speaks first.** It emits `ready`, and only then does the content
+script request the payload and stream it back as `begin` → `chunk`* → `finish`,
+with the page replying `ack`. `postMessage` has no delivery guarantee to a
+listener that is not yet attached, so the content script waits rather than
+firing blind. Two rules keep the handshake alive across startup ordering, both
+added after an end-to-end test found it stranded: the page repeats `ready`
+every 250 ms until `begin` arrives, and the content script attaches its
+listener synchronously at `document_start`, before any `await`.
 
-Full protocol — message types, JSON envelope shape, SPA contract, error states, and timing notes — in [docs/handoff-protocol.md](handoff-protocol.md).
+The fragment is cleared only after `ready` arrives — clearing earlier races the
+page's own read of the hash, and the page cannot recover a `ref` it never saw.
+
+Full protocol — message shapes, chunking, timeouts, security checks and the
+page contract — in [ingest-protocol.md](ingest-protocol.md). Why this replaced
+the earlier `sessionStorage` handoff is [ADR 0001](adr/0001-ingest-endpoint-and-postmessage-handoff.md).
+
+> **Historical note.** Until mid-2026 the payload was written directly into the
+> page's `sessionStorage` by an `analyzerContent.js` content script, targeting
+> `club-game-analysis.bridge-classroom.com`. That script and that path are
+> gone; the ingest route is the only one. If you find a reference to either,
+> it is stale.
 
 ## Rate limiting policy
 
@@ -162,25 +214,33 @@ The boundary between **extension shell** and **analysis** is enforced by directo
 ```
 src/
 ├── background.js              ┐
-├── background/handlers.js     │
-├── ui/                        │  Extension shell — chrome.* / browser.* APIs,
-│   ├── sourceContent.js       │  page injection, message routing. Runs in
-│   └── analyzerContent.js     │  the browser-extension sandbox.
+├── background/handlers.js     │  Extension shell — browser.* APIs, page
+├── ui/                        │  injection, message routing, ingest bridge.
+│   ├── sourceContent.js       │  Runs in the browser-extension sandbox.
+│   ├── bboLobbyContent.js     │
+│   └── ingestContent.js       ┘
 │
 ├── adapters/                  ┐
-│   ├── acbl-live/             │  ACBL Live tournament source: per-pair
-│   │   ├── index.js           │  scorecards on live.acbl.org, multi-fetch
-│   │   ├── fetcher.js         │  across sessions × sections × boards.
+│   ├── acbl-live/             │  live.acbl.org tournaments: per-pair
+│   │   ├── index.js           │  scorecards, multi-fetch across
+│   │   ├── fetcher.js         │  sessions x sections x boards.
 │   │   └── parsers/           │
-│   │
-│   └── acbl-live-club/        │  ACBL my.acbl.org club-game source:
-│       ├── index.js           │  single fetch, data embedded as a Vue prop
-│       ├── extractor.js       │  on a <result-details> element.
-│       └── parsers/           │
+│   │                          │
+│   ├── acbl-live-club/        │  my.acbl.org club games: single fetch,
+│   │   ├── index.js           │  data embedded as a Vue prop on a
+│   │   ├── extractor.js       │  <result-details> element.
+│   │   └── parsers/           │
+│   │                          │
+│   └── bbo/                   │  bridgebase.com: hand viewer, hands list,
+│       ├── index.js           │  travellers, tournament view. LIN parsing
+│       └── parsers/           ┘  lives here.
 │
-├── lib/                       ┐  Extraction utilities (rateLimiter,
-│   ├── parseError.js          │  parseError, etc.). Shared across adapters.
-│   └── rateLimiter.js         ┘
+├── lib/                       ┐  Extraction utilities — rateLimiter,
+│   ├── doubleDummy.js         │  parseError, provenance, tableCount,
+│   ├── parseError.js          │  doubleDummy. Shared across adapters.
+│   ├── provenance.js          │
+│   ├── rateLimiter.js         │
+│   └── tableCount.js          ┘
 │
 └── analysis/                  ─  Reserved. Analysis logic lives elsewhere
    (does not exist yet)           today; will be added as a plugin loader.

@@ -94,8 +94,11 @@ Injected UI and in-page parsing, not a fetch mechanism as such:
 |---|---|---|
 | `sourceContent.js` | ACBL + BBO result pages | Injects the "Analyze" button |
 | `bboLobbyContent.js` | `bridgebase.com/v3/*` | Injects history UI; drives batch and dev bulk export |
-| `analyzerContent.js` | `bridge-classroom.{org,com}/game-analysis/*` | Hands the envelope to the analyzer SPA |
 | `ingestContent.js` | `bridge-classroom.{org,com}/*` | Hands the envelope to `/ingest` (see [ingest-protocol.md](ingest-protocol.md)) |
+
+Three content scripts, matching `manifest.json`. A fourth,
+`analyzerContent.js`, wrote the envelope into the analyzer page's
+`sessionStorage`; it was removed when `/ingest` became the only destination.
 
 The SPA-heavy pages need a `MutationObserver` to re-inject the button, since
 navigation destroys it without a page load.
