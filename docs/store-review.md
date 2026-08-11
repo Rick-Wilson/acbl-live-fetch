@@ -265,6 +265,37 @@ Store listings need these; the parenthetical is what each has to make obvious.
 5. **History picker** — the BBO lobby date-range UI.
    *(Shows the batch feature.)*
 
+### Two ways to capture, because Cloudflare blocks one of them
+
+`tools/screenshot-session.js` launches Chromium with the viewport emulated at
+exactly 1280×800 and captures the page only, so there is no chrome to crop and
+no guessing at window size. Use it for **BBO pages** — 1 and 5.
+
+**It cannot reach `my.acbl.org`.** That site is behind a Cloudflare check which
+loops forever under automation: the "Verify you are a human" box passes, spins,
+and asks again. Using real Chrome, clearing `navigator.webdriver` and dropping
+`--enable-automation` were not enough; Cloudflare also detects the CDP
+attachment, and Playwright cannot drive a page without CDP. Going further means
+fingerprint evasion, which is not worth it for a screenshot.
+
+So take **2, 3 and 4 in ordinary Chrome**, where the check passes as it does for
+any user:
+
+1. Load `dist/chrome` unpacked at `chrome://extensions`
+2. **⌘⇧M** → **Responsive** → **1280 × 800**; the **⋮** menu → *Add device pixel
+   ratio* → **2**
+3. **⌘⇧P** → *Capture screenshot* → saves the viewport only, at 2560×1600
+
+For a before/after pair, hide the injected elements from the console, shoot,
+then restore and shoot again — the same trick `--pair` uses, and exact for the
+same reason:
+
+```js
+const I = '[id^="bridge-classroom-"]'
+document.querySelectorAll(I).forEach((e) => (e.style.visibility = 'hidden'))  // before
+document.querySelectorAll(I).forEach((e) => (e.style.visibility = ''))        // after
+```
+
 ### One set of five serves all four stores
 
 **Capture at 1280×800.** It is accepted everywhere, so there is no need to shoot

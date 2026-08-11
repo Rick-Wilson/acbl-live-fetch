@@ -56,13 +56,24 @@ let n = fs
 
 export const CDP_PORT = 9222
 
+// Real Chrome rather than Playwright's bundled Chromium, and without the
+// automation giveaways. my.acbl.org sits behind a Cloudflare check, and a
+// default Playwright launch fails it in a loop: the "Verify you are a human"
+// box passes, spins, and asks again. Playwright sets navigator.webdriver and
+// launches with --enable-automation, both of which the check reads.
+//
+// This is not evasion — it is the user's own club results in the user's own
+// browser, a page that needs no login and is public. It just has to look like
+// the ordinary Chrome it is.
 const context = await chromium.launchPersistentContext(PROFILE, {
-  channel: 'chromium',
+  channel: 'chrome',
   headless: false,
+  ignoreDefaultArgs: ['--enable-automation'],
   args: [
     `--disable-extensions-except=${EXTENSION}`,
     `--load-extension=${EXTENSION}`,
     `--remote-debugging-port=${CDP_PORT}`,
+    '--disable-blink-features=AutomationControlled',
   ],
   // Applies to every page in the context, including tabs the page opens itself
   // — which is how the hand-off arrives, so the analyzer tab is sized too.
