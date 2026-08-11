@@ -216,25 +216,45 @@ Source files use `browser.*` via `webextension-polyfill`:
 - Service worker imports it directly at the top.
 - Content scripts dynamic-import it inside the entry-point branch — keeps test imports of those modules clean (no extension-API dependency surfaces during `vitest run`).
 
-Today only Chrome is published.
+All four browsers are QA'd as of August 2026. Chrome is the only one published
+so far; the other three are built, loaded, and exercised.
 
-**Edge is QA'd (August 2026)** — on Windows, under Parallels, which is where
-the great majority of Edge users are. `dist/edge` was loaded unpacked and both
-no-account paths pass: the hand viewer injects and hands off, and the
-`my.acbl.org` club game extracts a full field. That second one matters most —
-it is the only test so far that exercises the `scripting` path, since the hand
-viewer makes no network request at all. `dist/edge` is byte-for-byte identical
-to `dist/chrome` (Edge's entry in `PER_BROWSER_OVERRIDES` is `{}`) and to the
-contents of the packaged `-edge.zip`, so loading the directory tested exactly
-the bytes that go to Partner Center.
+Each was run against both no-account paths in [store-review.md](store-review.md)
+§ 2 — the hand viewer, and the `my.acbl.org` club game. The club game is the one
+that matters: it is the only path that exercises the **`scripting`** machinery,
+because both ACBL sites return 403 to a background-worker fetch, so the request
+is issued from inside one of the user's own tabs instead. That is the most
+platform-sensitive code in the extension, and the hand viewer reaches none of it
+— it makes no network request at all, reading the deal from the URL.
 
-**Safari is partly QA'd (August 2026).** `dist/safari` loads via Safari's *Add Temporary Extension…*, the content script injects, the hand viewer's button appears, and the hand-off to the analyzer works. The toolbar icon renders. Verified against the full-deal URL in [store-review.md](store-review.md) § 2. Note the icons were absent from the Safari bundle until the Xcode project was taught to reference them — see § 3bb there, which also gives the diff command to check the built `.appex` against `dist/safari`.
+| | How it was loaded | Hand viewer | Club game |
+|---|---|---|---|
+| Chrome | unpacked | ✓ | ✓ |
+| Edge | unpacked, on Windows under Parallels | ✓ | ✓ |
+| Firefox | `web-ext run` | ✓ | ✓ |
+| Safari | *Add Temporary Extension…* | ✓ | ✓ |
 
-Still unverified on Safari: whether the **packaged app** registers its extension with Safari. The temporary-extension route loads `dist/safari` directly, which is byte-identical to what the `.appex` bundles, so it proves the extension's behaviour but not the app's registration — and the App Store ships an app. A build run from a temporary directory did not appear under Installed; whether that is the path or an unticked "Allow unsigned extensions" is untested.
+Notes worth carrying forward:
 
-**Firefox is partly QA'd (August 2026).** `dist/firefox` loads via `web-ext run`, the content script injects, the hand viewer's button appears in BBO's control row, and clicking it hands the deal off to the analyzer. `web-ext lint` reports 0 errors (see § 3c there). Verified on the hand viewer URL in [store-review.md](store-review.md) § 2.
+- **Edge** was tested on Windows rather than macOS, which is where the great
+  majority of Edge users are. `dist/edge` is byte-for-byte identical to
+  `dist/chrome` — its entry in `PER_BROWSER_OVERRIDES` is `{}` — and to the
+  contents of the packaged `-edge.zip`, so loading the directory tested exactly
+  the bytes that go to Partner Center.
+- **Firefox** reports 0 errors from `web-ext lint`; the 2 remaining warnings are
+  false positives inside linkedom. See [store-review.md](store-review.md) § 3c,
+  which also records why `strict_min_version` is 140.
+- **Safari** shipped a manifest declaring icon paths that were not inside the
+  `.appex`, because Xcode bundles only what `project.pbxproj` references and
+  `icons/` was never registered. Fixed; see § 3bb there for the diff command
+  that catches it recurring.
 
-**What remains unverified on Firefox and Safari is the same thing: the `scripting` path that both ACBL sites need.** Edge has now cleared it, but Edge is Chromium running identical bytes, so it says nothing about the other two. Their 403s on background-worker fetches are why the request is issued from inside one of the user's own tabs, and that is the most platform-sensitive machinery in the extension — Firefox and Safari each differ from Chrome on what an injected fetch inherits and on how host permissions are prompted. Everything QA'd so far exercises the hand viewer, which makes no network request at all.
+One gap remains, and it is Safari's alone: **whether the packaged app registers
+its extension with Safari.** The temporary-extension route loads `dist/safari`
+directly, which is byte-identical to what the `.appex` bundles, so it proves the
+extension's behaviour but not the app's registration — and the App Store ships
+an app. A build run from a temporary directory did not appear under Installed;
+whether that was the path or an unticked "Allow unsigned extensions" is untested.
 
 ## Future considerations
 
