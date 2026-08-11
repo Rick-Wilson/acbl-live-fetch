@@ -216,7 +216,15 @@ Source files use `browser.*` via `webextension-polyfill`:
 - Service worker imports it directly at the top.
 - Content scripts dynamic-import it inside the entry-point branch — keeps test imports of those modules clean (no extension-API dependency surfaces during `vitest run`).
 
-Today only Chrome is published. The Edge build is produced for local smoke-testing until it's explicitly QA'd; being Chromium with an unchanged manifest, it carries the least risk of the four.
+Today only Chrome is published.
+
+**Edge is QA'd (August 2026)** — on Windows, under Parallels, which is where
+the great majority of Edge users are. `dist/edge` was loaded unpacked and the
+hand viewer's button injected and handed off correctly. `dist/edge` is
+byte-for-byte identical to `dist/chrome` (Edge's entry in
+`PER_BROWSER_OVERRIDES` is `{}`) and to the contents of the packaged
+`-edge.zip`, so loading the directory tests exactly the bytes that go to
+Partner Center.
 
 **Safari is partly QA'd (August 2026).** `dist/safari` loads via Safari's *Add Temporary Extension…*, the content script injects, the hand viewer's button appears, and the hand-off to the analyzer works. The toolbar icon renders. Verified against the full-deal URL in [store-review.md](store-review.md) § 2. Note the icons were absent from the Safari bundle until the Xcode project was taught to reference them — see § 3bb there, which also gives the diff command to check the built `.appex` against `dist/safari`.
 
