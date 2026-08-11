@@ -465,7 +465,10 @@ Chrome requires a written justification per permission. Current manifest:
 | `scripting` | Both ACBL sites reject requests made from the extension's background worker with HTTP 403, so the fetch is issued from inside one of the user's own tabs on that site instead. This is required for the site's own protections to be satisfied — a session on `live.acbl.org`, bot-protection clearance on `my.acbl.org`. |
 | Host: `live.acbl.org`, `my.acbl.org` | Reading the user's own tournament and club results. |
 | Host: `www.bridgebase.com`, `webutil.bridgebase.com` | Reading the user's own BBO results. |
+| Host: `tinyurl.bridgebase.com` | BBO's lobby mints a short link rather than handing over a deal — its Export ▸ Handviewer menu produces one — so the redirect must be followed to reach what it points at. Used only to resolve those links. |
 | Content script on `bridge-classroom.{org,com}` | Delivering the results to the page the user is taken to, which then forwards them to the chosen tool. No host permission is requested for these domains — the content-script match is sufficient. |
+
+**Paste-ready wording for every field is in [submission-answers.md](submission-answers.md)**, kept in step with this table.
 
 ### Before submitting
 
