@@ -166,6 +166,35 @@ Real player names are deliberately not collected from Bridge Base Online: the to
 
 ---
 
+## Additional instructions (Chrome) — 500 char limit
+
+497 characters. The hand viewer URL is ~900 on its own, since the deal is
+encoded in it, so `demo/deal` is a self-hosted redirect to it — not a
+third-party shortener, which hides its destination and reads badly beside a
+justification that names every host we touch.
+
+```
+No account needed for most testing:
+
+BBO deal: https://bridge-craftwork.github.io/bridge-classroom-fetch/demo/deal
+ACBL club game: https://my.acbl.org/club-results/details/1455416
+
+Click our button on each to extract and open the analysis. A Cloudflare check may appear on the ACBL link and clears itself.
+
+BBO history and ACBL Live need logins we cannot share (BBO allows one session per account). Recordings, and a third test link: https://bridge-craftwork.github.io/bridge-classroom-fetch/demo/
+```
+
+The third test link is the BBO tournament summary, on the demo page. It is left
+out of the box deliberately: it is the weakest of the three tests, and the one
+page showing unblurred real names.
+
+BBO can mint its own `tinyurl.bridgebase.com` links from the v3 lobby's
+Export ▸ Handviewer menu — that is the mechanism the extension resolves — but
+those point at deals in BBO's system, so the link would carry real opponent
+handles. The test deal uses seat names on purpose.
+
+---
+
 ## Notes for reviewers
 
 Chrome's console has no general reviewer-notes field — its justifications are

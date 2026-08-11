@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="robots" content="noindex" />
+    <title>Test deal → BBO hand viewer</title>
+    <!--
+      A short, readable stand-in for the hand viewer test URL, which is ~900
+      characters because the whole deal is encoded in it. Chrome's reviewer
+      instructions box caps at 500.
+
+      Self-hosted rather than a third-party shortener: a shortened link hides
+      where it goes, which reads badly next to a permission justification that
+      names every host the extension touches. This page shows its destination
+      before it moves, and lives on the same site as the demo recordings.
+    -->
+    <meta
+      http-equiv="refresh"
+      content="3;url=https://www.bridgebase.com/tools/handviewer.html?bbo=y&amp;lin=pn%7CSouth%2CWest%2CNorth%2CEast%7Cst%7C%7Cmd%7C3S789TQH5KD2C2478T%2CS2456JAH6TD57TKC6%2CS3H78JD4689JQC39J%2C%7Crh%7C%7Cah%7CBoard%201%7Csv%7Co%7Cmb%7Cp%7Cmb%7C2C%7Cmb%7C2S%7Cmb%7Cp%7Cmb%7Cp%7Cmb%7C3H%7Cmb%7Cp%7Cmb%7C3N%7Cmb%7Cp%7Cmb%7Cp%7Cmb%7Cp%7Cpc%7CDQ%7Cpc%7CD3%7Cpc%7CD2%7Cpc%7CDK%7Cpc%7CHT%7Cpc%7CH7%7Cpc%7CH2%7Cpc%7CHK%7Cpc%7CST%7Cpc%7CS2%7Cpc%7CS3%7Cpc%7CSK%7Cpc%7CHA%7Cpc%7CH5%7Cpc%7CH6%7Cpc%7CH8%7Cpc%7CHQ%7Cpc%7CS7%7Cpc%7CS4%7Cpc%7CHJ%7Cpc%7CH9%7Cpc%7CS8%7Cpc%7CS5%7Cpc%7CD4%7Cpc%7CH4%7Cpc%7CS9%7Cpc%7CS6%7Cpc%7CD6%7Cpc%7CH3%7Cpc%7CSQ%7Cpc%7CSJ%7Cpc%7CD8%7Cpc%7CDA%7Cpc%7CC2%7Cpc%7CD5%7Cpc%7CD9%7Cpc%7CCA%7Cpc%7CC4%7Cpc%7CC6%7Cpc%7CC3%7Cpc%7CCK%7Cpc%7CC7%7Cpc%7CD7%7Cpc%7CC9%7Cpc%7CCQ%7Cpc%7CC8%7Cpc%7CDT%7Cpc%7CCJ%7Cpc%7CC5%7Cpc%7CCT%7Cpc%7CSA%7Cpc%7CDJ%7C"
+    />
+    <style>
+      :root { color-scheme: light dark; --bg:#fff; --fg:#1f2328; --muted:#59636e; --accent:#1a73e8; }
+      @media (prefers-color-scheme: dark) {
+        :root { --bg:#0d1117; --fg:#e6edf3; --muted:#9198a1; --accent:#5aa2ff; }
+      }
+      body {
+        margin: 0; padding: 3rem 1.25rem; background: var(--bg); color: var(--fg);
+        font: 16px/1.6 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      }
+      main { max-width: 40rem; margin: 0 auto; }
+      h1 { font-size: 1.25rem; margin: 0 0 0.5rem; }
+      p { color: var(--muted); margin: 0 0 1rem; }
+      a { color: var(--accent); word-break: break-all; }
+      .dest { font-size: 0.85rem; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Opening a test deal on Bridge Base Online…</h1>
+      <p>
+        A complete bridge deal, encoded entirely in the URL — no account, and no
+        network request to fetch it. Once there, the extension's button appears in
+        BBO's own row of controls at the foot of the page.
+      </p>
+      <p>
+        This page only forwards. It exists because the destination is about 900
+        characters long, which will not fit in a store's reviewer-notes field.
+      </p>
+      <p class="dest">
+        Going to
+        <a
+          href="https://www.bridgebase.com/tools/handviewer.html?bbo=y&amp;lin=pn%7CSouth%2CWest%2CNorth%2CEast%7Cst%7C%7Cmd%7C3S789TQH5KD2C2478T%2CS2456JAH6TD57TKC6%2CS3H78JD4689JQC39J%2C%7Crh%7C%7Cah%7CBoard%201%7Csv%7Co%7Cmb%7Cp%7Cmb%7C2C%7Cmb%7C2S%7Cmb%7Cp%7Cmb%7Cp%7Cmb%7C3H%7Cmb%7Cp%7Cmb%7C3N%7Cmb%7Cp%7Cmb%7Cp%7Cmb%7Cp%7Cpc%7CDQ%7Cpc%7CD3%7Cpc%7CD2%7Cpc%7CDK%7Cpc%7CHT%7Cpc%7CH7%7Cpc%7CH2%7Cpc%7CHK%7Cpc%7CST%7Cpc%7CS2%7Cpc%7CS3%7Cpc%7CSK%7Cpc%7CHA%7Cpc%7CH5%7Cpc%7CH6%7Cpc%7CH8%7Cpc%7CHQ%7Cpc%7CS7%7Cpc%7CS4%7Cpc%7CHJ%7Cpc%7CH9%7Cpc%7CS8%7Cpc%7CS5%7Cpc%7CD4%7Cpc%7CH4%7Cpc%7CS9%7Cpc%7CS6%7Cpc%7CD6%7Cpc%7CH3%7Cpc%7CSQ%7Cpc%7CSJ%7Cpc%7CD8%7Cpc%7CDA%7Cpc%7CC2%7Cpc%7CD5%7Cpc%7CD9%7Cpc%7CCA%7Cpc%7CC4%7Cpc%7CC6%7Cpc%7CC3%7Cpc%7CCK%7Cpc%7CC7%7Cpc%7CD7%7Cpc%7CC9%7Cpc%7CCQ%7Cpc%7CC8%7Cpc%7CDT%7Cpc%7CCJ%7Cpc%7CC5%7Cpc%7CCT%7Cpc%7CSA%7Cpc%7CDJ%7C"
+          >www.bridgebase.com/tools/handviewer.html</a
+        >
+      </p>
+    </main>
+  </body>
+</html>
