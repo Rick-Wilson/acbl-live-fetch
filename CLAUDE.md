@@ -87,15 +87,30 @@ all four stores).
 All four browsers are QA'd against both no-account paths — see
 `docs/architecture.md` § Cross-browser builds.
 
-Outstanding:
+### Submission log
 
-1. **A screen recording of the two authenticated paths.** We supply no test
-   credentials: BBO allows one session per account, so a shared login would
-   sign reviewers out of each other, and a fresh account has no played history
-   to read. The ACBL login is a personal membership. `docs/store-review.md` § 3
-   has the reviewer-note wording and what the recording must show.
-2. **Bump `CURRENT_PROJECT_VERSION`** per Safari upload — one `agvtool`
+| Store | Submitted | Status |
+|---|---|---|
+| Chrome Web Store | 11 Aug 2026 | awaiting review |
+| Edge Add-ons | — | |
+| addons.mozilla.org | — | |
+| Mac App Store | — | |
+
+Chrome warned that host permissions trigger an in-depth review, which is
+expected and unavoidable — see `docs/submission-answers.md`. Expect days to
+weeks, which is the argument for submitting the other three in parallel rather
+than waiting.
+
+Every field for all four stores is written out paste-ready in
+`docs/submission-answers.md`; the reasoning behind each lives in
+`docs/store-review.md`.
+
+Still to do at submission time:
+
+1. **Bump `CURRENT_PROJECT_VERSION`** per Safari upload — one `agvtool`
    command, in `docs/store-review.md`. The first upload can go as build 1.
+2. **Firefox needs the source archive too**, built by `git archive` from HEAD,
+   so commit before packaging.
 
 Open questions live at the end of ADR 0001.
 
