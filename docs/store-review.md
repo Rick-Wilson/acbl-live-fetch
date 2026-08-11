@@ -202,7 +202,17 @@ ingester, on any push touching those paths.
   stray frame is a lot of real names, and unlike a screenshot you cannot see it
   in a glance.
 
-- 1280×800 keeps it consistent with the screenshots and keeps the files small.
+- **Record the page area, not the browser window** — ⌘⇧5 → *Record Selected
+  Portion*. Same reason the screenshots are cropped: Apple's guidelines
+  prohibit showing a competitor browser, and cropping to the tab makes one
+  recording usable for all four stores. Nothing validates a linked video's
+  dimensions, so it need not be pixel-exact, but staying near the 1280×800
+  device-mode viewport keeps it consistent with the stills.
+
+  These are **reviewer aids, not App Previews.** App Previews appear on a Mac
+  App Store product page and have strict rules — fixed resolutions, 15–30
+  seconds, uploaded through App Store Connect rather than linked. They are
+  optional and this submission needs none.
 
 **Encoding.** At 30 seconds these land at a few MB each, comfortably inside
 GitHub's limits — but re-encode rather than committing QuickTime's `.mov`:
