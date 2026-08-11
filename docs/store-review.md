@@ -470,6 +470,45 @@ Chrome requires a written justification per permission. Current manifest:
 
 **Paste-ready wording for every field is in [submission-answers.md](submission-answers.md)**, kept in step with this table.
 
+### Tightening candidates for 1.0.1
+
+Audited after submitting 1.0.0. **None of these were changed at the time**:
+Chrome had 1.0.0 in review, and editing the manifest would have meant either
+resubmitting Chrome — restarting the review clock — or shipping the other three
+stores a different 1.0.0 than Chrome was reviewing. Parity was worth more than
+a tightening that changes no user-visible behaviour.
+
+**`tabs` can be dropped.** Verified empirically, not inferred: built without it,
+loaded the extension, opened a `www.bridgebase.com` tab, and called
+`chrome.tabs.query({url: 'https://www.bridgebase.com/*'})` from the service
+worker. It matched the tab and `tab.url` was populated, because the `url` filter
+is honoured given *either* the `tabs` permission or host permissions for the
+tab — and we hold the latter for every origin the query is ever built from
+(`fetchViaTab` derives the pattern from the URL it is fetching).
+
+Everything else `tabs` is used for needs no permission at all: `create`,
+`remove`, `sendMessage`, and `onUpdated` reading `changeInfo.status` — only
+`url`, `title` and `favIconUrl` on that event are gated.
+
+**Host permissions are broader than the code uses**, on BBO in particular. The
+content-script matches are already path-scoped; the host permissions were never
+narrowed to agree with them.
+
+| Declared | Actually fetched |
+|---|---|
+| `https://www.bridgebase.com/*` | `/myhands/hands.php`, `/myhands/fetchlin.php`, `/tools/handviewer.html`, and `/v3/*` for the lobby content script |
+| `https://webutil.bridgebase.com/*` | `/v2/tview.php` only |
+| `https://tinyurl.bridgebase.com/*` | redirect resolution only — already effectively narrow |
+| `https://live.acbl.org/*` | `/event/*` |
+| `https://my.acbl.org/*` | `/club-results/*` |
+
+The two ACBL hosts are SPAs building URLs dynamically, so narrowing those wants
+testing rather than a confident edit. The BBO ones are safe to scope by path.
+
+Doing both would reduce what the listing warns users about and reads well in a
+re-review. Neither changes behaviour, so both belong in a version bump rather
+than a hurried resubmission.
+
 ### Before submitting
 
 - ~~Remove `http://localhost:3001/game-analysis/*` from `host_permissions`.~~
