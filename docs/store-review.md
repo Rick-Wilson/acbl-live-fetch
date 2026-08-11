@@ -138,9 +138,12 @@ apologise for.
 > We cannot supply credentials for these: BBO permits only one active session
 > per account, so a shared login would sign reviewers out of each other's
 > sessions, and a new account has no played history to read. The ACBL account
-> is a personal membership record. **A screen recording of both authenticated
-> paths is linked below**, showing the same behaviour the public paths
-> demonstrate, against data that requires a login.
+> is a personal membership record. **Short recordings of both authenticated
+> paths are at
+> https://bridge-craftwork.github.io/bridge-classroom-fetch/demo/**, showing the
+> same behaviour the public paths demonstrate, against data that requires a
+> login. Opponents' names are obscured there, for the same reason the extension
+> does not collect them.
 >
 > A Cloudflare check may appear on the ACBL links. It clears by itself, is not
 > part of the extension, and if a fetch is refused the extension now says so
@@ -149,26 +152,84 @@ apologise for.
 Lead with § 2's public procedure. It is the strongest thing we have: a reviewer
 can reproduce it completely, and it shows every part of the extension working.
 
-### The video, if a store wants one
+### The recordings
 
-Both Apple and Google accept a demo recording for features that cannot be
-exercised without credentials. One recording covers both paths — keep it short
-and let it show, in order:
+Three clips of about **30 seconds each**, one per authenticated path, rather
+than a single long video: a reviewer can open the one they care about, and each
+stands alone if a store's notes field only takes one URL.
 
-1. **BBO hands list** — the button in the table header, clicked; the fetch
-   running; the analyzer opening with the session.
-2. **BBO history batch** — the lobby's date-range menu, a range chosen, the
-   progress counter, the batch result.
-3. **ACBL Live tournament** — a scorecard on `live.acbl.org`, the button beside
-   the `h1`, and the multi-section extraction that follows.
+They live on the extension's **own** Pages site, not `bridge-classroom.org`.
+The privacy policy is shared because the extension is a component of Bridge
+Classroom; these are the extension's own assets.
 
-Record it in a clean profile with other bridge extensions disabled, for the
-reason in § 2. Blur or relabel opponents' names as the screenshots do — a video
-is no less public than a screenshot, and BBO travellers show a full field.
+```
+https://bridge-craftwork.github.io/bridge-classroom-fetch/demo/
+```
 
-Host it somewhere stable and unlisted, and put the URL in each store's notes.
-It is unlisted rather than private: a reviewer must be able to open it without
-requesting access, or it fails the purpose.
+`demo/index.html` is built and committed — it carries the explanation of why no
+credentials are supplied, so the page stands on its own if a reviewer opens it
+cold. It expects three files beside it:
+
+| File | Shows |
+|---|---|
+| `demo/bbo-hands-list.mp4` | The button in BBO's hands-list header; one session extracted across the field |
+| `demo/bbo-history-batch.mp4` | The lobby date-range menu, the progress count, the batch result |
+| `demo/acbl-live-tournament.mp4` | `live.acbl.org`, the button beside the `h1`, multi-section extraction |
+
+`.github/workflows/pages.yml` publishes `demo/` to `/demo/` alongside the test
+ingester, on any push touching those paths.
+
+**Recording notes.**
+
+- Clean profile, other bridge extensions disabled — BBO Helper injects into the
+  same rows (§ 2).
+- **Names have to be obscured in the edit, not only before the take.** The
+  console swaps live in the DOM, so anything that re-renders mid-run brings the
+  real names straight back on camera — the analyzer opening in a new tab is the
+  obvious one, and a traveller loading mid-fetch is another. Pre-applying the
+  swaps still helps, but it cannot be the whole answer.
+
+  Two ways to finish the job, cheapest first:
+
+  1. **Cut around it.** If names are on screen only during a transition, trim
+     those seconds out. At 30 seconds a clip, losing two is nothing, and an
+     edit is far quicker than tracked blur.
+  2. **Blur a fixed rectangle for a fixed window.** Screen recordings hold
+     still, so the region rarely moves:
+
+     ```bash
+     ffmpeg -i raw.mov -filter_complex \
+       "[0:v]crop=520:300:180:420,boxblur=24[b];\
+        [0:v][b]overlay=180:420:enable='between(t,6.5,11)'" \
+        -c:a copy blurred.mp4
+     ```
+
+     `crop=W:H:X:Y` picks the region, `overlay=X:Y` puts it back, and
+     `enable='between(t,…)'` limits it to the seconds that need it. Repeat the
+     pair for each region.
+
+  If regions do move, DaVinci Resolve's free edition does tracked blur and is
+  the right tool rather than fighting ffmpeg.
+
+  A video is no less public than a screenshot, and a BBO traveller shows a full
+  field — so check the finished file frame by frame around every transition
+  before publishing.
+- 1280×800 keeps it consistent with the screenshots and keeps the files small.
+
+**Encoding.** At 30 seconds these land at a few MB each, comfortably inside
+GitHub's limits — but re-encode rather than committing QuickTime's `.mov`:
+
+```bash
+ffmpeg -i raw.mov -vf scale=1280:-2 -c:v libx264 -crf 28 -preset slow \
+       -pix_fmt yuv420p -movflags +faststart -an demo/bbo-hands-list.mp4
+```
+
+`+faststart` puts the index at the front so playback begins before the file has
+finished downloading. `-an` drops audio, which these do not need.
+
+**Two limits worth knowing.** GitHub rejects any file over **100 MB**, and
+**Git LFS must not be used** — Pages serves the LFS pointer rather than the
+video, which looks like it works until a reviewer receives 130 bytes of text.
 
 **Not yet recorded.** This is the one submission asset still outstanding.
 
