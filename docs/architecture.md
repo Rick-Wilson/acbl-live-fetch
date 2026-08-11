@@ -216,9 +216,15 @@ Source files use `browser.*` via `webextension-polyfill`:
 - Service worker imports it directly at the top.
 - Content scripts dynamic-import it inside the entry-point branch — keeps test imports of those modules clean (no extension-API dependency surfaces during `vitest run`).
 
-Today only Chrome is published. Edge and Safari builds are produced for local smoke-testing until they're explicitly QA'd.
+Today only Chrome is published. The Edge build is produced for local smoke-testing until it's explicitly QA'd; being Chromium with an unchanged manifest, it carries the least risk of the four.
 
-**Firefox is partly QA'd (August 2026).** `dist/firefox` loads in Firefox via `web-ext run`, the content script injects, and the hand viewer's button appears in BBO's control row — verified on the no-account hand viewer URL in [store-review.md](store-review.md) § 2. `web-ext lint` reports 0 errors (see § 3c there). Still unverified: the hand-off click, and the `scripting` path both ACBL sites need — that is the platform-sensitive one, since Firefox differs from Chrome on what an injected fetch inherits.
+**Safari is partly QA'd (August 2026).** `dist/safari` loads via Safari's *Add Temporary Extension…*, the content script injects, the hand viewer's button appears, and the hand-off to the analyzer works. The toolbar icon renders. Verified against the full-deal URL in [store-review.md](store-review.md) § 2. Note the icons were absent from the Safari bundle until the Xcode project was taught to reference them — see § 3bb there, which also gives the diff command to check the built `.appex` against `dist/safari`.
+
+Still unverified on Safari: whether the **packaged app** registers its extension with Safari. The temporary-extension route loads `dist/safari` directly, which is byte-identical to what the `.appex` bundles, so it proves the extension's behaviour but not the app's registration — and the App Store ships an app. A build run from a temporary directory did not appear under Installed; whether that is the path or an unticked "Allow unsigned extensions" is untested.
+
+**Firefox is partly QA'd (August 2026).** `dist/firefox` loads via `web-ext run`, the content script injects, the hand viewer's button appears in BBO's control row, and clicking it hands the deal off to the analyzer. `web-ext lint` reports 0 errors (see § 3c there). Verified on the hand viewer URL in [store-review.md](store-review.md) § 2.
+
+**What remains unverified on both Firefox and Safari is the same thing: the `scripting` path that both ACBL sites need.** Their 403s on background-worker fetches are why the request is issued from inside one of the user's own tabs, and that is the most platform-sensitive machinery in the extension — Firefox and Safari each differ from Chrome on what an injected fetch inherits and on how host permissions are prompted. Everything QA'd so far exercises the hand viewer, which makes no network request at all.
 
 ## Future considerations
 
