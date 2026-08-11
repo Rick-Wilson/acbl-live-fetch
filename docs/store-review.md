@@ -184,6 +184,37 @@ Firefox reviewers need to reproduce the build. The source archive is produced by
 `git archive` from `HEAD`, so commit before packaging; note `npm ci` then
 `BROWSER=firefox npm run build` in the reviewer notes.
 
+### 3bb. Safari: the Xcode project does not track new files
+
+`package-stores.sh` copies `dist/safari/` into
+`safari/…/Shared (Extension)/Resources/`, but **Xcode only bundles what
+`project.pbxproj` references.** The project lists the extension's resources
+individually — `manifest.json`, `service-worker-loader.js`, and `assets` as a
+folder reference. Anything else on disk is invisible to the build.
+
+This bit us once. `icons/` was added to the extension after the Xcode project
+was generated, so the copy landed on disk, the project never referenced it, and
+the built `.appex` shipped a manifest declaring four icon paths that did not
+exist inside the bundle. Chrome, Edge and Firefox were all fine — they zip a
+directory, so nothing can go missing. Safari is the only target where the
+packaging step and the bundling step disagree.
+
+`icons` is now registered as a folder reference beside `assets`, in both the iOS
+and macOS extension targets. **If a future build ever emits a new top-level file
+or folder into `dist/`, add it to the Xcode project too.** To check rather than
+assume, build and diff:
+
+```bash
+xcodebuild -scheme "Bridge Classroom Fetch (macOS)" -configuration Debug \
+  -derivedDataPath /tmp/dd build
+diff -rq dist/safari \
+  "/tmp/dd/Build/Products/Debug/Bridge Classroom Fetch.app/Contents/PlugIns/Bridge Classroom Fetch Extension.appex/Contents/Resources"
+```
+
+It should report no differences. A folder reference (blue in Xcode, `lastKnownFileType = folder`)
+tracks its contents automatically, so files *inside* `icons/` and `assets/` need
+no further action — only new top-level entries do.
+
 ### 3c. addons-linter, and what it says
 
 AMO runs Mozilla's `addons-linter` on upload. Run it first:
