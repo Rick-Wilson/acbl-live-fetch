@@ -204,9 +204,22 @@ addons-linter reports two UNSAFE_VAR_ASSIGNMENT warnings for innerHTML in the bu
 | Store logo 300×300 (Edge) | `icons/icon-300.png` |
 | Small promo tile 440×280 | `icons/promo-440x280.png` |
 | Marquee promo tile 1400×560 | `icons/promo-1400x560.png` |
-| Screenshots, Chrome/Edge/AMO | `screenshots/store-1280/` — **1280×800** |
-| Screenshots, Mac App Store | `screenshots/` — 2560×1600 |
+| Screenshots | `screenshots/` — 2560×1600 masters |
 
-**The five to submit**, in order: `01-handviewer-after`, `02-club-event-list-menu`,
-`03-fetching-progress`, `04-analysis-batch`, `05-bbo-hands-list`. Chrome caps at
-five; Edge takes six and Apple ten, so `02alt` or `04alt` can be added there.
+Downscale for Chrome, Edge and AMO, which take **1280×800**; Apple takes the
+masters as they are:
+
+```bash
+mkdir -p screenshots/store-1280
+for f in screenshots/*.png; do sips -z 800 1280 "$f" --out "screenshots/store-1280/$(basename $f)"; done
+```
+
+The full set is one before/after pair per injection point — a record of 1.0.0,
+larger than any single listing. See [screenshot-set.md](screenshot-set.md) for
+what each is and what is still to be captured.
+
+**Suggested five for Chrome**, which caps at five: `bbo-handviewer-before`,
+`acbl-club-list-menu`, `acbl-club-list-fetching`, `acbl-club-list-after`,
+`bbo-hands-list-before`. That is the whole arc — button, choose a range, fetch,
+result — plus a second source. Edge takes six and Apple ten, so
+`acbl-club-game-before`/`-after` can be added there.
