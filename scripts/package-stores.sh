@@ -28,10 +28,26 @@ guard_test_origins() {
   fi
 }
 
+# Guard: the Chrome Web Store rejects the upload outright if manifest
+# description exceeds 132 characters. It cost a round-trip at 133, and the
+# message only arrives after the file has uploaded — so check before packaging.
+guard_description_length() {
+  local manifest="$1"
+  python3 - "$manifest" <<'EOF'
+import json, sys
+d = json.load(open(sys.argv[1])).get('description', '')
+if len(d) > 132:
+    print(f"REFUSING: manifest description is {len(d)} chars, limit 132", file=sys.stderr)
+    print(f"  {d}", file=sys.stderr)
+    sys.exit(1)
+EOF
+}
+
 for target in chrome edge firefox; do
   echo "==> building $target"
   BROWSER="$target" npx vite build --outDir "dist/$target" >/dev/null
   guard_test_origins "dist/$target/manifest.json"
+  guard_description_length "dist/$target/manifest.json"
   (cd "dist/$target" && zip -qr "../../$OUT/$NAME-$VERSION-$target.zip" .)
 done
 
