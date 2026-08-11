@@ -46,6 +46,14 @@ https://github.com/bridge-craftwork/bridge-classroom-fetch
 
 **Language** — English (United States)
 
+**Official URL** — leave blank unless the domain is verified in the dashboard.
+
+**Promo tiles** — both optional. The small one is worth supplying: without it
+the listing looks thinner than its neighbours in a category grid. The marquee
+is only used if Google features the extension editorially. Regenerate either
+with `node scripts/render-promo.mjs`; the mark is lifted from `icons/icon.svg`
+so they cannot drift from the icon.
+
 **Homepage / support**
 
 ```
@@ -194,6 +202,8 @@ addons-linter reports two UNSAFE_VAR_ASSIGNMENT warnings for innerHTML in the bu
 | Package (Firefox) | `…-firefox.zip` **and** `…-source.zip` |
 | Store icon 128×128 | `icons/icon-128.png` |
 | Store logo 300×300 (Edge) | `icons/icon-300.png` |
+| Small promo tile 440×280 | `icons/promo-440x280.png` |
+| Marquee promo tile 1400×560 | `icons/promo-1400x560.png` |
 | Screenshots, Chrome/Edge/AMO | `screenshots/store-1280/` — **1280×800** |
 | Screenshots, Mac App Store | `screenshots/` — 2560×1600 |
 
