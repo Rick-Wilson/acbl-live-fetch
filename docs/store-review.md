@@ -162,6 +162,18 @@ They live on the extension's **own** Pages site, not `bridge-classroom.org`.
 The privacy policy is shared because the extension is a component of Bridge
 Classroom; these are the extension's own assets.
 
+**They are a reviewer aid, not a listing asset.** No store listing links them
+and no marketing points at them; they exist so a reviewer can see the two paths
+we cannot hand them credentials for. The page is `noindex` and is not linked
+from anywhere.
+
+That said, **treat them as fully public.** This repository is public, so the
+files are browsable on GitHub and present in the commit history whether or not
+anyone has the URL — `noindex` keeps them out of search results, it does not
+make them unlisted. Every clip was anonymised on that assumption, which is why
+publishing them here is fine. If they ever need to be genuinely link-only, that
+means a private repo with its own Pages deploy, or an unlisted video host.
+
 ```
 https://bridge-craftwork.github.io/bridge-classroom-fetch/demo/
 ```
