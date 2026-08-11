@@ -17,6 +17,8 @@
     "format": "prettier --write .",
     "build:test": "INGEST_TEST=1 vite build --outDir dist/test",
     "test:e2e": "npm run build:test && playwright test",
+    "shots": "node tools/screenshot-session.js",
+    "shot": "node tools/screenshot-capture.js",
     "serve:ingest": "python3 -m http.server 4173 --directory test-ingest"
   },
   "devDependencies": {
