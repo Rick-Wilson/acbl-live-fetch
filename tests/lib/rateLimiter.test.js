@@ -172,3 +172,49 @@ describe('fetchAll', () => {
     ).rejects.toThrow(/abort/i)
   })
 })
+
+describe('Cloudflare bot checks', () => {
+  const CHALLENGE =
+    '<!DOCTYPE html><html><head><title>Just a moment...</title></head>' +
+    '<body><div id="challenge-platform"></div></body></html>'
+
+  function forbidden(body) {
+    return new Response(body, { status: 403, headers: { 'content-type': 'text/html' } })
+  }
+
+  it('names a 403 challenge as one, and says what to do about it', async () => {
+    const fetchFn = vi.fn(async () => forbidden(CHALLENGE))
+    const result = await fetchAll(['https://my.acbl.org/club-results/1'], { fetch: fetchFn })
+    const err = result.get('https://my.acbl.org/club-results/1')
+
+    expect(err).toBeInstanceOf(FetchError)
+    expect(err.challenge).toBe(true)
+    expect(err.status).toBe(403)
+    // The message reaches the button, so it has to be actionable rather than
+    // an HTTP code — a bare "HTTP 403" reads as "the site changed".
+    expect(err.message).toMatch(/my\.acbl\.org/)
+    expect(err.message).toMatch(/reload/i)
+  })
+
+  it('leaves a genuine 403 reported as a 403', async () => {
+    const fetchFn = vi.fn(async () => forbidden('<html><body>Not authorised</body></html>'))
+    const result = await fetchAll(['https://my.acbl.org/club-results/2'], { fetch: fetchFn })
+    const err = result.get('https://my.acbl.org/club-results/2')
+
+    expect(err.challenge).toBe(false)
+    expect(err.message).toBe('HTTP 403 for https://my.acbl.org/club-results/2')
+  })
+
+  it('does not retry a challenge — only a reload clears it', async () => {
+    const fetchFn = vi.fn(async () => forbidden(CHALLENGE))
+    await fetchAll(['https://my.acbl.org/club-results/3'], { fetch: fetchFn, maxRetries: 3 })
+    expect(fetchFn).toHaveBeenCalledTimes(1)
+  })
+
+  it('reads the body without consuming it for other callers', async () => {
+    const res = new Response(CHALLENGE, { status: 403 })
+    const fetchFn = vi.fn(async () => res)
+    await fetchAll(['https://my.acbl.org/club-results/4'], { fetch: fetchFn })
+    expect(res.bodyUsed).toBe(false)
+  })
+})

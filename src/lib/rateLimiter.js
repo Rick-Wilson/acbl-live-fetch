@@ -8,12 +8,30 @@
 // Other 4xx responses are surfaced immediately without retry.
 
 export class FetchError extends Error {
-  constructor(message, { url, status, cause } = {}) {
+  constructor(message, { url, status, cause, challenge = false } = {}) {
     super(message)
     this.name = 'FetchError'
     this.url = url
     this.status = status ?? null
+    // True when the 403 was a bot check rather than a refusal. Transient: the
+    // same request succeeds after the user reloads and clears the challenge.
+    this.challenge = challenge
     if (cause !== undefined) this.cause = cause
+  }
+}
+
+// A Cloudflare interstitial is an ordinary 403 with an HTML body. Telling the
+// two apart matters because they need opposite reactions from the user: a real
+// 403 means stop, a challenge means reload and carry on. Getting this wrong
+// sent us hunting for an ACBL API change that had not happened.
+async function looksLikeBotCheck(res) {
+  try {
+    const body = await res.clone().text()
+    return /just a moment|cf-browser-verification|challenge-platform|cdn-cgi\/challenge/i.test(
+      body.slice(0, 4000)
+    )
+  } catch {
+    return false
   }
 }
 
@@ -92,10 +110,14 @@ async function fetchOne(url, fetchFn, { signal, maxRetries }) {
     const status = res?.status ?? null
     const retriable = !!networkErr || status === 429 || (status >= 500 && status < 600)
     if (!retriable || attempt >= maxRetries) {
+      const challenge = status === 403 && (await looksLikeBotCheck(res))
       const msg = networkErr
         ? `Fetch failed for ${url}: ${networkErr.message}`
-        : `HTTP ${status} for ${url}`
-      throw new FetchError(msg, { url, status, cause: networkErr ?? undefined })
+        : challenge
+          ? `${new URL(url).hostname} asked us to prove we're human. ` +
+            `Reload the page and try again.`
+          : `HTTP ${status} for ${url}`
+      throw new FetchError(msg, { url, status, challenge, cause: networkErr ?? undefined })
     }
 
     const retryAfterMs = parseRetryAfter(res?.headers?.get?.('Retry-After'))
