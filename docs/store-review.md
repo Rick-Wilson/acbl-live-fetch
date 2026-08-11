@@ -265,9 +265,42 @@ Store listings need these; the parenthetical is what each has to make obvious.
 5. **History picker** — the BBO lobby date-range UI.
    *(Shows the batch feature.)*
 
-Capture at 1280×800, the Chrome Web Store's preferred size. Avoid showing real
-opponents' names where practical: the hand viewer screenshot uses BBO usernames
-only, which is why it makes a good lead image.
+### One set of five serves all four stores
+
+**Capture at 1280×800.** It is accepted everywhere, so there is no need to shoot
+per store:
+
+| Store | Accepted size | Format | Count |
+|---|---|---|---|
+| Chrome Web Store | 1280×800 (or 640×400) | PNG / JPEG | 1–5 |
+| Edge Add-ons | 1280×800 | PNG | 1–6 |
+| Firefox AMO | 1280×800 | PNG | 1+ |
+| Apple App Store | 1280×800, 1440×900, 2560×1600, 2880×1800 | PNG / JPEG | 1–10 |
+
+**Crop the browser chrome out of every shot.** Apple's review guidelines
+prohibit showing competitor browsers in App Store screenshots, so a Safari
+extension listing displaying Chrome's tab bar and omnibox invites a rejection
+from the slowest store to argue with. Cropping sidesteps it: all five images
+above are in-page UI, and not one needs a tab bar, an omnibox or a toolbar icon
+to make its point. Cropped, they are browser-neutral and the same files go to
+all four.
+
+That also means the shots can be taken in whichever browser is convenient —
+Chrome is fine — as long as nothing browser-specific survives the crop.
+
+**On a Retina display, shoot 1280×800 logical and macOS records 2560×1600
+actual pixels.** That is a valid Apple size as it stands and downscales cleanly
+to 1280×800 for the other three, so capture once and export twice rather than
+shooting at a size that leaves nothing sharp for the Mac App Store.
+
+The only reason to shoot per store would be an image deliberately showing
+browser UI — the toolbar icon sitting in its own toolbar, say. None of the five
+do, so this is optional, and it would mean a separate capture in each browser.
+
+**Avoid showing real opponents' names where practical.** The hand viewer
+screenshot uses BBO usernames only, which is why it makes a good lead image —
+and the test URL in § 2 now carries seat names rather than real handles, so it
+is safe to shoot as-is.
 
 ---
 
