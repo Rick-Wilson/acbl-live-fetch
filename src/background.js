@@ -109,6 +109,14 @@ async function openTempTab(url) {
   return { tabId, windowId: win.id }
 }
 
+// Counts why each fetch took the path it did. A batch that falls back to a
+// temp window per board is minutes slower than one that reuses the user's tab,
+// and looks like a flashing window behind the browser — but the reason was
+// being swallowed by an empty catch, so it could not be diagnosed from the
+// symptom. Read it from the service-worker console with `bcFetchStats()`.
+const fetchPathStats = { reusedTab: 0, noTabFound: 0, tabFailed: 0, lastError: null }
+globalThis.bcFetchStats = () => ({ ...fetchPathStats })
+
 async function fetchViaTab(url) {
   const matchPattern = new URL(url).origin + '/*'
   const tabs = await browser.tabs.query({ url: matchPattern })
@@ -116,11 +124,17 @@ async function fetchViaTab(url) {
   if (tabs.length > 0) {
     const tab = pickInjectableTab(tabs)
     try {
-      return await runFetchInTab(tab.id, url)
-    } catch {
+      const res = await runFetchInTab(tab.id, url)
+      fetchPathStats.reusedTab += 1
+      return res
+    } catch (err) {
       // The chosen tab was unscriptable after all — fall through to a
       // dedicated temp window rather than failing the whole extraction.
+      fetchPathStats.tabFailed += 1
+      fetchPathStats.lastError = `${err?.message ?? err} (tab ${tab?.id}, ${tab?.status}${tab?.discarded ? ', discarded' : ''})`
     }
+  } else {
+    fetchPathStats.noTabFound += 1
   }
   const { tabId, windowId } = await openTempTab(url)
   try {

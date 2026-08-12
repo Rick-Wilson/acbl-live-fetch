@@ -30,6 +30,13 @@
  *  All trick values are integers 0..13 or null (unknown / "<7 tricks"
  *  bucket without a specific count).
  */
+// A dash in place of a level means the side cannot make anything at that
+// strain — ACBL Live writes '1/-S' when one side makes 1S and the other makes
+// nothing. It is the null bucket this parser already documents, not an error:
+// treating it as one cost 2 boards of 26 in event 2606319, because a single
+// unparseable board discards every table that played it.
+const DASH = /^-$/
+
 export function parseDoubleDummyLine(text) {
   const result = { first: emptyStrainMap(), second: emptyStrainMap(), warnings: [] }
   if (text == null || String(text).trim() === '') {
@@ -42,22 +49,32 @@ export function parseDoubleDummyLine(text) {
   // it tightly), which would tokenize as ['4/', '5C'] without normalization.
   const cleaned = String(text)
     .replace(/^(?:NS|EW):\s*/i, '')
-    .replace(/(\d+)\s*\/\s*(\d+)/g, '$1/$2')
+    .replace(/([\d-])\s*\/\s*([\d-])/g, '$1/$2')
     .trim()
 
   for (const tok of cleaned.split(/\s+/).filter(Boolean)) {
-    const numFirst = tok.match(/^(\d+)(?:\/(\d+))?(NT|[CDHS])$/i)
-    const strainFirst = tok.match(/^(NT|[CDHS])(\d+)(?:\/(\d+))?$/i)
+    const numFirst = tok.match(/^(\d+|-)(?:\/(\d+|-))?(NT|[CDHS])$/i)
+    const strainFirst = tok.match(/^(NT|[CDHS])(\d+|-)(?:\/(\d+|-))?$/i)
     if (numFirst) {
       const strain = numFirst[3].toUpperCase()
-      const a = levelToTricks(parseDigit(numFirst[1]))
-      const b = numFirst[2] != null ? levelToTricks(parseDigit(numFirst[2])) : a
+      const a = DASH.test(numFirst[1]) ? null : levelToTricks(parseDigit(numFirst[1]))
+      const b =
+        numFirst[2] == null
+          ? a
+          : DASH.test(numFirst[2])
+            ? null
+            : levelToTricks(parseDigit(numFirst[2]))
       result.first[strain] = a
       result.second[strain] = b
     } else if (strainFirst) {
       const strain = strainFirst[1].toUpperCase()
-      const a = clampTricks(parseDigit(strainFirst[2]))
-      const b = strainFirst[3] != null ? clampTricks(parseDigit(strainFirst[3])) : a
+      const a = DASH.test(strainFirst[2]) ? null : clampTricks(parseDigit(strainFirst[2]))
+      const b =
+        strainFirst[3] == null
+          ? a
+          : DASH.test(strainFirst[3])
+            ? null
+            : clampTricks(parseDigit(strainFirst[3]))
       result.first[strain] = a
       result.second[strain] = b
     } else {
