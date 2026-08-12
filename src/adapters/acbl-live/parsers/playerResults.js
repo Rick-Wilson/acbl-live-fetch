@@ -14,6 +14,16 @@ export function parsePlayerResults(htmlString) {
   const doc = new DOMParser().parseFromString(htmlString, 'text/html')
   const events = []
 
+  // Column positions vary between this page's two forms, so find the Event and
+  // Tournament columns by their headers. The name matters: a batch skips team
+  // games before fetching, and this listing has no Type column — "Bracketed
+  // Teams 2" in the Event cell is the only thing that identifies one.
+  const headers = [...doc.querySelectorAll('table thead th')].map((th) =>
+    th.textContent.trim().toLowerCase()
+  )
+  const eventIdx = headers.indexOf('event')
+  const tournamentIdx = headers.indexOf('tournament')
+
   for (const row of doc.querySelectorAll('table tbody tr')) {
     // Summary link is in td.links — skip rows without one.
     const summaryLink = row.querySelector('td.links a.summary')
@@ -30,7 +40,12 @@ export function parsePlayerResults(htmlString) {
       ? Math.floor(new Date(`${m[3]}-${m[1]}-${m[2]}T00:00:00`).getTime() / 1000)
       : null
 
-    events.push({ url, date: dateText, date_sort })
+    const cells = [...row.children].filter((c) => c.tagName === 'TD')
+    const cellText = (i) => (i >= 0 ? (cells[i]?.textContent?.trim() ?? '') : '')
+    const name = cellText(eventIdx)
+    const tournament = cellText(tournamentIdx)
+
+    events.push({ url, date: dateText, date_sort, name, tournament })
   }
 
   if (events.length === 0) {

@@ -82,7 +82,10 @@ export function classifyPage(url) {
   ) {
     return 'event-summary'
   }
-  if (/^\/player-results\/\d+\/?$/.test(path)) {
+  // /my-results is the same listing as /player-results/<id>, pre-filtered to
+  // the signed-in player. Same markup, same Summary links, so it takes the
+  // same path.
+  if (/^\/(player-results\/\d+|my-results)\/?$/.test(path)) {
     return 'player-history'
   }
   return 'unknown'
