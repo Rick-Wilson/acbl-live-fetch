@@ -102,71 +102,47 @@ Safari is the only browser engine on iPad, so a Safari extension is the *only*
 way to reach those users — there is no Chrome or Firefox to fall back on. That
 raises iPadOS above its apparent share.
 
-Tested on a real iPad, 11 Aug 2026:
+Tested on a real iPad, 11 Aug 2026. **It behaves the same as Chrome does**; the
+one failure seen there was not an iPad problem at all (see below).
 
 | Path | iPad |
 |---|---|
 | BBO hand viewer | ✅ works |
 | ACBL Live for Clubs | ✅ works |
-| ACBL Live tournaments | ❌ "could not find any pair-scorecard link on summary page" |
+| ACBL Live tournaments | ✅ for pair events; team events fail everywhere, not just here |
 | BBO hands list / lobby | n/a — iPad users are in the BBO app, and its web page has a different DOM entirely |
 
-`openTempTab`'s off-screen window never runs there: `fetchViaTab` prefers an
-already-open same-origin tab, and on iPad the user is standing on it. The
-desktop-only path is only the fallback, which is why the clubs path works.
+`openTempTab`'s off-screen window never runs on iPad: `fetchViaTab` prefers an
+already-open same-origin tab, and there the user is standing on it. The
+desktop-only path is only the fallback, which is why everything works.
 
-The tournaments failure is most likely `live.acbl.org` serving a mobile page —
-the fetch runs inside the user's own tab and carries the iPad's user agent. To
-confirm, run on the summary page in Web Inspector, on iPad and desktop, and
-compare:
+### ACBL Live team events are not supported
 
-```js
-const a=[...document.querySelectorAll('a[href*="/scores/"]')]
-console.log(a.length, a.slice(0,3).map(x => x.getAttribute('href')))
-```
+The tournament path finds its way in by looking for a **pair-scorecard** link on
+the event summary (`findScorecardUrlInSummary`, `a[href*="/scores/"]`). A team
+event's summary has none — there are no pairs — so it fails with:
 
-Zero on iPad means the mobile page does not use those links at all; a non-zero
-count with unfamiliar hrefs means `classifyPage` is rejecting them, which is
-fixable.
+> could not find any pair-scorecard link on summary page
 
-**Versions differ by store on purpose.** Chrome and Edge are reviewing 1.0.0.
-Firefox needed 1.0.1 because its `data_collection_permissions` said `none` and
-the envelope does transmit PII — AMO will not accept a version string it has
-already seen, so the correction needed a bump. The key is gecko-only, so
-Chrome's and Edge's packages were unaffected and their reviews were left alone.
+Measured on a real team event: 109 KB of healthy server-rendered HTML, 72
+anchors, and the string `/scores/` absent entirely. Not an SPA, not a login
+wall, not a mobile variant. There is simply nothing of that shape to find.
 
-**The data-collection question caught us twice**, on Chrome and then Firefox,
-from the same reasoning: there is no server and no telemetry, so "collect" felt
-like it meant "collect for ourselves". Every store means "leaves the device".
-The envelope's `Player` is `{ name, acbl_id, … }` — a real name and a
-national-body ID — sent to `bridge-classroom.org`. Re-check this against
-`docs/normalized-schema.md` on every submission: a new field in `Player`
-changes the answer.
+Two things follow, and they are separable:
 
-Chrome warned that host permissions trigger an in-depth review, which is
-expected and unavoidable — see `docs/submission-answers.md`. Expect days to
-weeks, which is the argument for submitting the other three in parallel rather
-than waiting.
+1. **Say so.** The message blames the page shape when the cause is knowable —
+   the fourth instance of that pattern in this project, after the Cloudflare
+   403, the lapsed BBO session, and the stale-tab error. It should read
+   something like "this is a team event; only pair events are supported on ACBL
+   Live so far".
+2. **Support them, or decide not to.** `swiss_teams` is already a known
+   `event_type` in `pairScorecard.js` and the club parser, so the schema is not
+   the obstacle; the entry point is. Worth checking what a team event's results
+   URLs look like before committing.
 
-Every field for all four stores is written out paste-ready in
-`docs/submission-answers.md`; the reasoning behind each lives in
-`docs/store-review.md`.
-
-AMO wanted more than the extension: a source archive carrying build
-instructions, a build script, and the node/npm versions — `BUILD.md` and
-`build.sh` exist for that, and `.gitattributes` keeps screenshots and demo
-videos out of the archive (8.3 MB → 897 KB). Before submitting, extract the
-archive into a clean directory, run `./build.sh`, and diff the output against
-`dist/firefox`; it should be identical, and that is the check AMO performs.
-
-Still to do at submission time:
-
-1. **Bump `CURRENT_PROJECT_VERSION`** per Safari upload — one `agvtool`
-   command, in `docs/store-review.md`. The first upload can go as build 1.
-2. **Commit before packaging** — the source archive is `git archive` from HEAD,
-   so uncommitted work is silently absent from it.
-
-Open questions live at the end of ADR 0001.
+A team event in a batch does **not** kill the run — `runBatch` wraps each URL in
+its own try/catch and collects failures into `errors` — but it does mean the
+event is silently missing from the analysis, with the reason buried.
 
 ### Working style that has paid off here
 
