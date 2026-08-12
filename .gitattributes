@@ -1,0 +1,8 @@
+# Keep the Firefox source archive to what actually builds the extension.
+#
+# addons.mozilla.org requires a source upload because the shipped bundle is
+# minified, and a reviewer rebuilds from it to compare. Screenshots and demo
+# recordings are store assets, not build inputs — 8 MB of them only slows the
+# reviewer down. `git archive` honours export-ignore; a normal clone does not.
+screenshots/ export-ignore
+demo/         export-ignore
