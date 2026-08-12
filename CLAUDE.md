@@ -92,7 +92,7 @@ All four browsers are QA'd against both no-account paths — see
 | Store | Submitted | Status |
 |---|---|---|
 | Chrome Web Store | 11 Aug 2026 | awaiting review |
-| Edge Add-ons | — | |
+| Edge Add-ons | 11 Aug 2026 | awaiting review |
 | addons.mozilla.org | 11 Aug 2026 | awaiting review |
 | Mac App Store | — | |
 
