@@ -145,10 +145,40 @@ the reviewer reads.
 
 ## Data use
 
-**Collected** — tick only *Website content*.
+**Collected** — tick **both *Website content* and *Personally identifiable
+information***.
 
-Not: personally identifiable information, health, financial, authentication,
-personal communications, location, web history, or user activity.
+PII is not optional here, and an earlier version of this file said to tick only
+*Website content*. That was wrong. `Player` in the envelope is:
+
+```jsonc
+{ "name": "Weilong Shen", "acbl_id": "4833511", ... }
+```
+
+— a real name and a national-body identification number, transmitted off the
+user's device to `bridge-classroom.org`. That is exactly what both stores mean
+by *name … or identification number*. The schema says so itself: `coverage
+.player_names` can be `"real"`.
+
+The mistake was reading "collect" as "collect for ourselves" — no server, no
+telemetry — when the stores mean "transmit off the device". Under-declaring PII
+is the kind of thing that gets an extension pulled after the fact, so it is
+worth being conservative.
+
+Not ticked, each for a reason:
+
+| | Why not |
+|---|---|
+| Health, Financial | never touched |
+| Authentication | relies on the user's existing session cookies; never reads or transmits credentials |
+| Personal communications | no |
+| Location | no city or region field exists in the schema |
+| Web history | reads the page the user is on; never enumerates visited pages |
+| User activity | no clicks, scroll, keystrokes or network monitoring |
+
+**Check this against the schema on every submission.** If `Player` ever grows a
+field, or a new adapter captures something the current ones do not, this answer
+changes.
 
 **Certifications** — all three are true and can be affirmed:
 
@@ -163,6 +193,28 @@ The extension reads bridge game results from pages the user is already viewing �
 
 Real player names are deliberately not collected from Bridge Base Online: the tournament summary is fetched without credentials precisely so that BBO withholds identities. ACBL sources do publish real names and player numbers, and those are captured, because on a club game the user generally knows the players and the names are the point.
 ```
+
+---
+
+## Search terms (Edge)
+
+Up to 7 terms, 30 characters each, 21 words in total across all of them. These
+use 14 words; the longest is 20 characters.
+
+```
+bridge results
+ACBL
+BBO
+Bridge Base Online
+duplicate bridge
+bridge hand analysis
+bridge scores
+```
+
+Two acronyms because those are what bridge players actually type; the expanded
+form for those who do not. `bridge` alone is deliberately absent — highest
+volume, but ambiguous with dental and network bridges, and already the first
+word of three other terms.
 
 ---
 
