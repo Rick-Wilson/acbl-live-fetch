@@ -67,6 +67,14 @@ const LEGACY_TLD_KEY = 'preferredAnalyzerTld'
  *     .com or .org, ingestContent.js writes that TLD here so subsequent
  *     hand-offs stay on the same domain)
  *  3. DEFAULT_INGEST_URL (.org) */
+
+// A team game's results pages carry no board detail — there is nothing for the
+// adapters to read. Recognised from the event list's own Type column, so a
+// batch can skip them before fetching rather than failing on each one.
+export function isTeamEvent(e) {
+  return /team/i.test(e?.type ?? '') || /\bteams?\b/i.test(e?.name ?? '')
+}
+
 export async function getIngestUrl(storage) {
   const result = await storage.get([
     DEV_INGEST_URL_KEY, PREFERRED_TLD_KEY, LEGACY_DEV_URL_KEY, LEGACY_TLD_KEY,
@@ -228,6 +236,7 @@ export async function consumePending(sid, deps) {
 export async function runBatchExtraction(listUrl, deps, since = null, max = null, directUrls = null) {
   const { storage, tabs, crypto, fetch: fetchFn = globalThis.fetch, signal, extract = dispatchExtract } = deps
 
+  let teamsSkipped = 0
   let allUrls
   if (Array.isArray(directUrls)) {
     // Pre-parsed URL list supplied by the content script (BBO lobby case):
@@ -265,11 +274,31 @@ export async function runBatchExtraction(listUrl, deps, since = null, max = null
 
     // Filter by date if requested. date_sort is a Unix timestamp in seconds.
     const sinceTs = since ? Math.floor(new Date(since).getTime() / 1000) : null
-    const filtered = sinceTs ? eventList.filter((e) => e.date_sort >= sinceTs) : eventList
-    if (filtered.length === 0) {
+    const inRange = sinceTs ? eventList.filter((e) => e.date_sort >= sinceTs) : eventList
+    if (inRange.length === 0) {
       return { type: 'extraction-error', error: { code: 'bad-request', message: 'No events found in the selected date range' } }
     }
+
+    // Team games carry no board-level data we can read, so extracting one
+    // fails and takes its place in the batch for nothing. Skip them here
+    // rather than one failure at a time, and say how many were skipped —
+    // silently dropping events looks identical to losing them.
+    const filtered = inRange.filter((e) => !isTeamEvent(e))
+    const skippedTeams = inRange.length - filtered.length
+    if (filtered.length === 0) {
+      return {
+        type: 'extraction-error',
+        error: {
+          code: 'bad-request',
+          message:
+            skippedTeams === 1
+              ? 'The only event in that range is a team game, which has no board data to analyse.'
+              : `All ${skippedTeams} events in that range are team games, which have no board data to analyse.`,
+        },
+      }
+    }
     allUrls = filtered.map((e) => e.url)
+    teamsSkipped = skippedTeams
   }
 
   if (allUrls.length === 0) {
@@ -332,7 +361,7 @@ export async function runBatchExtraction(listUrl, deps, since = null, max = null
     // Swallow — the storage entry will be left with done:false and will expire.
   })
 
-  return { type: 'batch-started', key, total }
+  return { type: 'batch-started', key, total, teamsSkipped }
 }
 
 export async function consumePendingBatch(key, deps) {

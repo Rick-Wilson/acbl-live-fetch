@@ -235,3 +235,71 @@ describe('parseBoardDetail error handling', () => {
     ).toThrow(/board-data/)
   })
 })
+
+// Event 2608344, session 1: two tables had no score for board 1 — contract and
+// declarer blank, 'NS' in the score column, 0 matchpoints, 0%. parseSignedInt
+// threw on 'NS', which failed the whole board rather than the two rows, and 22
+// of 24 boards disappeared from the extraction that way.
+//
+// Built by splicing an unscored row into a real fixture rather than
+// hand-rolling a page: the surrounding board-data markup has to be genuine for
+// the parser to reach the results table at all.
+function withUnscoredRow(html, token) {
+  // Clone a real result row and rewrite only the cells that differ, so the play
+  // link and the pairs cell stay genuine — the parser validates both.
+  //
+  // Done through the DOM rather than by regex: the play link's href contains an
+  // encoded HTML template that itself includes <td>, so counting tags textually
+  // finds nine cells in a seven-cell row.
+  const doc = new DOMParser().parseFromString(html, 'text/html')
+  const row = [...doc.querySelectorAll('tr')].find(
+    (tr) => [...tr.children].filter((c) => c.tagName === 'TD').length >= 7
+  )
+  const clone = row.cloneNode(true)
+  const cells = [...clone.children].filter((c) => c.tagName === 'TD')
+  cells[1].textContent = '' // contract
+  cells[2].textContent = '' // declarer
+  cells[3].textContent = token // score
+  cells[4].textContent = '0' // matchpoints
+  cells[5].textContent = '0' // %
+  row.parentNode.appendChild(clone)
+  return doc.documentElement.outerHTML
+}
+
+describe('parseBoardDetail — rows with no score', () => {
+  it('keeps the tables that did play the board', () => {
+    const before = parseBoardDetail(board6Html, { boardNumber: 6, section: 'A' })
+    const after = parseBoardDetail(withUnscoredRow(board6Html, 'NS'), {
+      boardNumber: 6,
+      section: 'A',
+    })
+    expect(after.results).toHaveLength(before.results.length + 1)
+    expect(after.results.filter((r) => typeof r.score === 'number').length).toBe(
+      before.results.filter((r) => typeof r.score === 'number').length
+    )
+  })
+
+  it('records the unscored row as score null rather than throwing', () => {
+    const r = parseBoardDetail(withUnscoredRow(board6Html, 'NS'), {
+      boardNumber: 6,
+      section: 'A',
+    })
+    const unscored = r.results.find((x) => x.score === null && x.contract === null)
+    expect(unscored).toBeDefined()
+    expect(unscored.declarer).toBeNull()
+  })
+
+  for (const token of ['NS', 'NP', 'AVE', 'AVE+', 'AVE-', 'A+', 'A-']) {
+    it(`accepts '${token}' in the score column`, () => {
+      expect(() =>
+        parseBoardDetail(withUnscoredRow(board6Html, token), { boardNumber: 6, section: 'A' })
+      ).not.toThrow()
+    })
+  }
+
+  it('still throws on a score it cannot make sense of', () => {
+    expect(() =>
+      parseBoardDetail(withUnscoredRow(board6Html, 'wibble'), { boardNumber: 6, section: 'A' })
+    ).toThrow(/Expected integer score/)
+  })
+})

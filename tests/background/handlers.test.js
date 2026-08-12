@@ -9,6 +9,7 @@ import {
   DEFAULT_INGEST_URL,
   getIngestUrl,
   getBboUsername,
+  isTeamEvent,
   BBO_USERNAME_KEY,
 } from '../../src/background/handlers.js'
 
@@ -325,5 +326,32 @@ describe('identifying caches expire', () => {
     const storage = fakeStorage({ [BBO_USERNAME_KEY]: 'kemistry' })
     await sweepExpired({ storage })
     expect(storage._dump()).toEqual({})
+  })
+})
+
+// A team game's results pages carry no board detail, so extracting one fails
+// and occupies a slot in the batch for nothing. Event 2608344 surfaced this:
+// a team game at the top of a month's range, and the run looked like it had
+// done nothing.
+describe('isTeamEvent', () => {
+  it('recognises the event list Type column', () => {
+    expect(isTeamEvent({ type: 'TEAMS' })).toBe(true)
+    expect(isTeamEvent({ type: 'Teams' })).toBe(true)
+    expect(isTeamEvent({ type: 'PAIRS' })).toBe(false)
+  })
+
+  it('falls back to the event name when Type is absent', () => {
+    expect(isTeamEvent({ name: 'Saturday Swiss Teams' })).toBe(true)
+    expect(isTeamEvent({ name: 'Open Pairs' })).toBe(false)
+  })
+
+  it('does not mistake a pairs game whose name merely contains "team"', () => {
+    // "Teammates" would false-positive on a bare substring match.
+    expect(isTeamEvent({ type: 'PAIRS', name: 'Teammates Charity Pairs' })).toBe(false)
+  })
+
+  it('tolerates missing fields', () => {
+    expect(isTeamEvent({})).toBe(false)
+    expect(isTeamEvent(null)).toBe(false)
   })
 })

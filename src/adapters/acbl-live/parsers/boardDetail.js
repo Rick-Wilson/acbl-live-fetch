@@ -276,6 +276,16 @@ function parseResultRow(row, idx, section) {
     score = 0
     if (contract === null) contract = 'PASS'
     declarer = null
+  } else if (NOT_SCORED.test(scoreText)) {
+    // The pair has no score for this board: not played, or an assigned
+    // average. Contract and declarer are blank and matchpoints are 0.
+    //
+    // This must not throw. parseBoardDetail builds the whole board, so one
+    // unparseable row discards every table that *did* play it — two unscored
+    // tables cost 22 of 24 boards in event 2608344, and the board vanished
+    // from the analysis with the reason buried in a warnings array.
+    score = null
+    declarer = null
   } else {
     score = parseSignedInt(scoreText)
   }
@@ -319,6 +329,17 @@ function parseContractCell(cell) {
   const dbl = m[3] ? m[3].toUpperCase() : ''
   return `${m[1]}${m[2]}${dbl}`
 }
+
+// Score-cell values that are not a number and are not an error. ACBL Live
+// renders a blank cell for a sit-out, and one of these when a pair has no
+// score for the board:
+//
+//   NS, NP        not scored / not played
+//   AVE, AVE+/-   assigned average
+//   A, A+, A-     the same, abbreviated
+//
+// A real score is always signed digits, so none of these can collide with one.
+const NOT_SCORED = /^(ns|np|ave[+-]?|a[+-]?)$/i
 
 function parseSignedInt(text) {
   const t = text.trim()
