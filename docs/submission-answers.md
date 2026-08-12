@@ -208,13 +208,17 @@ BBO
 Bridge Base Online
 duplicate bridge
 bridge hand analysis
-bridge scores
+Bridge Classroom
 ```
 
 Two acronyms because those are what bridge players actually type; the expanded
-form for those who do not. `bridge` alone is deliberately absent — highest
-volume, but ambiguous with dental and network bridges, and already the first
-word of three other terms.
+form for those who do not. The brand term is there because anyone who knows the
+site will search the name, and it is half of the extension's own.
+
+`bridge` alone is deliberately absent — highest volume, but ambiguous with
+dental and network bridges, and already the first word of three other terms.
+`bridge scores` was dropped for the brand term: it was a near-duplicate of
+`bridge results`.
 
 ---
 
