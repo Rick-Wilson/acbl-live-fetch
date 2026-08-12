@@ -32,11 +32,11 @@
 		1D2C360C2FA6462800466053 /* service-worker-loader.js in Resources */ = {isa = PBXBuildFile; fileRef = 1D2C36092FA6462800466053 /* service-worker-loader.js */; };
 		1D2C360D2FA6462800466053 /* manifest.json in Resources */ = {isa = PBXBuildFile; fileRef = 1D2C360A2FA6462800466053 /* manifest.json */; };
 		1D2C360E2FA6462800466053 /* assets in Resources */ = {isa = PBXBuildFile; fileRef = 1D2C360B2FA6462800466053 /* assets */; };
-		1D2C36B22FA6462800466053 /* icons in Resources */ = {isa = PBXBuildFile; fileRef = 1D2C36B02FA6462800466053 /* icons */; };
 		1D2C360F2FA6462800466053 /* service-worker-loader.js in Resources */ = {isa = PBXBuildFile; fileRef = 1D2C36092FA6462800466053 /* service-worker-loader.js */; };
 		1D2C36102FA6462800466053 /* manifest.json in Resources */ = {isa = PBXBuildFile; fileRef = 1D2C360A2FA6462800466053 /* manifest.json */; };
 		1D2C36112FA6462800466053 /* assets in Resources */ = {isa = PBXBuildFile; fileRef = 1D2C360B2FA6462800466053 /* assets */; };
 		1D2C36B12FA6462800466053 /* icons in Resources */ = {isa = PBXBuildFile; fileRef = 1D2C36B02FA6462800466053 /* icons */; };
+		1D2C36B22FA6462800466053 /* icons in Resources */ = {isa = PBXBuildFile; fileRef = 1D2C36B02FA6462800466053 /* icons */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -632,6 +632,7 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 8H3FX5B8KD;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "iOS (Extension)/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Bridge Classroom Fetch Extension";
@@ -665,6 +666,7 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 8H3FX5B8KD;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "iOS (Extension)/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Bridge Classroom Fetch Extension";
@@ -701,6 +703,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 8H3FX5B8KD;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "iOS (App)/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Bridge Classroom Fetch";
@@ -741,6 +744,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 8H3FX5B8KD;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "iOS (App)/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Bridge Classroom Fetch";
@@ -780,6 +784,7 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 8H3FX5B8KD;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
@@ -815,6 +820,7 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 8H3FX5B8KD;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
@@ -852,6 +858,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 8H3FX5B8KD;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
@@ -893,6 +900,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 8H3FX5B8KD;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;

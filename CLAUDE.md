@@ -92,9 +92,42 @@ All four browsers are QA'd against both no-account paths — see
 | Store | Submitted | Status |
 |---|---|---|
 | Chrome Web Store | 11 Aug 2026 | awaiting review |
-| Edge Add-ons | 11 Aug 2026 | awaiting review |
+| Edge Add-ons | 11 Aug 2026 | **published** — first store live |
 | addons.mozilla.org | 11 Aug 2026 | awaiting review — **1.0.1** |
 | Mac App Store | — | ready, will be 1.0.1 |
+
+### iPad is worth more than it looks
+
+Safari is the only browser engine on iPad, so a Safari extension is the *only*
+way to reach those users — there is no Chrome or Firefox to fall back on. That
+raises iPadOS above its apparent share.
+
+Tested on a real iPad, 11 Aug 2026:
+
+| Path | iPad |
+|---|---|
+| BBO hand viewer | ✅ works |
+| ACBL Live for Clubs | ✅ works |
+| ACBL Live tournaments | ❌ "could not find any pair-scorecard link on summary page" |
+| BBO hands list / lobby | n/a — iPad users are in the BBO app, and its web page has a different DOM entirely |
+
+`openTempTab`'s off-screen window never runs there: `fetchViaTab` prefers an
+already-open same-origin tab, and on iPad the user is standing on it. The
+desktop-only path is only the fallback, which is why the clubs path works.
+
+The tournaments failure is most likely `live.acbl.org` serving a mobile page —
+the fetch runs inside the user's own tab and carries the iPad's user agent. To
+confirm, run on the summary page in Web Inspector, on iPad and desktop, and
+compare:
+
+```js
+const a=[...document.querySelectorAll('a[href*="/scores/"]')]
+console.log(a.length, a.slice(0,3).map(x => x.getAttribute('href')))
+```
+
+Zero on iPad means the mobile page does not use those links at all; a non-zero
+count with unfamiliar hrefs means `classifyPage` is rejecting them, which is
+fixable.
 
 **Versions differ by store on purpose.** Chrome and Edge are reviewing 1.0.0.
 Firefox needed 1.0.1 because its `data_collection_permissions` said `none` and
