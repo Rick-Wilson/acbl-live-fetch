@@ -270,26 +270,28 @@ async function sendEnvelope(tabId, envelope) {
 
 // How long to leave between events in a batch.
 //
-// A single event's ~96 board fetches complete cleanly; it is the running total
-// across events that live.acbl.org starts refusing, and it recovers if left
-// alone — the fourth event of a batch ran at full speed after two slow ones.
-// So the gap belongs between events, where it costs nothing in the common case
-// of extracting one, rather than between boards, where it taxes every
-// extraction to protect against a state most never reach.
+// live.acbl.org tolerates about one event's worth of board fetches and then
+// starts refusing. Measured: event 1 of a batch completes clean in ~11s for 96
+// fetches; event 2, starting a second later, was refused 123 times and built
+// 11 boards of 26. Deduplicating sessions halved the work and did not fix this
+// — the limit is simply lower than two events back to back.
 //
-// Asked for after each event, and only long when that event was actually
-// refused, so a clean batch stays quick.
-const EVENT_GAP_CLEAN_MS = 1000
-const EVENT_GAP_AFTER_REFUSAL_MS = 20000
-let refusalsAtEventStart = 0
+// So the gap is unconditional for ACBL rather than a reaction to the previous
+// event being refused. By the time a refusal has been seen, the boards it cost
+// are already gone; waiting afterwards protects the wrong event.
+//
+// 30s is a starting point chosen from one observation — an earlier batch
+// recovered to full speed by its fourth event, after roughly two minutes of
+// slow going. It wants measuring rather than believing.
+const ACBL_EVENT_GAP_MS = 30000
+const ACBL_HOSTS = new Set(['live.acbl.org', 'my.acbl.org'])
 
 const pacer = {
   eventGapMs(url) {
-    const refused = fetchPathStats.pageFetchErrors - refusalsAtEventStart
-    refusalsAtEventStart = fetchPathStats.pageFetchErrors
-    if (refused > 0) {
-      fetchPathStats.lastEventRefusals = refused
-      return EVENT_GAP_AFTER_REFUSAL_MS
+    try {
+      if (ACBL_HOSTS.has(new URL(url).hostname)) return ACBL_EVENT_GAP_MS
+    } catch {
+      /* fall through to the per-host default */
     }
     return batchItemDelayMs(url)
   },

@@ -360,11 +360,11 @@ export function injectHistoryButton(sendMessage, storage) {
               setTimeout(() => setState(btn, 'idle'), 3000)
             }
           } else {
-            setState(btn, 'working', `Fetching ${entry.completed} of ${entry.total}…`)
+            setState(btn, 'working', `Fetching ${Math.min(entry.completed + 1, entry.total)} of ${entry.total}…`)
           }
         }
         storage.onChanged.addListener(listener)
-        setState(btn, 'working', `Fetching 0 of ${response.total}…`)
+        setState(btn, 'working', `Fetching 1 of ${response.total}…`)
       }
     })
 

@@ -195,7 +195,10 @@ export function watchBatchProgress(key, setState, storage, onComplete) {
         setTimeout(() => setState('idle'), 2000)
       }
     } else {
-      setState('progress', `Fetching ${entry.completed} of ${entry.total}…`)
+      // Count the item being worked on, not the ones finished. "0 of 2" for
+      // the ten seconds before the first lands reads as nothing happening.
+      const working = Math.min(entry.completed + 1, entry.total)
+      setState('progress', `Fetching ${working} of ${entry.total}…`)
     }
   }
   storage.onChanged.addListener(listener)
@@ -625,7 +628,7 @@ export function setupClickDelegation(deps) {
           onBatchStarted: (key, total) => {
             activeBatchKey = key
             showCancel()
-            applyState(btn, 'progress', `Fetching 0 of ${total}…`)
+            applyState(btn, 'progress', `Fetching 1 of ${total}…`)
             // eslint-disable-next-line no-undef
             watchBatchProgress(
               key,
