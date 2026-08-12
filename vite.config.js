@@ -18,11 +18,19 @@ const PER_BROWSER_OVERRIDES = {
   // background.service_worker (the @crxjs/vite-plugin firefox build path
   // requires this).
   //
-  // data_collection_permissions is required for all new Firefox extensions;
-  // addons-linter warns without it. The extension collects nothing — results
-  // live in browser.storage.local for an hour and go only to the ingest page
-  // the user is sent to — so the declaration is the explicit "none", which is
-  // Mozilla's way of saying so rather than an omission.
+  // data_collection_permissions is required for all new Firefox extensions,
+  // and Firefox shows it to the user at install time.
+  //
+  // This said `none` until it was checked against what the envelope actually
+  // carries. `none` means "does not collect or transmit any personal data",
+  // and the extension does transmit: Player is { name, acbl_id, ... } — a real
+  // name and a national-body ID — sent off-device to bridge-classroom.org
+  // whenever the source is ACBL. Mozilla's taxonomy has terms for exactly that.
+  //
+  // There is no server and no telemetry here, which is what made `none` feel
+  // right; but "collect" in every store's sense means "leaves the device", not
+  // "reaches us". Same error was made on Chrome's disclosure and corrected
+  // there. See docs/submission-answers.md § Data use.
   //
   // That key forces the version floors: it landed in Firefox 140 and in
   // Firefox for Android 142, so 121 (which was only ever about MV3
@@ -37,7 +45,7 @@ const PER_BROWSER_OVERRIDES = {
         id: 'bridge-classroom-fetch@bridge-classroom.org',
         strict_min_version: '140.0',
         data_collection_permissions: {
-          required: ['none'],
+          required: ['personallyIdentifyingInfo', 'websiteContent'],
         },
       },
       gecko_android: {
