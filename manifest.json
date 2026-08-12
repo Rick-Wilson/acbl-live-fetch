@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Bridge Classroom Fetch",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Send your bridge results from ACBL Live, ACBL Live for Clubs and Bridge Base Online to Bridge Classroom for analysis in one click.",
   "icons": {
     "16": "icons/icon-16.png",
