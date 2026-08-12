@@ -4,6 +4,10 @@
   "description": "Browser extension that fetches bridge game data from supported sites and hands it to bridge-classroom.com for analysis.",
   "type": "module",
   "license": "Unlicense",
+  "engines": {
+    "node": ">=20",
+    "npm": ">=10"
+  },
   "scripts": {
     "build": "vite build",
     "build:chrome": "BROWSER=chrome vite build",
