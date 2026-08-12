@@ -113,9 +113,12 @@ async function injectFetch(tabId, url) {
       // The site refused this request. Opening a temp window to ask again
       // costs a page load and adds load to a server already saying no — and
       // the caller's own retry/backoff is the right place to try again.
-      const err = new Error(`fetch failed inside the page: ${value.pageFetchError}`)
-      err.pageFetchRefused = true
-      throw err
+      // Fall through to the temp window rather than giving up. The evidence
+      // says this is not the site refusing us: a fresh window succeeds
+      // immediately with the same URL, and batches that used this fallback
+      // built every board while ones that skipped it built 3 of 26. Whatever
+      // exhausts the page after ~96 fetches, a new document does not have.
+      throw new Error(`fetch failed inside the page: ${value.pageFetchError}`)
     }
     if (value) break
     fetchPathStats.injectionRetries += 1
@@ -201,10 +204,6 @@ async function fetchViaTab(url) {
       fetchPathStats.reusedTab += 1
       return res
     } catch (err) {
-      // A refusal by the site is not a bad tab. Let it out to the caller's
-      // retry and backoff instead of paying for a window that will be told
-      // the same thing.
-      if (err?.pageFetchRefused) throw err
       // The chosen tab was unscriptable after all — fall through to a
       // dedicated temp window rather than failing the whole extraction.
       fetchPathStats.tabFailed += 1
@@ -283,7 +282,7 @@ async function sendEnvelope(tabId, envelope) {
 // 30s is a starting point chosen from one observation — an earlier batch
 // recovered to full speed by its fourth event, after roughly two minutes of
 // slow going. It wants measuring rather than believing.
-const ACBL_EVENT_GAP_MS = 30000
+const ACBL_EVENT_GAP_MS = 2000
 const ACBL_HOSTS = new Set(['live.acbl.org', 'my.acbl.org'])
 
 const pacer = {

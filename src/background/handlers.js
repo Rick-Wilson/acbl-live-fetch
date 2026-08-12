@@ -127,6 +127,9 @@ export function batchItemDelayMs(url) {
     return 1000
   }
 }
+// Waits shorter than this are not worth announcing; the label would flicker.
+export const WAIT_VISIBLE_MS = 3000
+
 export const CANCEL_BATCH_PREFIX = 'cancel-batch:'
 
 // In-flight batches, so Stop can interrupt the event being extracted rather
@@ -398,6 +401,21 @@ export async function runBatchExtraction(listUrl, deps, since = null, max = null
       // whether the event just finished was refused and asks for a longer gap
       // only then, leaving a clean batch at full speed.
       const gapMs = deps.pacer?.eventGapMs?.(url) ?? batchItemDelayMs(url)
+      if (gapMs >= WAIT_VISIBLE_MS) {
+        // Publish when the wait ends so the button can count down. A pause
+        // with no explanation is indistinguishable from a stall — which is
+        // exactly how the ten seconds before the first event used to read.
+        await storage
+          .set({
+            [storageKey]: {
+              stored_at: Date.now(), total,
+              completed: items.length + errors.length,
+              items, errors, done: false,
+              waiting_until: Date.now() + gapMs,
+            },
+          })
+          .catch(() => {})
+      }
       await new Promise((r) => setTimeout(r, gapMs))
     }
     await storage.set({ [storageKey]: { stored_at: Date.now(), total, completed: items.length + errors.length, items, errors, done: true, cancelled } })

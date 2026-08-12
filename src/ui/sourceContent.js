@@ -180,11 +180,20 @@ export function watchBatchProgress(key, setState, storage, onComplete) {
   // Watches storage for progress updates written by the SW after each game.
   // `storage` must be the chrome.storage.local object.
   const storageKey = `pending-batch:${key}`
+  // Ticks the "Waiting 12…" countdown between events. Local, because the
+  // worker publishes only the moment the wait ends — it should not have to
+  // wake once a second to narrate a pause.
+  let countdown = null
+  const stopCountdown = () => {
+    if (countdown) clearInterval(countdown)
+    countdown = null
+  }
   const listener = (changes) => {
     const change = changes[storageKey]
     if (!change) return
     const entry = change.newValue
     if (!entry) return
+    stopCountdown()
     if (entry.done) {
       storage.onChanged.removeListener(listener)
       onComplete?.(entry)
@@ -198,7 +207,22 @@ export function watchBatchProgress(key, setState, storage, onComplete) {
       // Count the item being worked on, not the ones finished. "0 of 2" for
       // the ten seconds before the first lands reads as nothing happening.
       const working = Math.min(entry.completed + 1, entry.total)
-      setState('progress', `Fetching ${working} of ${entry.total}…`)
+      const waitingUntil = entry.waiting_until ?? 0
+      if (waitingUntil > Date.now()) {
+        const tick = () => {
+          const left = Math.ceil((waitingUntil - Date.now()) / 1000)
+          if (left <= 0) {
+            stopCountdown()
+            setState('progress', `Fetching ${working} of ${entry.total}…`)
+            return
+          }
+          setState('progress', `Waiting ${left}…`)
+        }
+        tick()
+        countdown = setInterval(tick, 1000)
+      } else {
+        setState('progress', `Fetching ${working} of ${entry.total}…`)
+      }
     }
   }
   storage.onChanged.addListener(listener)
