@@ -224,13 +224,29 @@ https://bridge-craftwork.github.io/bridge-classroom-fetch/demo/
 Other players' names are obscured in those recordings, for the same reason the extension does not collect them.
 ```
 
-**For addons.mozilla.org, add:**
+**For addons.mozilla.org, add** — paste this into the reviewer-notes field at
+submission, rather than waiting to be asked. It is the difference between a
+note and a round-trip:
 
 ```
-Build: npm ci && BROWSER=firefox npm run build — output in dist/firefox.
+Build: npm ci && BROWSER=firefox npm run build — output in dist/firefox. We have verified that this reproduces the uploaded package byte for byte from the attached source archive.
 
-addons-linter reports two UNSAFE_VAR_ASSIGNMENT warnings for innerHTML in the bundled background chunk. Both are inside linkedom, a pure-JS DOM implementation we bundle because MV3 service workers do not expose DOMParser and the HTML parsers require one. Nothing in our own source assigns to innerHTML: `grep -rn innerHTML src/` returns nothing.
+addons-linter reports two UNSAFE_VAR_ASSIGNMENT warnings for innerHTML in the bundled background chunk. Both are inside linkedom, a pure-JS DOM implementation bundled because MV3 service workers do not expose DOMParser and our HTML parsers require one (see src/background.js, which installs it on globalThis before any parser runs). linkedom is a declared dependency in package.json and is present in the source archive.
+
+The two flagged sites are linkedom's own code:
+
+• The first is linkedom's fragment parser: it creates a detached element and assigns to its innerHTML to turn an HTML string into nodes.
+• The second is linkedom's Element class *defining the accessor itself* — `set innerHTML(t){...}`. The linter is flagging the implementation of innerHTML, not a use of it.
+
+Neither touches a live document. The parsers run in the service worker against strings fetched from the user's own results pages, never against the DOM of a page.
+
+Nothing in our own source assigns to innerHTML at all: `grep -rn innerHTML src/` returns no matches. We are happy to answer any question about either site.
 ```
+
+If a reviewer follows up, the two coordinates in the 1.0.0 build were
+`assets/background.js-*.js` line 2 col 8296 and line 7 col 443. The hash in that
+filename changes with every build, so cite the line and column rather than the
+name.
 
 ---
 
