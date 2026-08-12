@@ -45,19 +45,64 @@ function pickInjectableTab(tabs) {
 
 // Run the credentialed fetch inside a tab's main world (same-site, so the
 // browser attaches SameSite=Lax cookies). Returns a minimal Response-like.
+// Chrome drops executeScript results when too many injections hit one tab at
+// once. The ACBL adapter fetches boards 16-wide and every one of those is a
+// separate injection into the *same* user tab, so a 3-month batch produced 173
+// empty results out of 435. Each one fell back to a temp window: minutes
+// slower, and a window flashing behind the browser per board.
+//
+// Two guards. A queue keeps only a few injections in flight per tab, which is
+// not a throughput loss — the fetches inside the page still overlap, and it
+// was never the network that was slow. And an empty result is retried on the
+// same tab before giving up on it, because it is transient rather than a
+// statement that the tab is unusable.
+const MAX_CONCURRENT_INJECTIONS = 4
+const INJECTION_ATTEMPTS = 3
+let injectionsInFlight = 0
+const injectionQueue = []
+
+function acquireInjectionSlot() {
+  if (injectionsInFlight < MAX_CONCURRENT_INJECTIONS) {
+    injectionsInFlight += 1
+    return Promise.resolve()
+  }
+  return new Promise((resolve) => injectionQueue.push(resolve))
+}
+
+function releaseInjectionSlot() {
+  const next = injectionQueue.shift()
+  if (next) next()
+  else injectionsInFlight -= 1
+}
+
 async function runFetchInTab(tabId, url) {
-  const results = await browser.scripting.executeScript({
-    target: { tabId },
-    world: 'MAIN',
-    func: (u) =>
-      fetch(u, { credentials: 'include' }).then(async (r) => ({
-        ok: r.ok,
-        status: r.status,
-        statusText: r.statusText,
-        body: await r.text(),
-      })),
-    args: [url],
-  })
+  await acquireInjectionSlot()
+  try {
+    return await injectFetch(tabId, url)
+  } finally {
+    releaseInjectionSlot()
+  }
+}
+
+async function injectFetch(tabId, url) {
+  let results
+  for (let attempt = 0; attempt < INJECTION_ATTEMPTS; attempt++) {
+    results = await browser.scripting.executeScript({
+      target: { tabId },
+      world: 'MAIN',
+      func: (u) =>
+        fetch(u, { credentials: 'include' }).then(async (r) => ({
+          ok: r.ok,
+          status: r.status,
+          statusText: r.statusText,
+          body: await r.text(),
+        })),
+      args: [url],
+    })
+    if (results?.[0]?.result) break
+    fetchPathStats.injectionRetries += 1
+    await new Promise((r) => setTimeout(r, 120 * (attempt + 1)))
+  }
   const r = results?.[0]?.result
   if (!r) throw new Error('executeScript returned no result')
   return {
@@ -114,7 +159,7 @@ async function openTempTab(url) {
 // and looks like a flashing window behind the browser — but the reason was
 // being swallowed by an empty catch, so it could not be diagnosed from the
 // symptom. Read it from the service-worker console with `bcFetchStats()`.
-const fetchPathStats = { reusedTab: 0, noTabFound: 0, tabFailed: 0, lastError: null }
+const fetchPathStats = { reusedTab: 0, noTabFound: 0, tabFailed: 0, injectionRetries: 0, lastError: null }
 globalThis.bcFetchStats = () => ({ ...fetchPathStats })
 
 async function fetchViaTab(url) {
