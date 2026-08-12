@@ -1,1 +1,1 @@
-import './assets/background.js-DTR3-jha.js';
+import './assets/background.js-qtra-I6x.js';

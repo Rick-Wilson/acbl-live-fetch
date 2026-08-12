@@ -76,7 +76,7 @@ journal; filters compose and are *nested*, so widening a run only adds work.
 ### Next up: store release
 
 Packaging is done — `scripts/package-stores.sh` builds Chrome, Edge, Firefox and
-refreshes the Safari resources. Submitting to all four in parallel, at **1.0.0**.
+refreshes the Safari resources. Submitted to three of four; Safari remains.
 
 Done: icons (a mortarboard — `icons/icon.svg`, rendered by
 `scripts/render-icons.mjs`; deliberately not a spade, see `docs/store-review.md`),
@@ -93,8 +93,22 @@ All four browsers are QA'd against both no-account paths — see
 |---|---|---|
 | Chrome Web Store | 11 Aug 2026 | awaiting review |
 | Edge Add-ons | 11 Aug 2026 | awaiting review |
-| addons.mozilla.org | 11 Aug 2026 | awaiting review |
-| Mac App Store | — | |
+| addons.mozilla.org | 11 Aug 2026 | awaiting review — **1.0.1** |
+| Mac App Store | — | ready, will be 1.0.1 |
+
+**Versions differ by store on purpose.** Chrome and Edge are reviewing 1.0.0.
+Firefox needed 1.0.1 because its `data_collection_permissions` said `none` and
+the envelope does transmit PII — AMO will not accept a version string it has
+already seen, so the correction needed a bump. The key is gecko-only, so
+Chrome's and Edge's packages were unaffected and their reviews were left alone.
+
+**The data-collection question caught us twice**, on Chrome and then Firefox,
+from the same reasoning: there is no server and no telemetry, so "collect" felt
+like it meant "collect for ourselves". Every store means "leaves the device".
+The envelope's `Player` is `{ name, acbl_id, … }` — a real name and a
+national-body ID — sent to `bridge-classroom.org`. Re-check this against
+`docs/normalized-schema.md` on every submission: a new field in `Player`
+changes the answer.
 
 Chrome warned that host permissions trigger an in-depth review, which is
 expected and unavoidable — see `docs/submission-answers.md`. Expect days to

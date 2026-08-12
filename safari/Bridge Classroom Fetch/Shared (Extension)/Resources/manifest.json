@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Bridge Classroom Fetch",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Send your bridge results from ACBL Live, ACBL Live for Clubs and Bridge Base Online to Bridge Classroom for analysis in one click.",
   "icons": {
     "16": "icons/icon-16.png",
@@ -24,7 +24,7 @@
   "content_scripts": [
     {
       "js": [
-        "assets/sourceContent.js-loader-BGeHUJs_.js"
+        "assets/sourceContent.js-loader-BidT4BMy.js"
       ],
       "matches": [
         "https://live.acbl.org/*",
@@ -78,9 +78,9 @@
       ],
       "resources": [
         "assets/preload-helper-ckwbz45p.js",
-        "assets/index-CzyI_Ci2.js",
+        "assets/index-W98TjXoH.js",
         "assets/browser-polyfill-C8sOovTA.js",
-        "assets/sourceContent.js-jyziyDb6.js"
+        "assets/sourceContent.js-BI59moyn.js"
       ],
       "use_dynamic_url": false
     },
