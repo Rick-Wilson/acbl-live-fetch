@@ -346,7 +346,13 @@ export async function runBatchExtraction(listUrl, deps, since = null, max = null
       }
       if (storageQuotaHit || signal?.aborted) break
       if (await isCancelled()) { cancelled = true; break }
-      await new Promise((r) => setTimeout(r, batchItemDelayMs(url)))
+      // Between events, not between boards. One event's 96 board fetches run
+      // clean; it is the running total across events that gets refused, so
+      // spacing boards taxes the case that already works. deps.pacer knows
+      // whether the event just finished was refused and asks for a longer gap
+      // only then, leaving a clean batch at full speed.
+      const gapMs = deps.pacer?.eventGapMs?.(url) ?? batchItemDelayMs(url)
+      await new Promise((r) => setTimeout(r, gapMs))
     }
     await storage.set({ [storageKey]: { stored_at: Date.now(), total, completed: items.length + errors.length, items, errors, done: true, cancelled } })
     // Clean up the cancel flag if it was set.

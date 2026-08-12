@@ -22,7 +22,7 @@ if (typeof globalThis.DOMParser === 'undefined') {
 }
 
 import browser from 'webextension-polyfill'
-import { handleMessage, sweepExpired } from './background/handlers.js'
+import { handleMessage, sweepExpired, batchItemDelayMs } from './background/handlers.js'
 import bboAdapter from './adapters/bbo/index.js'
 
 // Fetch via chrome.scripting.executeScript inside a same-origin tab so
@@ -302,11 +302,40 @@ async function sendEnvelope(tabId, envelope) {
   }
 }
 
+
+// How long to leave between events in a batch.
+//
+// A single event's ~96 board fetches complete cleanly; it is the running total
+// across events that live.acbl.org starts refusing, and it recovers if left
+// alone — the fourth event of a batch ran at full speed after two slow ones.
+// So the gap belongs between events, where it costs nothing in the common case
+// of extracting one, rather than between boards, where it taxes every
+// extraction to protect against a state most never reach.
+//
+// Asked for after each event, and only long when that event was actually
+// refused, so a clean batch stays quick.
+const EVENT_GAP_CLEAN_MS = 1000
+const EVENT_GAP_AFTER_REFUSAL_MS = 20000
+let refusalsAtEventStart = 0
+
+const pacer = {
+  eventGapMs(url) {
+    const refused = fetchPathStats.pageFetchErrors - refusalsAtEventStart
+    refusalsAtEventStart = fetchPathStats.pageFetchErrors
+    if (refused > 0) {
+      fetchPathStats.lastEventRefusals = refused
+      return EVENT_GAP_AFTER_REFUSAL_MS
+    }
+    return batchItemDelayMs(url)
+  },
+}
+
 const deps = () => ({
   storage: browser.storage.local,
   tabs: browser.tabs,
   crypto: globalThis.crypto,
   fetch: smartFetch,
+  pacer,
 })
 
 browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
