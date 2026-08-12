@@ -90,17 +90,32 @@ async function injectFetch(tabId, url) {
     results = await browser.scripting.executeScript({
       target: { tabId },
       world: 'MAIN',
+      // Catch inside the page. A rejected promise reaches us as `result:
+      // undefined`, which is indistinguishable from the injection itself
+      // failing — so a fetch the *site* refused looked like an unscriptable
+      // tab, and we opened a window to retry something the network had
+      // already declined. Returning the error keeps the two apart.
       func: (u) =>
-        fetch(u, { credentials: 'include' }).then(async (r) => ({
-          ok: r.ok,
-          status: r.status,
-          statusText: r.statusText,
-          body: await r.text(),
-        })),
+        fetch(u, { credentials: 'include' })
+          .then(async (r) => ({
+            ok: r.ok,
+            status: r.status,
+            statusText: r.statusText,
+            body: await r.text(),
+          }))
+          .catch((e) => ({ pageFetchError: String(e?.message ?? e) })),
       args: [url],
     })
-    if (results?.[0]?.result) break
+    const value = results?.[0]?.result
+    if (value?.pageFetchError) {
+      fetchPathStats.pageFetchErrors += 1
+      fetchPathStats.lastPageFetchError = value.pageFetchError
+      // The site refused this request. A temp window will not help.
+      throw new Error(`fetch failed inside the page: ${value.pageFetchError}`)
+    }
+    if (value) break
     fetchPathStats.injectionRetries += 1
+    if (results?.[0]?.error) fetchPathStats.lastInjectionError = String(results[0].error)
     await new Promise((r) => setTimeout(r, 120 * (attempt + 1)))
   }
   const r = results?.[0]?.result
@@ -159,7 +174,16 @@ async function openTempTab(url) {
 // and looks like a flashing window behind the browser — but the reason was
 // being swallowed by an empty catch, so it could not be diagnosed from the
 // symptom. Read it from the service-worker console with `bcFetchStats()`.
-const fetchPathStats = { reusedTab: 0, noTabFound: 0, tabFailed: 0, injectionRetries: 0, lastError: null }
+const fetchPathStats = {
+  reusedTab: 0,
+  noTabFound: 0,
+  tabFailed: 0,
+  injectionRetries: 0,
+  pageFetchErrors: 0,
+  lastError: null,
+  lastPageFetchError: null,
+  lastInjectionError: null,
+}
 globalThis.bcFetchStats = () => ({ ...fetchPathStats })
 
 async function fetchViaTab(url) {
