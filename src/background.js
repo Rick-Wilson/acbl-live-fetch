@@ -61,36 +61,6 @@ const INJECTION_ATTEMPTS = 3
 let injectionsInFlight = 0
 const injectionQueue = []
 
-// Adaptive spacing between in-page fetches.
-//
-// live.acbl.org starts refusing under sustained load: a 4-event batch saw 180
-// of ~445 board fetches reject with "Failed to fetch", while Chrome dropped no
-// injections at all. It recovers — the fourth event ran at full speed again
-// after two slow ones — so a fixed delay would be either too slow when the
-// site is happy or too fast when it is not.
-//
-// Same shape as tools/fetch-replays.js uses against BBO, and for the same
-// reason: additive on both sides, so a burst of refusals cannot ratchet the
-// delay somewhere it takes hundreds of clean requests to climb back from.
-const PACE = { stepUpMs: 250, stepDownMs: 40, maxMs: 4000, speedupAfter: 12 }
-let injectionDelayMs = 0
-let cleanRun = 0
-
-function paceAfterFailure() {
-  cleanRun = 0
-  injectionDelayMs = Math.min(injectionDelayMs + PACE.stepUpMs, PACE.maxMs)
-  fetchPathStats.pacingMs = injectionDelayMs
-}
-
-function paceAfterSuccess() {
-  cleanRun += 1
-  if (cleanRun >= PACE.speedupAfter && injectionDelayMs > 0) {
-    cleanRun = 0
-    injectionDelayMs = Math.max(injectionDelayMs - PACE.stepDownMs, 0)
-    fetchPathStats.pacingMs = injectionDelayMs
-  }
-}
-
 function acquireInjectionSlot() {
   if (injectionsInFlight < MAX_CONCURRENT_INJECTIONS) {
     injectionsInFlight += 1
@@ -108,10 +78,7 @@ function releaseInjectionSlot() {
 async function runFetchInTab(tabId, url) {
   await acquireInjectionSlot()
   try {
-    if (injectionDelayMs > 0) await new Promise((r) => setTimeout(r, injectionDelayMs))
-    const res = await injectFetch(tabId, url)
-    paceAfterSuccess()
-    return res
+    return await injectFetch(tabId, url)
   } finally {
     releaseInjectionSlot()
   }
@@ -143,7 +110,6 @@ async function injectFetch(tabId, url) {
     if (value?.pageFetchError) {
       fetchPathStats.pageFetchErrors += 1
       fetchPathStats.lastPageFetchError = value.pageFetchError
-      paceAfterFailure()
       // The site refused this request. Opening a temp window to ask again
       // costs a page load and adds load to a server already saying no — and
       // the caller's own retry/backoff is the right place to try again.
@@ -218,7 +184,6 @@ const fetchPathStats = {
   tabFailed: 0,
   injectionRetries: 0,
   pageFetchErrors: 0,
-  pacingMs: 0,
   lastError: null,
   lastPageFetchError: null,
   lastInjectionError: null,

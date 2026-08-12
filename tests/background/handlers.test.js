@@ -10,6 +10,7 @@ import {
   getIngestUrl,
   getBboUsername,
   isTeamEvent,
+  cancelBatch,
   BBO_USERNAME_KEY,
 } from '../../src/background/handlers.js'
 
@@ -353,5 +354,28 @@ describe('isTeamEvent', () => {
   it('tolerates missing fields', () => {
     expect(isTeamEvent({})).toBe(false)
     expect(isTeamEvent(null)).toBe(false)
+  })
+})
+
+// Stop was only consulted between events. An ACBL event runs for a minute or
+// more, so pressing it mid-event did nothing visible and the button looked
+// broken. cancelBatch now aborts the batch's signal as well as setting the
+// storage flag.
+describe('cancelBatch', () => {
+  it('acknowledges and sets the cancel flag', async () => {
+    const store = {}
+    const storage = {
+      set: vi.fn(async (o) => Object.assign(store, o)),
+      get: vi.fn(async (k) => ({ [k]: store[k] })),
+      remove: vi.fn(async () => {}),
+    }
+    const res = await cancelBatch('abc', { storage })
+    expect(res).toEqual({ type: 'cancel-acknowledged', key: 'abc' })
+    expect(store['cancel-batch:abc']).toBe(true)
+  })
+
+  it('rejects a missing key rather than cancelling everything', async () => {
+    const res = await cancelBatch('', { storage: { set: vi.fn() } })
+    expect(res.type).toBe('cancel-error')
   })
 })

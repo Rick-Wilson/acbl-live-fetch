@@ -99,6 +99,12 @@ export function batchItemDelayMs(url) {
 }
 export const CANCEL_BATCH_PREFIX = 'cancel-batch:'
 
+// In-flight batches, so Stop can interrupt the event being extracted rather
+// than only the gap between events. The storage flag alone is checked at the
+// event boundary, and an ACBL event can run for a minute — long enough that
+// the button looked broken.
+const inFlightBatches = new Map()
+
 function isQuotaError(err) {
   const msg = (err?.message ?? '').toLowerCase()
   return msg.includes('quota') || err?.name === 'QuotaExceededError'
@@ -324,15 +330,25 @@ export async function runBatchExtraction(listUrl, deps, since = null, max = null
     } catch { return false }
   }
 
+  // Abort in-flight fetches on cancel. fetchAll checks the signal between
+  // requests, so this stops within a request rather than within an event.
+  const controller = new AbortController()
+  const batchSignal = signal
+    ? AbortSignal.any
+      ? AbortSignal.any([signal, controller.signal])
+      : controller.signal
+    : controller.signal
+  inFlightBatches.set(key, controller)
+
   const doWork = async () => {
     const items = []
     const errors = []
     let cancelled = false
     for (const url of urls) {
-      if (signal?.aborted) break
+      if (batchSignal.aborted) { cancelled = true; break }
       if (await isCancelled()) { cancelled = true; break }
       try {
-        const envelope = await extract(url, { fetch: fetchFn, signal })
+        const envelope = await extract(url, { fetch: fetchFn, signal: batchSignal })
         const compressed = await compressEnvelope(envelope)
         items.push({ compressed, source_url: url })
       } catch (err) {
@@ -344,7 +360,7 @@ export async function runBatchExtraction(listUrl, deps, since = null, max = null
       } catch (err) {
         if (isQuotaError(err)) { storageQuotaHit = true }
       }
-      if (storageQuotaHit || signal?.aborted) break
+      if (storageQuotaHit || batchSignal.aborted) break
       if (await isCancelled()) { cancelled = true; break }
       // Between events, not between boards. One event's 96 board fetches run
       // clean; it is the running total across events that gets refused, so
@@ -355,6 +371,7 @@ export async function runBatchExtraction(listUrl, deps, since = null, max = null
       await new Promise((r) => setTimeout(r, gapMs))
     }
     await storage.set({ [storageKey]: { stored_at: Date.now(), total, completed: items.length + errors.length, items, errors, done: true, cancelled } })
+    inFlightBatches.delete(key)
     // Clean up the cancel flag if it was set.
     await storage.remove(cancelKey).catch(() => {})
     // Don't open the analyzer if the batch was cancelled with no items.
@@ -396,6 +413,10 @@ export async function cancelBatch(key, deps) {
     return { type: 'cancel-error', error: { code: 'bad-request', message: 'Missing batch key' } }
   }
   await storage.set({ [`${CANCEL_BATCH_PREFIX}${key}`]: true })
+  // Abort anything in flight for this batch. Without this the flag is only
+  // seen at the next event boundary, which can be a minute away.
+  inFlightBatches.get(key)?.abort()
+  inFlightBatches.delete(key)
   return { type: 'cancel-acknowledged', key }
 }
 
