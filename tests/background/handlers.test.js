@@ -11,6 +11,7 @@ import {
   getBboUsername,
   isTeamEvent,
   cancelBatch,
+  dedupeAcblSessions,
   BBO_USERNAME_KEY,
 } from '../../src/background/handlers.js'
 
@@ -377,5 +378,41 @@ describe('cancelBatch', () => {
   it('rejects a missing key rather than cancelling everything', async () => {
     const res = await cancelBatch('', { storage: { set: vi.fn() } })
     expect(res.type).toBe('cancel-error')
+  })
+})
+
+// The my-results listing has one row per session, but extractSession already
+// pulls every sibling session of the event it is handed. Extracting each row
+// therefore fetched each event twice — and that redundant second pass is what
+// tripped live.acbl.org's rate limit: the first event of a batch always ran
+// clean, the duplicate did not.
+describe('dedupeAcblSessions', () => {
+  const u = (event, session) =>
+    `https://live.acbl.org/event/2606319/${event}/${session}/summary`
+
+  it('collapses sessions of one event to a single extraction', () => {
+    const out = dedupeAcblSessions([u('26MP', 1), u('26MP', 2), u('27OP', 1), u('27OP', 2)])
+    expect(out).toHaveLength(2)
+    expect(out).toContain(u('26MP', 1))
+    expect(out).toContain(u('27OP', 1))
+  })
+
+  it('keeps the earliest session, where the adapter has always started', () => {
+    expect(dedupeAcblSessions([u('26MP', 3), u('26MP', 1), u('26MP', 2)])).toEqual([u('26MP', 1)])
+  })
+
+  it('leaves a single-session event alone', () => {
+    expect(dedupeAcblSessions([u('26MP', 1)])).toEqual([u('26MP', 1)])
+  })
+
+  it('passes through URLs it does not recognise', () => {
+    const other = ['https://my.acbl.org/club-results/details/1455416', 'https://x/y']
+    expect(dedupeAcblSessions(other)).toEqual(other)
+  })
+
+  it('does not merge different sanctions that share an event id', () => {
+    const a = 'https://live.acbl.org/event/2606319/26MP/1/summary'
+    const b = 'https://live.acbl.org/event/2608344/26MP/1/summary'
+    expect(dedupeAcblSessions([a, b])).toHaveLength(2)
   })
 })

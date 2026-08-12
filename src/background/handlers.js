@@ -88,6 +88,36 @@ export async function getIngestUrl(storage) {
 // Per-host pause between batch items to avoid rate-limiting. ACBL needs more
 // breathing room than BBO (we got a 403 on my.acbl.org with no delay; BBO has
 // been fine at 250ms). Defaults to 1s for unknown hosts.
+
+// my-results and player-results list one row per *session*, but extractSession
+// already pulls every sibling session of the event it is given. So a selection
+// of "26MP/1, 26MP/2, 27OP/1, 27OP/2" is two events, and extracting all four
+// rows fetches each event twice — 96 board requests done, then done again.
+//
+// That doubling is most of what made batches trip live.acbl.org's limit: the
+// first event of a run completes cleanly, and it is the redundant second pass
+// that gets refused. Collapse to one URL per event, keeping the earliest
+// session so the adapter starts where it always has.
+const ACBL_EVENT_SUMMARY = /^(https:\/\/[^/]+\/event\/[^/]+\/[^/]+)\/(\d+)\/summary\/?$/
+
+export function dedupeAcblSessions(urls) {
+  const bestByEvent = new Map()
+  const out = []
+  for (const url of urls) {
+    const m = ACBL_EVENT_SUMMARY.exec(url)
+    if (!m) {
+      out.push(url)
+      continue
+    }
+    const [, eventKey, session] = m
+    const existing = bestByEvent.get(eventKey)
+    if (!existing || Number(session) < Number(existing.session)) {
+      bestByEvent.set(eventKey, { url, session })
+    }
+  }
+  return [...out, ...[...bestByEvent.values()].map((e) => e.url)]
+}
+
 export function batchItemDelayMs(url) {
   try {
     const host = new URL(url).hostname
@@ -303,7 +333,7 @@ export async function runBatchExtraction(listUrl, deps, since = null, max = null
         },
       }
     }
-    allUrls = filtered.map((e) => e.url)
+    allUrls = dedupeAcblSessions(filtered.map((e) => e.url))
     teamsSkipped = skippedTeams
   }
 
