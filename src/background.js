@@ -95,18 +95,41 @@ async function injectFetch(tabId, url) {
       // failing — so a fetch the *site* refused looked like an unscriptable
       // tab, and we opened a window to retry something the network had
       // already declined. Returning the error keeps the two apart.
+      // redirect: 'manual' so a bounce to the login page is visible instead of
+      // fatal. live.acbl.org signs us out partway through a long run and
+      // 302s to web3.acbl.org/login; with the default 'follow' that fetch
+      // dies at the cross-origin check and surfaces as "Failed to fetch",
+      // which is what sent us hunting for rate limits and resource caps. A
+      // manual redirect returns an opaque response we can recognise.
       func: (u) =>
-        fetch(u, { credentials: 'include' })
-          .then(async (r) => ({
-            ok: r.ok,
-            status: r.status,
-            statusText: r.statusText,
-            body: await r.text(),
-          }))
+        fetch(u, { credentials: 'include', redirect: 'manual' })
+          .then(async (r) => {
+            if (r.type === 'opaqueredirect' || r.status === 0) {
+              return { authRedirect: true }
+            }
+            if (r.status === 401 || r.status === 403) {
+              return { authRedirect: true, status: r.status }
+            }
+            return {
+              ok: r.ok,
+              status: r.status,
+              statusText: r.statusText,
+              body: await r.text(),
+            }
+          })
           .catch((e) => ({ pageFetchError: String(e?.message ?? e) })),
       args: [url],
     })
     const value = results?.[0]?.result
+    if (value?.authRedirect) {
+      fetchPathStats.authRedirects += 1
+      const err = new Error(
+        'ACBL Live signed us out during the extraction. Reload the page, ' +
+          'make sure you are still signed in, and try again.'
+      )
+      err.sessionExpired = true
+      throw err
+    }
     if (value?.pageFetchError) {
       fetchPathStats.pageFetchErrors += 1
       fetchPathStats.lastPageFetchError = value.pageFetchError
@@ -187,6 +210,7 @@ const fetchPathStats = {
   tabFailed: 0,
   injectionRetries: 0,
   pageFetchErrors: 0,
+  authRedirects: 0,
   lastError: null,
   lastPageFetchError: null,
   lastInjectionError: null,
@@ -204,6 +228,9 @@ async function fetchViaTab(url) {
       fetchPathStats.reusedTab += 1
       return res
     } catch (err) {
+      // Being signed out is not a tab problem, and a fresh window will be
+      // signed out too. Let it reach the user with something they can act on.
+      if (err?.sessionExpired) throw err
       // The chosen tab was unscriptable after all — fall through to a
       // dedicated temp window rather than failing the whole extraction.
       fetchPathStats.tabFailed += 1
