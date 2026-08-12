@@ -144,6 +144,49 @@ A team event in a batch does **not** kill the run — `runBatch` wraps each URL 
 its own try/catch and collects failures into `errors` — but it does mean the
 event is silently missing from the analysis, with the reason buried.
 
+### Open: ACBL Live signs us out mid-extraction
+
+**This is the live thread.** Not solved — made legible.
+
+`live.acbl.org` drops the session partway through a long run and 302s to
+`https://web3.acbl.org/login`. Because the fetch followed redirects, it died at
+the cross-origin check and reported `Failed to fetch`, which sent us through
+four wrong theories: Chrome dropping `executeScript` results, our own
+concurrency, rate limiting, and a page somehow exhausted after ~96 requests.
+The console on the *page* had it all along — CORS errors naming the login
+redirect, plus plain `403`s.
+
+`redirect: 'manual'` now makes it visible, and the user gets "ACBL Live signed
+us out… reload, check you are still signed in, and try again."
+
+What is known:
+
+- A **single event always succeeds** — ~96 board fetches in ~11s. Every failure
+  is on the second event of a batch.
+- **A fresh window succeeds where the tab fails**, which is why the temp-window
+  fallback rescued whole batches (48/48/50/52 boards with it, 48/3 without).
+  Removing it cost 45 boards; it is back.
+- Gaps between events did **not** help — 1s, 20s and 30s all behaved the same,
+  which is what ruled out rate limiting.
+- `bcFetchStats()` in the service-worker console counts `reusedTab`,
+  `tabFailed`, `pageFetchErrors`, `authRedirects`, `injectionRetries`.
+
+Unknown: whether the sign-out is driven by time, volume or rate. That is the
+next thing to measure, and it is now measurable.
+
+Fixed today, all with tests, all found in real data rather than reasoned:
+
+| | |
+|---|---|
+| `NS` in the score column | threw, and one bad row discarded the whole board — 22 of 24 boards lost |
+| Double-dummy `1/-S` | the dash means "cannot make"; it threw, costing 2 more boards |
+| Team games | no board data; skipped before fetching, with a count rather than silently |
+| `/my-results` | classified, injected, and the Event name captured so team-skip works there |
+| Duplicate sessions | one row per *session* meant each event was extracted twice — half of every ACBL batch was redundant |
+| Stop button | only read between events; now aborts the batch signal mid-event |
+| "Fetching 0 of 2" | labels count the item in progress, not the ones finished |
+| Countdown between events | worker publishes when a wait ends; the button ticks locally |
+
 ### Working style that has paid off here
 
 Verify against real data rather than reasoning from documentation. Several
