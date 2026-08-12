@@ -93,7 +93,7 @@ All four browsers are QA'd against both no-account paths — see
 |---|---|---|
 | Chrome Web Store | 11 Aug 2026 | awaiting review |
 | Edge Add-ons | — | |
-| addons.mozilla.org | — | |
+| addons.mozilla.org | 11 Aug 2026 | awaiting review |
 | Mac App Store | — | |
 
 Chrome warned that host permissions trigger an in-depth review, which is
@@ -105,12 +105,19 @@ Every field for all four stores is written out paste-ready in
 `docs/submission-answers.md`; the reasoning behind each lives in
 `docs/store-review.md`.
 
+AMO wanted more than the extension: a source archive carrying build
+instructions, a build script, and the node/npm versions — `BUILD.md` and
+`build.sh` exist for that, and `.gitattributes` keeps screenshots and demo
+videos out of the archive (8.3 MB → 897 KB). Before submitting, extract the
+archive into a clean directory, run `./build.sh`, and diff the output against
+`dist/firefox`; it should be identical, and that is the check AMO performs.
+
 Still to do at submission time:
 
 1. **Bump `CURRENT_PROJECT_VERSION`** per Safari upload — one `agvtool`
    command, in `docs/store-review.md`. The first upload can go as build 1.
-2. **Firefox needs the source archive too**, built by `git archive` from HEAD,
-   so commit before packaging.
+2. **Commit before packaging** — the source archive is `git archive` from HEAD,
+   so uncommitted work is silently absent from it.
 
 Open questions live at the end of ADR 0001.
 
