@@ -8,7 +8,7 @@
 // Other 4xx responses are surfaced immediately without retry.
 
 export class FetchError extends Error {
-  constructor(message, { url, status, cause, challenge = false } = {}) {
+  constructor(message, { url, status, cause, challenge = false, sessionExpired = false } = {}) {
     super(message)
     this.name = 'FetchError'
     this.url = url
@@ -16,6 +16,11 @@ export class FetchError extends Error {
     // True when the 403 was a bot check rather than a refusal. Transient: the
     // same request succeeds after the user reloads and clears the challenge.
     this.challenge = challenge
+    // True when the site bounced us to its login page mid-run. live.acbl.org
+    // does this once a sign-in has spent its request allowance, and the only
+    // cure is signing out and back in — so it needs to reach the user as its
+    // own thing, not as a generic "fetch failed".
+    this.sessionExpired = sessionExpired
     if (cause !== undefined) this.cause = cause
   }
 }
@@ -117,7 +122,16 @@ async function fetchOne(url, fetchFn, { signal, maxRetries }) {
           ? `${new URL(url).hostname} asked us to prove we're human. ` +
             `Reload the page and try again.`
           : `HTTP ${status} for ${url}`
-      throw new FetchError(msg, { url, status, challenge, cause: networkErr ?? undefined })
+      throw new FetchError(msg, {
+        url,
+        status,
+        challenge,
+        // The tab-fetch path throws its own error when the site bounces us to
+        // the SSO login. Carry that fact up rather than flattening it into a
+        // network failure — the caller can only give useful advice if it knows.
+        sessionExpired: !!networkErr?.sessionExpired,
+        cause: networkErr ?? undefined,
+      })
     }
 
     const retryAfterMs = parseRetryAfter(res?.headers?.get?.('Retry-After'))

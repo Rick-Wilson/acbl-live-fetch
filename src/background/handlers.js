@@ -4,12 +4,16 @@
 //
 // Message protocol: see docs/handoff-protocol.md.
 
-import acblLiveAdapter from '../adapters/acbl-live/index.js'
+import acblLiveAdapter, {
+  classifyPage as classifyLive,
+  findScorecardUrlInSummary,
+} from '../adapters/acbl-live/index.js'
+import { parsePairScorecard } from '../adapters/acbl-live/parsers/pairScorecard.js'
+import { fetchAll } from '../lib/rateLimiter.js'
 import acblLiveClubAdapter from '../adapters/acbl-live-club/index.js'
 import bboAdapter from '../adapters/bbo/index.js'
 import { parseClubResultsList } from '../adapters/acbl-live-club/parsers/clubResultsList.js'
 import { parseBboHistoryList } from '../adapters/bbo/parsers/historyList.js'
-import { parsePlayerResults } from '../adapters/acbl-live/parsers/playerResults.js'
 
 // Adapter registry. The first adapter whose matchesUrl(url) returns true
 // owns that URL. Order matters when adapters could overlap; today they
@@ -30,6 +34,7 @@ async function dispatchExtract(url, options) {
   return a.extractSession(url, options)
 }
 
+export const EXTRACT_PROGRESS_PREFIX = 'extract-progress:'
 export const PENDING_PREFIX = 'pending-sessions:'
 export const PENDING_BATCH_PREFIX = 'pending-batch:'
 export const PENDING_TTL_MS = 60 * 60 * 1000 // 1 hour
@@ -170,7 +175,16 @@ export async function handleMessage(msg, deps) {
       error: { code: 'bad-request', message: 'Missing message type' },
     }
   }
-  if (msg.type === 'extract-session') return runExtraction(msg.url, deps)
+  if (msg.type === 'extract-session') {
+    // playerName rides along from the per-row links on ACBL Live's results
+    // listing, which is one player's page — it lets the adapter enter through
+    // that player's own scorecard. See runExtraction.
+    return runExtraction(msg.url, deps, {
+      playerName: msg.playerName ?? null,
+      progressKey: msg.progressKey ?? null,
+    })
+  }
+  if (msg.type === 'list-event-pairs') return listEventPairs(msg.url, deps)
   if (msg.type === 'extract-shortlink') return runShortlinkExtraction(msg.url, deps)
   if (msg.type === 'consume-pending-session') return consumePending(msg.sid, deps)
   if (msg.type === 'extract-batch') return runBatchExtraction(msg.listUrl, deps, msg.since ?? null, msg.max ?? null, msg.urls ?? null)
@@ -227,19 +241,118 @@ export async function runShortlinkExtraction(url, deps) {
   return runExtraction(resolved, deps)
 }
 
-export async function runExtraction(url, deps) {
+// Every pair in an event, so the summary page can ask which one is meant.
+//
+// A summary page names no user, and the extractor now fetches one section — so
+// guessing costs the user a stranger's section and none of their own boards.
+// Rather than guess, the page offers a list and the click that follows goes
+// straight to that pair's scorecard, which is the ordinary, already-tested
+// entry point.
+//
+// The list comes from a scorecard's #pair-select dropdown rather than from the
+// summary markup: it covers every section in one predictable format
+// ("Tim Benoit & Michael Fleisher"), where the summary's own rows vary. Two
+// fetches out of an allowance of ~110.
+export async function listEventPairs(url, deps) {
+  const { fetch: fetchFn = globalThis.fetch, signal } = deps
+  if (typeof url !== 'string' || !url) {
+    return { type: 'extraction-error', error: { code: 'bad-request', message: 'Missing URL' } }
+  }
+  if (classifyLive(url) !== 'event-summary') {
+    return {
+      type: 'extraction-error',
+      error: { code: 'bad-request', message: `Not an ACBL Live event summary: ${url}` },
+    }
+  }
+
+  try {
+    const fetchOpts = { fetch: fetchFn, signal, concurrency: 1 }
+    const summaryMap = await fetchAll([url], fetchOpts)
+    const html = summaryMap.get(url)
+    if (html instanceof Error) throw html
+
+    const { url: scorecardUrl } = findScorecardUrlInSummary(html, url)
+    if (!scorecardUrl) {
+      const err = new Error(
+        'No pair scorecards on this event — team events are not supported.'
+      )
+      err.name = 'ParseError'
+      throw err
+    }
+
+    const scMap = await fetchAll([scorecardUrl], fetchOpts)
+    const scHtml = scMap.get(scorecardUrl)
+    if (scHtml instanceof Error) throw scHtml
+
+    const pairs = parsePairScorecard(scHtml).pair_directory.map((p) => ({
+      section: p.section,
+      direction: p.direction,
+      pair_number: p.pair_number,
+      players_text: p.players_text,
+      url: new URL(p.url, url).toString(),
+    }))
+    return { type: 'event-pairs', pairs }
+  } catch (err) {
+    return {
+      type: 'extraction-error',
+      error: { code: classifyError(err), message: err?.message ?? 'Could not list the pairs' },
+    }
+  }
+}
+
+// Publish progress where the page can see it.
+//
+// The extraction runs in the service worker and the message that started it
+// does not resolve until it is finished, so the only channel back to the page
+// mid-flight is storage. Throttled: fifty boards would otherwise be fifty
+// writes, and the page only repaints a few times a second anyway.
+const PROGRESS_THROTTLE_MS = 250
+
+export function makeProgressReporter(storage, key, now = () => Date.now()) {
+  const storageKey = `${EXTRACT_PROGRESS_PREFIX}${key}`
+  let lastWrite = 0
+  return (done, total) => {
+    const t = now()
+    // Always publish the last one, so the bar reaches 100 rather than stopping
+    // at whatever the throttle happened to allow.
+    if (t - lastWrite < PROGRESS_THROTTLE_MS && done < total) return
+    lastWrite = t
+    storage.set({ [storageKey]: { done, total, stored_at: t } }).catch(() => {})
+  }
+}
+
+export async function runExtraction(url, deps, extra = {}) {
   const { storage, tabs, crypto, fetch, signal, extract = dispatchExtract } = deps
+  // The caller supplies the key so it can watch from the moment it clicks,
+  // rather than waiting for a round trip that only completes at the end.
+  const progressKey = extra.progressKey ?? null
+  delete extra.progressKey
   if (typeof url !== 'string' || !url) {
     return { type: 'extraction-error', error: { code: 'bad-request', message: 'Missing URL' } }
   }
   let envelope
   try {
-    envelope = await extract(url, { fetch: fetch ?? globalThis.fetch, signal })
+    // extractOptions carries the fetch-rate override, if one is set. It is a
+    // dev knob for finding the rate live.acbl.org's Cloudflare rules tolerate;
+    // unset, the adapter's own defaults apply.
+    envelope = await extract(url, {
+      fetch: fetch ?? globalThis.fetch,
+      signal,
+      ...(deps.extractOptions ?? {}),
+      ...extra,
+      onProgress: progressKey ? makeProgressReporter(storage, progressKey) : undefined,
+    })
   } catch (err) {
+    if (progressKey) {
+      await storage.remove(`${EXTRACT_PROGRESS_PREFIX}${progressKey}`).catch(() => {})
+    }
     return {
       type: 'extraction-error',
       error: { code: classifyError(err), message: err?.message ?? 'Extraction failed' },
     }
+  }
+  if (progressKey) {
+    await storage.remove(`${EXTRACT_PROGRESS_PREFIX}${progressKey}`).catch(() => {})
   }
   const sid = crypto.randomUUID()
   const key = `${PENDING_PREFIX}${sid}`
@@ -303,7 +416,20 @@ export async function runBatchExtraction(listUrl, deps, since = null, max = null
       if (host === 'www.bridgebase.com') {
         eventList = parseBboHistoryList(html)
       } else if (host === 'live.acbl.org') {
-        eventList = parsePlayerResults(html)
+        // No batch here, deliberately. live.acbl.org allows roughly 110
+        // requests per sign-in under /event/*, which is about two events; a
+        // date-range batch spent that partway through and left the user signed
+        // out. The results listing offers one link per row instead — see
+        // setupRowLinks in src/ui/sourceContent.js and docs/acbl-rate-limit.md.
+        return {
+          type: 'extraction-error',
+          error: {
+            code: 'unsupported',
+            message:
+              'ACBL Live is fetched one event at a time. Use the ' +
+              '"Analyze in Bridge Classroom" link on the row you want.',
+          },
+        }
       } else {
         eventList = parseClubResultsList(html, new URL(listUrl).origin)
       }
@@ -380,8 +506,16 @@ export async function runBatchExtraction(listUrl, deps, since = null, max = null
     for (const url of urls) {
       if (batchSignal.aborted) { cancelled = true; break }
       if (await isCancelled()) { cancelled = true; break }
+      // Mark the boundary so the fetch log can show where one event ends and
+      // the next begins. "It is always the second event" is the central claim
+      // about this bug and nothing recorded enough to confirm it.
+      deps.onEventStart?.(url, { index: items.length + errors.length + 1, total })
       try {
-        const envelope = await extract(url, { fetch: fetchFn, signal: batchSignal })
+        const envelope = await extract(url, {
+          fetch: fetchFn,
+          signal: batchSignal,
+          ...(deps.extractOptions ?? {}),
+        })
         const compressed = await compressEnvelope(envelope)
         items.push({ compressed, source_url: url })
       } catch (err) {
@@ -535,6 +669,11 @@ export async function sweepExpired(deps) {
 }
 
 function classifyError(err) {
+  // Its own code, because it is the only failure with a specific cure: sign out
+  // of ACBL Live and back in. live.acbl.org allows about 110 requests per
+  // sign-in under /event/*, so the second extraction in one sitting usually
+  // lands here. See docs/acbl-rate-limit.md.
+  if (err?.sessionExpired || err?.cause?.sessionExpired) return 'session-expired'
   switch (err?.name) {
     case 'FetchError':
       return 'fetch-failed'

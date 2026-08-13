@@ -34,14 +34,15 @@ Read `docs/architecture.md` for full detail. Key points:
 
 ## Current state (August 2026)
 
-Working and merged to `main`. 348 unit tests, 5 Playwright e2e tests, all passing.
+Working and merged to `main`. 433 unit tests, 5 Playwright e2e tests, all passing.
 
 **Four entry points**, each with an injected button. Five injection points, since
 BBO takes three:
 
 | Source | Notes | Button goes |
 |---|---|---|
-| `live.acbl.org` | Tournaments. All sections. Needs an ACBL login | In flow, beside the `h1` |
+| `live.acbl.org` | Tournaments. The user's own section. Needs an ACBL login | In flow, beside the `h1` |
+| `live.acbl.org/my-results` | The results listing. One event per row, no batch — see the allowance below | A link in each row's Links column |
 | `my.acbl.org` | Club games. Results are public | The navbar (`ul.navbar-nav`) |
 | BBO lobby (`/v3/*`) | Multi-event batch. Needs a BBO login | Above the history list |
 | BBO hands list (`hands.php?tourney=`) | One session | Merged into the table's header rows |
@@ -71,6 +72,8 @@ journal; filters compose and are *nested*, so widening a run only adds work.
   deliberate decision not to collect BBO opponents' real names
 - `docs/adr/0001-*.md` — why the ingest route exists
 - `docs/store-review.md` — store submission, test procedures, blockers
+- `docs/acbl-rate-limit.md` — the ~110-request-per-sign-in allowance on
+  live.acbl.org, how it was measured, and the four theories it killed
 - `docs/prior-art.md` — what three other bridge extensions do
 
 ### Next up: store release
@@ -144,48 +147,54 @@ A team event in a batch does **not** kill the run — `runBatch` wraps each URL 
 its own try/catch and collects failures into `errors` — but it does mean the
 event is silently missing from the analysis, with the reason buried.
 
-### Open: ACBL Live signs us out mid-extraction
+### ACBL Live has a per-sign-in request allowance
 
-**This is the live thread.** Not solved — made legible.
+**Solved.** `live.acbl.org` serves roughly **110 requests per sign-in** under
+`/event/*`, then 302s everything to `https://web3.acbl.org/login`. It counts
+requests — measured across 0–15 MB, 18–55s, 1–16 concurrent, GET and HEAD alike,
+and only the count holds still. Full evidence in `docs/acbl-rate-limit.md`.
 
-`live.acbl.org` drops the session partway through a long run and 302s to
-`https://web3.acbl.org/login`. Because the fetch followed redirects, it died at
-the cross-origin check and reported `Failed to fetch`, which sent us through
-four wrong theories: Chrome dropping `executeScript` results, our own
-concurrency, rate limiting, and a page somehow exhausted after ~96 requests.
-The console on the *page* had it all along — CORS errors naming the login
-redirect, plus plain `403`s.
+Why it took four wrong theories: a *navigation* follows that 302 and silently
+re-authenticates, so the page never looks signed out and the next run works. A
+*fetch* dies at the cross-origin check. `redirect: 'manual'` made the redirect
+visible; the page console named its destination.
 
-`redirect: 'manual'` now makes it visible, and the user gets "ACBL Live signed
-us out… reload, check you are still signed in, and try again."
+**We do not work around it.** A navigation would re-authenticate, but doing that
+against an exhausted session was observed to log the user out of ACBL Live for
+real — a credentials prompt, not a silent refresh. Losing someone's login to
+fetch a second event is not a trade worth making. Continuing to request after
+the wall also escalates the block from a 302 to an edge-served `403`.
 
-What is known:
+So the extension fits inside the allowance:
 
-- A **single event always succeeds** — ~96 board fetches in ~11s. Every failure
-  is on the second event of a batch.
-- **A fresh window succeeds where the tab fails**, which is why the temp-window
-  fallback rescued whole batches (48/48/50/52 boards with it, 48/3 without).
-  Removing it cost 45 boards; it is back.
-- Gaps between events did **not** help — 1s, 20s and 30s all behaved the same,
-  which is what ruled out rate limiting.
-- `bcFetchStats()` in the service-worker console counts `reusedTab`,
-  `tabFailed`, `pageFetchErrors`, `authRedirects`, `injectionRetries`.
+| | |
+|---|---|
+| One event per fetch | The results listing gets one `Analyze in Bridge Classroom` link per row (`setupRowLinks`), not a page-level button. The date-range batch is gone — its smallest useful run was ~250 requests |
+| User's own section only | `COVERAGE.sections` is `user-only`. A two-section event cost 96 board fetches; it now costs 48. That is also the field they were scored against |
+| Enter through the user's own pair | The listing is one player's page, so the content script reads the name from the `h1` and the adapter picks that player out of the summary. This is what keeps `user_pair` / `user_result_index` populated |
+| Say what happened | A sign-out has its own error code, `session-expired`, and the listing explains it under the row that was clicked |
 
-Unknown: whether the sign-out is driven by time, volume or rate. That is the
-next thing to measure, and it is now measurable.
+An event costs ~27 requests (one session, 24 boards) to ~55 (two sessions of
+26), so two to three fit in a sign-in. Observed: three events fetched cleanly,
+the fourth showed the message, and a sign-out/sign-in restored it.
 
-Fixed today, all with tests, all found in real data rather than reasoned:
+`bcFetchStats()` in the service-worker console still counts `reusedTab`,
+`tabFailed`, `pageFetchErrors`, `authRedirects`, `botChecks`,
+`injectionRetries`. The heavier instrumentation that established the above was
+removed once it had answered its question — including two instruments that
+corrupted their own measurement, both recorded in the doc so they are not
+rebuilt.
+
+Fixed along the way, all with tests, all found in real data rather than reasoned:
 
 | | |
 |---|---|
 | `NS` in the score column | threw, and one bad row discarded the whole board — 22 of 24 boards lost |
 | Double-dummy `1/-S` | the dash means "cannot make"; it threw, costing 2 more boards |
 | Team games | no board data; skipped before fetching, with a count rather than silently |
-| `/my-results` | classified, injected, and the Event name captured so team-skip works there |
-| Duplicate sessions | one row per *session* meant each event was extracted twice — half of every ACBL batch was redundant |
+| `/my-results` | classified and given per-row links |
 | Stop button | only read between events; now aborts the batch signal mid-event |
 | "Fetching 0 of 2" | labels count the item in progress, not the ones finished |
-| Countdown between events | worker publishes when a wait ends; the button ticks locally |
 
 ### Working style that has paid off here
 
@@ -200,7 +209,7 @@ a minute, check it.
 - **The auction in BBO handviewer URLs is synthetic, not real.** ACBL Live does not capture per-table auctions. Do not extract or use it for analysis. The `auction` field in the normalized schema must be `null` for ACBL Live data.
 - **Em-dash for voids.** Hand parser must handle `—` (U+2014) as void.
 - **Two tables per board-detail page.** Table 0 is N-S view, Table 1 is E-W view. Use Table 0 only — it contains every result.
-- **Section coverage.** A board-detail page shows one section, so the ACBL Live adapter derives every section from the pair directory and fetches session × section × board. Multi-section is built, not pending. BBO differs: its events have sections too, but a traveller carries one row per table across the whole event, so all sections arrive without extra fetches — while section *identity* stays null, because it lives on `tview.php`, which the adapter doesn't fetch. Each adapter declares this in `coverage` (see `docs/normalized-schema.md`).
+- **Section coverage.** A board-detail page shows one section. The ACBL Live adapter fetches the *user's own section* only — `session × board`, not `session × section × board` — because `live.acbl.org` allows about 110 requests per sign-in and the section fan-out could spend that on one event. `COVERAGE.sections` says `user-only` so the envelope does not overclaim. BBO differs: its events have sections too, but a traveller carries one row per table across the whole event, so all sections arrive without extra fetches — while section *identity* stays null, because it lives on `tview.php`, which the adapter doesn't fetch. Each adapter declares this in `coverage` (see `docs/normalized-schema.md`).
 - **Player IDs may be missing** for unregistered players. Handle the absence of `data-acbl` gracefully (`acbl_id: null`).
 - **HTML changes.** When ACBL Live updates their HTML, parsers should fail loudly with specific error messages, not produce silently-wrong data. Validate structural assumptions.
 

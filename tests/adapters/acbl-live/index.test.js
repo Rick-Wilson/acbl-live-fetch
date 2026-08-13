@@ -166,6 +166,132 @@ describe('extractSession', () => {
     expect(seen).toContain(SCORECARD_URL)
   })
 
+  // The per-row links on /my-results are on one player's own results page, so
+  // the content script knows who they are. Passing that name lets the adapter
+  // enter through their scorecard instead of whichever pair happens to be
+  // listed first — which is what populates user_pair, and (now that the fetch
+  // plan covers one section) picks the right section to fetch.
+  describe('summary entry with a known player', () => {
+    const SUMMARY_URL = 'https://live.acbl.org/event/2604321/2501/2/summary'
+    // Two pairs, the stranger first, so taking "the first link" would get it
+    // wrong. The fixture's own pair is A-EW-4, Rick Wilson & Andrew Rowberg.
+    const summaryHtml = `<html><body>
+      <table><tbody>
+        <tr><td>1</td><td>Someone Else &amp; Another Person</td>
+            <td><a href="/event/2604321/2501/2/scores/A/N/1">A-NS 1</a></td></tr>
+        <tr><td>2</td><td>Rick Wilson &amp; Andrew Rowberg</td>
+            <td><a href="/event/2604321/2501/2/scores/A/E/4">A-EW 4</a></td></tr>
+      </tbody></table>
+    </body></html>`
+
+    const fetchFor = (extra = {}) =>
+      vi.fn(async (url) => {
+        if (url === SUMMARY_URL) return ok(summaryHtml)
+        if (url === SCORECARD_URL) return ok(scorecardHtml)
+        if (url === SESSION_1_URL) return ok(session1ScorecardHtml)
+        if (url.includes('/board-detail/')) return ok(board1Html)
+        if (extra[url]) return ok(extra[url])
+        throw new Error(`unexpected URL: ${url}`)
+      })
+
+    it("enters through the named player's own scorecard, not the first link", async () => {
+      const fetchFn = fetchFor()
+      await extractSession(SUMMARY_URL, {
+        fetch: fetchFn,
+        log: silentLog,
+        playerName: 'Rick Wilson',
+      })
+      const seen = fetchFn.mock.calls.map((c) => c[0])
+      expect(seen).toContain(SCORECARD_URL)
+      expect(seen).not.toContain('https://live.acbl.org/event/2604321/2501/2/scores/A/N/1')
+    })
+
+    it('keeps user_pair and user_result_index when the player was found', async () => {
+      const out = await extractSession(SUMMARY_URL, {
+        fetch: fetchFor(),
+        log: silentLog,
+        playerName: 'Rick Wilson',
+      })
+      for (const session of out.tournaments[0].events[0].sessions) {
+        expect(session.user_pair).not.toBeNull()
+        expect(session.user_pair.players.map((p) => p.name)).toContain('Rick Wilson')
+      }
+      const board = out.tournaments[0].events[0].sessions[0].boards[0]
+      expect(board.user_result_index).not.toBeNull()
+    })
+
+    it('matches regardless of the case the listing page used', async () => {
+      // /my-results renders names upper case; the summary page does not.
+      const out = await extractSession(SUMMARY_URL, {
+        fetch: fetchFor(),
+        log: silentLog,
+        playerName: 'RICK WILSON',
+      })
+      expect(out.tournaments[0].events[0].sessions[0].user_pair).not.toBeNull()
+    })
+
+    it('finds the player via the pair directory when the summary markup hides them', async () => {
+      // The real failure this guards against: a MidFlight event whose summary
+      // page did not yield a name match, so the first link — section C — was
+      // used, and the envelope came back with a stranger's section and none of
+      // the user's boards. Every scorecard's #pair-select lists every pair in
+      // every section, in one predictable format, so it is the reliable route.
+      const summaryWithoutNames = `<html><body><table><tbody>
+        <tr><td>1</td><td><a href="/event/2604321/2501/2/scores/A/N/1">A-NS 1</a></td></tr>
+      </tbody></table></body></html>`
+      const seen = []
+      const fetchFn = vi.fn(async (url) => {
+        seen.push(url)
+        if (url === SUMMARY_URL) return ok(summaryWithoutNames)
+        // Both scorecards parse to the same fixture, whose pair directory
+        // contains Rick Wilson at A-EW-4.
+        if (url.includes('/scores/')) return ok(scorecardHtml)
+        if (url === SESSION_1_URL) return ok(session1ScorecardHtml)
+        if (url.includes('/board-detail/')) return ok(board1Html)
+        throw new Error(`unexpected URL: ${url}`)
+      })
+
+      const out = await extractSession(SUMMARY_URL, {
+        fetch: fetchFn,
+        log: silentLog,
+        playerName: 'Rick Wilson',
+      })
+      expect(out.tournaments[0].events[0].sessions[0].user_pair).not.toBeNull()
+      expect(seen).toContain(SCORECARD_URL) // the user's own, not the first link
+    })
+
+    it('refuses rather than returning a stranger, when the player is nowhere', async () => {
+      // Silently substituting an arbitrary pair used to be harmless, because
+      // the extractor fetched every section anyway. Now the plan covers one
+      // section, so the wrong pair means the wrong section and no user data —
+      // a failure that looks exactly like a success.
+      await expect(
+        extractSession(SUMMARY_URL, {
+          fetch: fetchFor({
+            'https://live.acbl.org/event/2604321/2501/2/scores/A/N/1': scorecardHtml,
+          }),
+          log: silentLog,
+          playerName: 'Nobody At All',
+        })
+      ).rejects.toThrow(/could not find nobody at all/i)
+    })
+
+    it('still allows an event-wide extraction when no player was named', async () => {
+      // Browsing to a summary page and using the page button names nobody, and
+      // that is a legitimate request for the event rather than for a person.
+      // Nobody named, so the first link wins — the stranger at A-NS-1.
+      const out = await extractSession(SUMMARY_URL, {
+        fetch: fetchFor({
+          'https://live.acbl.org/event/2604321/2501/2/scores/A/N/1': scorecardHtml,
+        }),
+        log: silentLog,
+      })
+      for (const session of out.tournaments[0].events[0].sessions) {
+        expect(session.user_pair).toBeNull()
+      }
+    })
+  })
+
   it('throws cleanly when a summary page has no pair-scorecard links', async () => {
     const SUMMARY_URL = 'https://live.acbl.org/event/2604321/2501/2/summary'
     const fetchFn = vi.fn(async (url) => {
@@ -286,11 +412,15 @@ describe('extractSession', () => {
     expect(session2.warnings.some((w) => /board 5.*parse failed/.test(w))).toBe(true)
   })
 
-  it('fetches every section in each session and combines results per board', async () => {
+  it("fetches only the user's own section, even when the event has others", async () => {
+    // Fetching every section multiplied an event's cost by the section count,
+    // and live.acbl.org allows about 110 requests per sign-in before it bounces
+    // everything to the SSO login. The user's own section is the field they
+    // were scored against; the rest was mostly cost. docs/acbl-rate-limit.md.
+    //
     // The fixture's pair-select only lists section A. Inject a synthetic
-    // section B option so the orchestrator discovers a second section and
-    // fetches /board-detail/B?board_num=N for every board. We anchor on the
-    // last A-EW option in the dropdown — appending after it.
+    // section B so there IS another section to ignore. We anchor on the last
+    // A-EW option in the dropdown — appending after it.
     const lastAEWOption =
       '<option value="" data-url="/event/2604321/2501/2/scores/A/E/15">(A-EW) 15-Jennifer Kuhn &amp; Philip Kuhn</option>'
     const multiSectionScorecard = scorecardHtml.replace(
@@ -316,24 +446,22 @@ describe('extractSession', () => {
     const out = await extractSession(SCORECARD_URL, { fetch: fetchFn, log: silentLog })
     const session = out.tournaments[0].events[0].sessions.find((s) => s.session_number === 2)
 
-    // Section B board-detail was fetched for every board (1..26).
-    expect(sectionBBoardUrls).toHaveLength(26)
-    for (let n = 1; n <= 26; n++) {
-      expect(sectionBBoardUrls).toContain(
-        `https://live.acbl.org/event/2604321/2501/2/board-detail/B?board_num=${n}`
-      )
-    }
+    // Section B was never requested — the user plays in A.
+    expect(sectionBBoardUrls).toEqual([])
 
-    // Each board's results combine section A + section B (30 rows total —
-    // 15 from each section's parsed board-detail).
+    // Every board is still built, from section A alone: 15 rows, not 30.
     expect(session.boards).toHaveLength(26)
-    expect(session.boards[0].results).toHaveLength(30)
+    expect(session.boards[0].results).toHaveLength(15)
+    expect(session.boards[0].results.every((r) => r.ew_pair.section === 'A')).toBe(true)
 
     // The user's row is still found correctly: A-EW-4.
     expect(session.boards[0].user_result_index).not.toBeNull()
     const userResult = session.boards[0].results[session.boards[0].user_result_index]
     expect(userResult.ew_pair.section).toBe('A')
     expect(userResult.ew_pair.number).toBe(4)
+
+    // And the envelope says so, rather than still claiming full coverage.
+    expect(out.coverage.sections).toBe('user-only')
   })
 
   it("ships the sessions it could fetch when a sibling session's scorecard fails", async () => {

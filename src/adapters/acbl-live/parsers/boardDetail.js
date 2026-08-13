@@ -267,6 +267,7 @@ function parseResultRow(row, idx, section) {
   let declarer = declarerText || null
   const scoreText = collapse(cells[3].textContent)
   let score
+  let notScored = false
   // Passed-out boards: ACBL Live has been seen rendering 'PASS' in the score
   // cell (rather than in the contract cell, where you'd expect it). Treat
   // 'PASS' anywhere in the contract/score columns as a passed-out row, with
@@ -278,7 +279,7 @@ function parseResultRow(row, idx, section) {
     declarer = null
   } else if (NOT_SCORED.test(scoreText)) {
     // The pair has no score for this board: not played, or an assigned
-    // average. Contract and declarer are blank and matchpoints are 0.
+    // average.
     //
     // This must not throw. parseBoardDetail builds the whole board, so one
     // unparseable row discards every table that *did* play it — two unscored
@@ -286,11 +287,25 @@ function parseResultRow(row, idx, section) {
     // from the analysis with the reason buried in a warnings array.
     score = null
     declarer = null
+    notScored = true
   } else {
     score = parseSignedInt(scoreText)
   }
-  const matchpoints = parseOptionalNumber(cells[4].textContent)
-  const percentage = parseOptionalNumber(cells[5].textContent)
+  // A no-result row carries no matchpoints or percentage either, whatever the
+  // page happens to render in those cells.
+  //
+  // ACBL Live shows 0 there, and that 0 is a display artifact, not an award —
+  // an unplayed board was not scored zero. Passing it through was faithful and
+  // was a trap: a consumer reading `percentage` without first checking `score`
+  // sees a 0% board. That is exactly what happened downstream, where two
+  // unplayed boards came out rendered as passouts with a low percentage
+  // attached, dragging the analysis down.
+  //
+  // Within schema 1.1 already: `percentage` is documented "null if not
+  // available", and `contract` and `score` are documented null for these rows.
+  // This just makes the rest of the row agree with them.
+  const matchpoints = notScored ? null : parseOptionalNumber(cells[4].textContent)
+  const percentage = notScored ? null : parseOptionalNumber(cells[5].textContent)
   const { ns_pair, ew_pair } = parsePairsCell(cells[6], section)
 
   return {

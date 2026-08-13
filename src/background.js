@@ -58,6 +58,37 @@ function pickInjectableTab(tabs) {
 // statement that the tab is unusable.
 const MAX_CONCURRENT_INJECTIONS = 4
 const INJECTION_ATTEMPTS = 3
+
+// live.acbl.org allows roughly 110 requests per sign-in under /event/* and then
+// 302s everything to the SSO login. Measured four ways — 0 MB to 15 MB, 18s to
+// 51s, 1 to 16 concurrent, GET and HEAD alike — and only the request count
+// holds still. It is not a rate limit, not a transfer budget, and not a bot
+// check. See docs/acbl-rate-limit.md.
+//
+// Nothing here tries to get around it. A navigation *would* re-authenticate,
+// because that follows the redirect the way a click does, but doing so against
+// an exhausted session was observed to log the user out of ACBL Live outright —
+// real credentials, not a silent refresh. Losing a user's login to fetch a
+// second event is not a trade worth making.
+//
+// So the extension fits inside the allowance instead: one event per fetch (the
+// adapter now covers the user's own section only, ~50 requests), and when the
+// ceiling is hit anyway we stop and say what to do about it.
+function sessionExpiredError() {
+  const err = new Error(
+    'ACBL Live signed us out. Each sign-in allows a limited number of ' +
+      'requests, and this one is spent — sign out of ACBL Live and back in, ' +
+      'then try again.'
+  )
+  // Read by classifyError in handlers.js, which turns it into the
+  // 'session-expired' code the results-listing UI explains in place.
+  err.sessionExpired = true
+  return err
+}
+
+const BOT_CHECK =
+  /just a moment|cf-browser-verification|challenge-platform|cdn-cgi\/challenge|__cf_chl/i
+
 let injectionsInFlight = 0
 const injectionQueue = []
 
@@ -95,20 +126,32 @@ async function injectFetch(tabId, url) {
       // failing — so a fetch the *site* refused looked like an unscriptable
       // tab, and we opened a window to retry something the network had
       // already declined. Returning the error keeps the two apart.
-      // redirect: 'manual' so a bounce to the login page is visible instead of
-      // fatal. live.acbl.org signs us out partway through a long run and
-      // 302s to web3.acbl.org/login; with the default 'follow' that fetch
-      // dies at the cross-origin check and surfaces as "Failed to fetch",
-      // which is what sent us hunting for rate limits and resource caps. A
-      // manual redirect returns an opaque response we can recognise.
+      //
+      // redirect: 'manual' so the bounce to the login page is visible instead
+      // of fatal. live.acbl.org 302s to web3.acbl.org/login once a sign-in has
+      // spent its request allowance; with the default 'follow' that fetch dies
+      // at the cross-origin check and surfaces as "Failed to fetch", which is
+      // what sent four rounds of theories hunting for rate limits and resource
+      // caps. A manual redirect returns an opaque response we can recognise.
+      //
+      // A 403 carries its body, because live.acbl.org serves two different
+      // ones: a Cloudflare bot check, which a page reload clears, and a plain
+      // refusal once we are signed out, which it does not.
       func: (u) =>
         fetch(u, { credentials: 'include', redirect: 'manual' })
           .then(async (r) => {
             if (r.type === 'opaqueredirect' || r.status === 0) {
               return { authRedirect: true }
             }
-            if (r.status === 401 || r.status === 403) {
-              return { authRedirect: true, status: r.status }
+            if (r.status === 401) return { authRedirect: true, status: 401 }
+            if (r.status === 403) {
+              let body = ''
+              try {
+                body = (await r.text()).slice(0, 600)
+              } catch {
+                /* body unreadable — the status still tells us most of it */
+              }
+              return { forbidden: true, status: 403, body }
             }
             return {
               ok: r.ok,
@@ -121,14 +164,23 @@ async function injectFetch(tabId, url) {
       args: [url],
     })
     const value = results?.[0]?.result
+    if (value?.forbidden) {
+      // Tell the two 403s apart. Only the bot check is worth suggesting a
+      // reload for; the other means the allowance is gone.
+      if (BOT_CHECK.test(value.body ?? '')) {
+        fetchPathStats.botChecks += 1
+        const err = new Error(
+          `${new URL(url).hostname} is running a bot check. Reload the page, ` +
+            'let it finish loading, and try again.'
+        )
+        err.challenge = true
+        throw err
+      }
+      value.authRedirect = true
+    }
     if (value?.authRedirect) {
       fetchPathStats.authRedirects += 1
-      const err = new Error(
-        'ACBL Live signed us out during the extraction. Reload the page, ' +
-          'make sure you are still signed in, and try again.'
-      )
-      err.sessionExpired = true
-      throw err
+      throw sessionExpiredError()
     }
     if (value?.pageFetchError) {
       fetchPathStats.pageFetchErrors += 1
@@ -211,6 +263,7 @@ const fetchPathStats = {
   injectionRetries: 0,
   pageFetchErrors: 0,
   authRedirects: 0,
+  botChecks: 0,
   lastError: null,
   lastPageFetchError: null,
   lastInjectionError: null,
@@ -228,9 +281,12 @@ async function fetchViaTab(url) {
       fetchPathStats.reusedTab += 1
       return res
     } catch (err) {
-      // Being signed out is not a tab problem, and a fresh window will be
-      // signed out too. Let it reach the user with something they can act on.
-      if (err?.sessionExpired) throw err
+      // A spent allowance is not a tab problem: a fresh window is signed out
+      // too, and *navigating* one is exactly what was observed to turn a spent
+      // session into a real logout. Let it reach the user with something they
+      // can act on instead. Same for a bot check, which a reload clears and a
+      // second window does not.
+      if (err?.sessionExpired || err?.challenge) throw err
       // The chosen tab was unscriptable after all — fall through to a
       // dedicated temp window rather than failing the whole extraction.
       fetchPathStats.tabFailed += 1
@@ -296,21 +352,14 @@ async function sendEnvelope(tabId, envelope) {
 
 // How long to leave between events in a batch.
 //
-// live.acbl.org tolerates about one event's worth of board fetches and then
-// starts refusing. Measured: event 1 of a batch completes clean in ~11s for 96
-// fetches; event 2, starting a second later, was refused 123 times and built
-// 11 boards of 26. Deduplicating sessions halved the work and did not fix this
-// — the limit is simply lower than two events back to back.
-//
-// So the gap is unconditional for ACBL rather than a reaction to the previous
-// event being refused. By the time a refusal has been seen, the boards it cost
-// are already gone; waiting afterwards protects the wrong event.
-//
-// 30s is a starting point chosen from one observation — an earlier batch
-// recovered to full speed by its fourth event, after roughly two minutes of
-// slow going. It wants measuring rather than believing.
+// Only my.acbl.org reaches this now: live.acbl.org no longer batches at all,
+// because its ~110-request-per-sign-in allowance is about two events and no
+// gap between them changes that (1s, 20s and 30s all behaved identically —
+// it counts requests, not time). Club results are public, on another host, and
+// have shown no such ceiling; the gap here is ordinary politeness after a 403
+// we once saw with no delay at all.
 const ACBL_EVENT_GAP_MS = 2000
-const ACBL_HOSTS = new Set(['live.acbl.org', 'my.acbl.org'])
+const ACBL_HOSTS = new Set(['my.acbl.org'])
 
 const pacer = {
   eventGapMs(url) {

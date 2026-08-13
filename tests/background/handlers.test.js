@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { readFileSync } from 'node:fs'
 import {
   handleMessage,
   runExtraction,
@@ -13,6 +14,8 @@ import {
   cancelBatch,
   dedupeAcblSessions,
   BBO_USERNAME_KEY,
+  runBatchExtraction,
+  listEventPairs,
 } from '../../src/background/handlers.js'
 
 function makeStorage(initial = {}) {
@@ -414,5 +417,145 @@ describe('dedupeAcblSessions', () => {
     const a = 'https://live.acbl.org/event/2606319/26MP/1/summary'
     const b = 'https://live.acbl.org/event/2608344/26MP/1/summary'
     expect(dedupeAcblSessions([a, b])).toHaveLength(2)
+  })
+})
+
+describe('runBatchExtraction onEventStart', () => {
+  const urls = [
+    'https://live.acbl.org/event/2606319/26MP/1/summary',
+    'https://live.acbl.org/event/2608344/27OP/1/summary',
+  ]
+
+  it('announces each event once, in processing order, numbered from 1', async () => {
+    const marks = []
+    const started = await runBatchExtraction(null, {
+      storage: makeStorage(),
+      tabs: makeTabs(),
+      crypto: makeCrypto(),
+      extract: async () => ({ schema_version: '1.0', tournaments: [] }),
+      pacer: { eventGapMs: () => 0 },
+      onEventStart: (url, info) => marks.push({ url, ...info }),
+    }, null, null, urls)
+
+    expect(started.type).toBe('batch-started')
+    await vi.waitFor(() => expect(marks).toHaveLength(2))
+    // The batch reverses to process oldest-first, so the marks follow that
+    // order rather than the caller's.
+    expect(marks).toEqual([
+      { url: urls[1], index: 1, total: 2 },
+      { url: urls[0], index: 2, total: 2 },
+    ])
+  })
+
+  it('still numbers an event that fails, so a gap in the log means a skip', async () => {
+    const marks = []
+    await runBatchExtraction(null, {
+      storage: makeStorage(),
+      tabs: makeTabs(),
+      crypto: makeCrypto(),
+      extract: async (url) => {
+        if (url === urls[1]) throw new Error('ACBL refused')
+        return { schema_version: '1.0', tournaments: [] }
+      },
+      pacer: { eventGapMs: () => 0 },
+      onEventStart: (url, info) => marks.push({ url, ...info }),
+    }, null, null, urls)
+
+    await vi.waitFor(() => expect(marks).toHaveLength(2))
+    expect(marks.map((m) => m.index)).toEqual([1, 2])
+  })
+
+  it('runs without the hook — it is diagnostics, not a dependency', async () => {
+    const started = await runBatchExtraction(null, {
+      storage: makeStorage(),
+      tabs: makeTabs(),
+      crypto: makeCrypto(),
+      extract: async () => ({ schema_version: '1.0', tournaments: [] }),
+      pacer: { eventGapMs: () => 0 },
+    }, null, null, urls)
+    expect(started.type).toBe('batch-started')
+  })
+})
+
+describe('extractOptions pass-through', () => {
+  // The fetch-rate override is how the Cloudflare threshold gets measured, so
+  // it has to survive the trip from the service worker to the adapter. It went
+  // missing once already: extract() was called with a fixed option literal.
+  it('reaches the adapter on a single extraction', async () => {
+    const extract = vi.fn(async () => ({ schema_version: '1.0' }))
+    await runExtraction('https://live.acbl.org/event/1/2/3/scores/A/E/4', {
+      storage: makeStorage(),
+      tabs: makeTabs(),
+      crypto: makeCrypto(),
+      extract,
+      extractOptions: { concurrency: 4, delayMs: 250 },
+    })
+    expect(extract.mock.calls[0][1]).toMatchObject({ concurrency: 4, delayMs: 250 })
+  })
+
+  it('reaches the adapter on every event of a batch', async () => {
+    const extract = vi.fn(async () => ({ schema_version: '1.0' }))
+    await runBatchExtraction(null, {
+      storage: makeStorage(),
+      tabs: makeTabs(),
+      crypto: makeCrypto(),
+      extract,
+      pacer: { eventGapMs: () => 0 },
+      extractOptions: { concurrency: 2 },
+    }, null, null, [
+      'https://live.acbl.org/event/2606319/26MP/1/summary',
+      'https://live.acbl.org/event/2606319/27OP/1/summary',
+    ])
+    await vi.waitFor(() => expect(extract).toHaveBeenCalledTimes(2))
+    for (const call of extract.mock.calls) expect(call[1]).toMatchObject({ concurrency: 2 })
+  })
+
+  it('leaves the adapter defaults alone when nothing is set', async () => {
+    const extract = vi.fn(async () => ({ schema_version: '1.0' }))
+    await runExtraction('https://live.acbl.org/event/1/2/3/scores/A/E/4', {
+      storage: makeStorage(),
+      tabs: makeTabs(),
+      crypto: makeCrypto(),
+      extract,
+    })
+    expect(extract.mock.calls[0][1]).not.toHaveProperty('concurrency')
+    expect(extract.mock.calls[0][1]).not.toHaveProperty('delayMs')
+  })
+})
+
+describe('listEventPairs', () => {
+  const SUMMARY = 'https://live.acbl.org/event/2604321/2501/2/summary'
+  const summaryHtml =
+    '<a href="/event/2604321/2501/2/scores/A/N/1">A-NS 1</a>'
+  const scorecardHtml = readFileSync(
+    'fixtures/acbl-live/scorecard-event2604321-session2-A-EW-4.html',
+    'utf8'
+  )
+  const ok = (body) => ({ ok: true, status: 200, text: async () => body })
+
+  it('returns every pair in the event, with absolute scorecard URLs', async () => {
+    const fetchFn = vi.fn(async (url) =>
+      url === SUMMARY ? ok(summaryHtml) : ok(scorecardHtml)
+    )
+    const res = await listEventPairs(SUMMARY, { fetch: fetchFn })
+    expect(res.type).toBe('event-pairs')
+    expect(res.pairs.length).toBeGreaterThan(10)
+    // Sections beyond the one we entered through must be present — picking the
+    // wrong section is the failure this whole picker exists to prevent.
+    expect(res.pairs.every((p) => p.url.startsWith('https://live.acbl.org/'))).toBe(true)
+    expect(res.pairs.some((p) => /Rick Wilson/.test(p.players_text))).toBe(true)
+  })
+
+  it('refuses a URL that is not an event summary', async () => {
+    const res = await listEventPairs('https://live.acbl.org/my-results', { fetch: vi.fn() })
+    expect(res.type).toBe('extraction-error')
+    expect(res.error.code).toBe('bad-request')
+  })
+
+  it('says team events have no pairs, rather than failing obscurely', async () => {
+    const fetchFn = vi.fn(async () => ok('<html><body><p>no scorecards here</p></body></html>'))
+    const res = await listEventPairs(SUMMARY, { fetch: fetchFn })
+    expect(res.type).toBe('extraction-error')
+    expect(res.error.message).toMatch(/team events are not supported/i)
   })
 })
