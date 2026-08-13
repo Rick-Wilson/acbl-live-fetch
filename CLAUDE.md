@@ -34,15 +34,16 @@ Read `docs/architecture.md` for full detail. Key points:
 
 ## Current state (August 2026)
 
-Working and merged to `main`. 433 unit tests, 5 Playwright e2e tests, all passing.
+Working and merged to `main`. 463 unit tests, 5 Playwright e2e tests, all passing.
 
 **Four entry points**, each with an injected button. Five injection points, since
 BBO takes three:
 
 | Source | Notes | Button goes |
 |---|---|---|
-| `live.acbl.org` | Tournaments. The user's own section. Needs an ACBL login | In flow, beside the `h1` |
-| `live.acbl.org/my-results` | The results listing. One event per row, no batch — see the allowance below | A link in each row's Links column |
+| `live.acbl.org` | Tournaments. **One event, one section** — see the allowance below. Needs an ACBL login | In flow, beside the `h1`; a summary page asks which pair |
+| `live.acbl.org/my-results` | The results listing, pre-filtered to you. One event per row, no batch | A link in each row's Links column |
+| `live.acbl.org/events/<sanction>` | Every event in one tournament. Names nobody, so a row asks which pair | A link in each row's Links column |
 | `my.acbl.org` | Club games. Results are public | The navbar (`ul.navbar-nav`) |
 | BBO lobby (`/v3/*`) | Multi-event batch. Needs a BBO login | Above the history list |
 | BBO hands list (`hands.php?tourney=`) | One session | Merged into the table's header rows |
@@ -90,6 +91,12 @@ all four stores).
 All four browsers are QA'd against both no-account paths — see
 `docs/architecture.md` § Cross-browser builds.
 
+**The ACBL Live behaviour changed after those submissions**, and the store
+listings and screenshots have not caught up. The date-range batch on ACBL Live
+is gone, replaced by one link per row; a summary page now asks which pair. Worth
+checking the screenshots and the store descriptions before the Safari submission
+and before any 1.0.2. BBO's batches are untouched.
+
 ### Submission log
 
 | Store | Submitted | Status |
@@ -105,14 +112,26 @@ Safari is the only browser engine on iPad, so a Safari extension is the *only*
 way to reach those users — there is no Chrome or Firefox to fall back on. That
 raises iPadOS above its apparent share.
 
-Tested on a real iPad, 11 Aug 2026. **It behaves the same as Chrome does**; the
-one failure seen there was not an iPad problem at all (see below).
+Tested on a real iPad, 11 Aug 2026. **It behaves the same as Chrome does** —
+and that is the point worth remembering: *both* failures found during iPad
+testing turned out to be nothing to do with the iPad.
+
+The first was team events, which fail everywhere. The second was the ACBL Live
+batch, which appears never to have been exercised on any platform until someone
+tried it on an iPad; it turned out to exceed what live.acbl.org allows per
+sign-in, and cost several days to chase. Neither was reproducible *because* of
+Safari or iPadOS, and looking there first was the wrong instinct twice.
+
+The lesson is not about the iPad. It is that testing on an unfamiliar platform
+exercises paths nobody had exercised before, and the platform gets the blame for
+what those paths turn up.
 
 | Path | iPad |
 |---|---|
 | BBO hand viewer | ✅ works |
 | ACBL Live for Clubs | ✅ works |
 | ACBL Live tournaments | ✅ for pair events; team events fail everywhere, not just here |
+| ACBL Live batch | removed — exceeded the per-sign-in allowance on every platform, not just here |
 | BBO hands list / lobby | n/a — iPad users are in the BBO app, and its web page has a different DOM entirely |
 
 `openTempTab`'s off-screen window never runs on iPad: `fetchViaTab` prefers an
@@ -146,6 +165,19 @@ Two things follow, and they are separable:
 A team event in a batch does **not** kill the run — `runBatch` wraps each URL in
 its own try/catch and collects failures into `errors` — but it does mean the
 event is silently missing from the analysis, with the reason buried.
+
+### ACBL Live: one event at a time, one section
+
+The two limits worth knowing before touching this adapter:
+
+- **One event per fetch.** A multi-session event is fine — all its sessions come
+  together — but there is no batch. Two events means two clicks, and roughly
+  two or three fit in a sign-in before the allowance runs out.
+- **The user's own section only**, regardless. Not configurable. A summary or
+  tournament page asks which pair, and that pair's section is what gets fetched.
+
+Both fall out of the request allowance below. Neither is a placeholder waiting
+to be widened: widening either is what got users signed out of ACBL Live.
 
 ### ACBL Live has a per-sign-in request allowance
 
