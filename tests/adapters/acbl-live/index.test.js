@@ -206,6 +206,19 @@ describe('extractSession', () => {
       expect(seen).not.toContain('https://live.acbl.org/event/2604321/2501/2/scores/A/N/1')
     })
 
+    it('records which of the pair was asked for, so a consumer need not guess', async () => {
+      // capture.players is both names in page order — all the picker can know.
+      // This path knows more: /my-results is one player's page.
+      const out = await extractSession(SUMMARY_URL, {
+        fetch: fetchFor(),
+        log: silentLog,
+        playerName: 'rick wilson',
+      })
+      // Spelled as ACBL spells it, not as the caller typed it.
+      expect(out.capture.player).toBe('Rick Wilson')
+      expect(out.capture.players).toContain('Rick Wilson')
+    })
+
     it('keeps user_pair and user_result_index when the player was found', async () => {
       const out = await extractSession(SUMMARY_URL, {
         fetch: fetchFor(),
@@ -289,6 +302,53 @@ describe('extractSession', () => {
       for (const session of out.tournaments[0].events[0].sessions) {
         expect(session.user_pair).toBeNull()
       }
+      // capture travels with user_pair: an event-wide extraction names nobody,
+      // and must not appear to name the pair we happened to enter through.
+      expect(out.capture).toBeUndefined()
+    })
+  })
+
+  describe('capture — who the envelope is about', () => {
+    const fetchOk = () =>
+      vi.fn(async (url) => {
+        if (url === SCORECARD_URL) return ok(scorecardHtml)
+        if (url === SESSION_1_URL) return ok(session1ScorecardHtml)
+        if (url.includes('/board-detail/')) return ok(board1Html)
+        throw new Error(`unexpected URL: ${url}`)
+      })
+
+    it('names the resolved pair at the top level, not only inside the tree', async () => {
+      // The names were always in user_pair; nothing said so in one place, so
+      // after choosing a pair from the picker the analyzer still asked which
+      // player to analyse.
+      const out = await extractSession(SCORECARD_URL, { fetch: fetchOk(), log: silentLog })
+      expect(out.capture.players).toEqual(['Rick Wilson', 'Andrew Rowberg'])
+      expect(out.capture.pair).toBe('A-EW4')
+      expect(out.capture.context).toBe('Rick Wilson & Andrew Rowberg (A-EW4)')
+      expect(out.capture.subject.acbl.length).toBeGreaterThan(0)
+    })
+
+    it('agrees with user_pair, being derived from it', async () => {
+      const out = await extractSession(SCORECARD_URL, { fetch: fetchOk(), log: silentLog })
+      const userPair = out.tournaments[0].events[0].sessions[0].user_pair
+      expect(out.capture.players).toEqual(userPair.players.map((p) => p.name))
+    })
+
+    it('names no individual when a pair was chosen without naming one', async () => {
+      // The picker's case: a pair was selected, so capture says which pair and
+      // pointedly does not invent a person.
+      const out = await extractSession(SCORECARD_URL, { fetch: fetchOk(), log: silentLog })
+      expect(out.capture.players).toHaveLength(2)
+      expect(out.capture.player).toBeUndefined()
+    })
+
+    it('lets an explicit capture from the caller win', async () => {
+      const out = await extractSession(SCORECARD_URL, {
+        fetch: fetchOk(),
+        log: silentLog,
+        capture: { context: 'last 1 month for kemistry' },
+      })
+      expect(out.capture.context).toBe('last 1 month for kemistry')
     })
   })
 
@@ -479,5 +539,24 @@ describe('extractSession', () => {
     expect(event.sessions.map((s) => s.session_number)).toEqual([2])
     expect(event.sessions[0].partial).toBe(false)
     expect(event.sessions[0].boards).toHaveLength(26)
+  })
+})
+
+describe('classifyPage: tournament event lists', () => {
+  it("classifies /events/<sanction> as 'tournament-events'", () => {
+    expect(classifyPage('https://live.acbl.org/events/NABC261')).toBe('tournament-events')
+    expect(classifyPage('https://live.acbl.org/events/2604321')).toBe('tournament-events')
+    // Analytics parameters ride along on links from the ACBL site.
+    expect(classifyPage('https://live.acbl.org/events/NABC261?_gl=1*1ne0lz5*_ga*MTY4')).toBe(
+      'tournament-events'
+    )
+  })
+
+  it('does not confuse it with the singular /event/ paths', () => {
+    // One character apart, and completely different pages.
+    expect(classifyPage('https://live.acbl.org/event/NABC261/08FP/2/summary')).toBe(
+      'event-summary'
+    )
+    expect(classifyPage('https://live.acbl.org/events/NABC261/08FP')).toBe('unknown')
   })
 })

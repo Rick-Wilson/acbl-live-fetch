@@ -29,7 +29,7 @@ const BATCH_KEY = '99999999-8888-4777-8666-555555555555'
 
 function envelope({ date = '2026-04-29', boards = 2, results = 3 } = {}) {
   return {
-    schema_version: '1.1',
+    schema_version: '1.2',
     source: 'bbo',
     provider: { id: 'bridge-classroom-fetch', version: '9.9.9', kind: 'browser-extension' },
     capture: { context: 'last 1 month for kemistry', subject: { bbo: 'kemistry' } },
