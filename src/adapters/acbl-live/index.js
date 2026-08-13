@@ -91,6 +91,16 @@ export function classifyPage(url) {
   if (/^\/(player-results\/\d+|my-results)\/?$/.test(path)) {
     return 'player-history'
   }
+  // /events/<sanction> — every event in one tournament. Note the plural: the
+  // singular /event/<sanction>/... paths above are a single event.
+  //
+  // Same table markup as the player listings (td.links > a.summary, an Event
+  // column), so the per-row links work unchanged. What differs is that it names
+  // no player — the h1 is the tournament's location — so a row here has to ask
+  // which pair rather than assume one.
+  if (new RegExp(`^/events/${SANCTION_PAT}/?$`).test(path)) {
+    return 'tournament-events'
+  }
   return 'unknown'
 }
 
@@ -109,7 +119,8 @@ export async function extractSession(url, options = {}) {
     onProgress = null,
     // Describes the request that produced this envelope (e.g. "last 1 month
     // for kemistry"). Supplied by the caller — an adapter can't know whether it
-    // was asked for one session or a year of history.
+    // was asked for one session or a year of history. When the caller says
+    // nothing, we fill in who the envelope is about; see captureForPair.
     capture,
   } = options
 
@@ -312,10 +323,56 @@ export async function extractSession(url, options = {}) {
   return {
     schema_version: SCHEMA_VERSION,
     source: SOURCE_NAME,
-    ...buildProvenance({ coverage: COVERAGE, capture }),
+    ...buildProvenance({
+      coverage: COVERAGE,
+      capture: capture ?? captureForPair(initialSc.user_pair),
+    }),
     fetched_at: now(),
     source_url: url,
     tournaments: [tournament],
+  }
+}
+
+// The canonical spelling of the player we were asked for, as it appears in the
+// resolved pair. Returns null if they are not in it, so a mismatch omits the
+// field rather than asserting something the data does not support.
+function matchedPlayerName(envelope, playerName) {
+  const needle = normalizeName(playerName)
+  if (!needle) return null
+  for (const tournament of envelope.tournaments ?? []) {
+    for (const event of tournament.events ?? []) {
+      for (const session of event.sessions ?? []) {
+        for (const p of session.user_pair?.players ?? []) {
+          if (normalizeName(p.name).includes(needle)) return p.name
+        }
+      }
+    }
+  }
+  return null
+}
+
+// Who this envelope is about, at the top level.
+//
+// The names were always in the tree — user_pair.players on every session,
+// user_result_index on every board — but a consumer had to walk
+// tournaments → events → sessions to find out whose results these are. After
+// choosing a pair from the picker, the analyzer was still asking which player
+// to analyse, because nothing said so in one place.
+//
+// Derived from the pair we actually resolved rather than from whatever the
+// caller typed, so the two cannot drift apart.
+export function captureForPair(userPair) {
+  if (!userPair?.players?.length) return undefined
+  const names = userPair.players.map((p) => p.name).filter(Boolean)
+  const seat = `${userPair.section ?? ''}${userPair.section ? '-' : ''}${userPair.direction ?? ''}${userPair.pair_number ?? ''}`
+  const acblIds = userPair.players.map((p) => p.acbl_id).filter(Boolean)
+  return {
+    context: seat ? `${names.join(' & ')} (${seat})` : names.join(' & '),
+    players: names,
+    ...(seat ? { pair: seat } : {}),
+    // Keyed by provider, matching the schema's { "bbo": "kemistry" } example.
+    // Absent for unregistered players, who have no number.
+    ...(acblIds.length ? { subject: { acbl: acblIds } } : {}),
   }
 }
 
@@ -449,6 +506,20 @@ async function extractFromSummary(summaryUrl, options) {
   //    scorecard URL the extractor resolved to.
   envelope.source_url = summaryUrl
 
+  //    And when a specific person was asked for, say which of the pair that
+  //    was. capture.players is both of them in page order, which is all the
+  //    picker can know — you chose a pair, not a person. This path knows more:
+  //    /my-results is one player's page, so the name we matched is the subject.
+  //    A consumer with a watched-players list can go straight there instead of
+  //    asking when neither name is on its list.
+  //
+  //    Taken from user_pair rather than from the caller's string, so it is
+  //    spelled the way ACBL spells it.
+  if (isUser && playerName && envelope.capture) {
+    const matched = matchedPlayerName(envelope, playerName)
+    if (matched) envelope.capture.player = matched
+  }
+
   // 5. If we entered through an arbitrary pair rather than the user's own,
   //    null out user_pair and user_result_index across the tree: whatever pair
   //    happened to be first in the summary is not the user, and leaving their
@@ -457,6 +528,7 @@ async function extractFromSummary(summaryUrl, options) {
   //    they go too. Matches the schema's "user_pair is present only if a pair
   //    scorecard initiated this session's extraction".
   if (!isUser) {
+    delete envelope.capture
     for (const tournament of envelope.tournaments ?? []) {
       for (const event of tournament.events ?? []) {
         for (const session of event.sessions ?? []) {

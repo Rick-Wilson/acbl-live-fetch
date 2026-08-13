@@ -6,7 +6,7 @@ Every adapter emits this JSON schema regardless of source. The downstream analyz
 
 ```jsonc
 {
-  "schema_version": "1.1",
+  "schema_version": "1.2",
   "source": "acbl-live",          // "acbl-live" | "club-game-bws" | "bbo" | ...
 
   // Who produced this envelope. Present so a consumer can tell extension
@@ -17,11 +17,24 @@ Every adapter emits this JSON schema regardless of source. The downstream analyz
     "kind": "browser-extension"   // "browser-extension" | "server" | "manual"
   },
 
-  // What the user asked for. Free text, plus whatever identifies the subject.
-  // Optional — omitted when the caller supplies nothing.
+  // Who and what this envelope is about. Free text, plus whatever identifies
+  // the subject. Optional — omitted when the caller supplies nothing and the
+  // adapter cannot infer it.
+  //
+  // `players` and `pair` are the machine-readable form of `context`. The same
+  // names are in every session's `user_pair`, but a consumer should not have to
+  // walk tournaments -> events -> sessions to learn whose results these are:
+  // after choosing a pair from ACBL Live's picker, an analyzer was still asking
+  // which player to analyse, because nothing said so at the top.
+  //
+  // Adapters derive these from the pair they actually resolved, so they cannot
+  // drift from `user_pair`. Both are absent when no user was identified — an
+  // event-wide extraction names nobody, and must not appear to.
   "capture": {
-    "context": "last 1 month for kemistry",
-    "subject": { "bbo": "kemistry" }
+    "context": "Rick Wilson & Arthur Mirin (A-NS2)",
+    "players": ["Rick Wilson", "Arthur Mirin"],
+    "pair": "A-NS2",
+    "subject": { "acbl": ["3506177", "1357719"] }
   },
 
   // What this data covers, declared rather than left to be re-derived by
@@ -337,6 +350,10 @@ played, so it is deliberately not extracted.
 
 `schema_version` follows semver-ish:
 
+**1.2** added `capture.players`, `capture.pair` and per-provider id arrays in
+`capture.subject`. Additive and optional: a 1.1 consumer reads a 1.2 envelope
+unchanged.
+
 - Patch (`1.0.1`): bugfixes, no field changes
 - Minor (`1.1`): new optional fields added
 - Major (`2.0`): breaking changes (renames, removals, type changes)
@@ -347,7 +364,7 @@ The analyzer should validate `schema_version` and refuse data from unknown major
 
 ```json
 {
-  "schema_version": "1.1",
+  "schema_version": "1.2",
   "source": "acbl-live",
   "provider": { "id": "bridge-classroom-fetch", "version": "1.0.0", "kind": "browser-extension" },
   "coverage": {

@@ -12,7 +12,7 @@ import { COVERAGE as CLUB_COVERAGE } from '../../src/adapters/acbl-live-club/ind
 
 describe('provenance', () => {
   it('is an additive minor bump, so existing consumers keep working', () => {
-    expect(SCHEMA_VERSION).toBe('1.1')
+    expect(SCHEMA_VERSION).toBe('1.2')
     expect(SCHEMA_VERSION.split('.')[0]).toBe('1')
   })
 

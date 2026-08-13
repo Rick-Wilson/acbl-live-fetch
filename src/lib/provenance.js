@@ -8,7 +8,7 @@
 
 import manifest from '../../manifest.json' with { type: 'json' }
 
-export const SCHEMA_VERSION = '1.1'
+export const SCHEMA_VERSION = '1.2'
 
 // Single source of truth for the version: read from the manifest so the two
 // can't drift.

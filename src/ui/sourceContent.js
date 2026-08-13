@@ -267,10 +267,37 @@ export function injectResultRowLinks(deps) {
   return added
 }
 
+// Everything we may have inserted beneath a row — a message or an open picker.
+// One at a time: a column of stale errors and half-open pickers from earlier
+// clicks would be worse than none.
+export function clearRowExtras(doc) {
+  for (const el of doc.querySelectorAll(`.${ROW_MESSAGE_CLASS}`)) el.remove()
+}
+
+// The pair picker, rendered under the row instead of floating from a button.
+// Same widget; only the positioning differs, since here it belongs to a row
+// rather than to a control in the page header.
+export function showRowPicker(doc, row, pairs, onSelect) {
+  clearRowExtras(doc)
+  if (!row?.parentElement) return null
+  const tr = doc.createElement('tr')
+  tr.className = ROW_MESSAGE_CLASS
+  const td = doc.createElement('td')
+  td.colSpan = Math.max(1, row.children.length)
+  td.style.padding = '8px 12px'
+  const picker = buildPairPicker(doc, pairs, onSelect)
+  Object.assign(picker.style, { position: 'static', boxShadow: 'none', maxHeight: '40vh' })
+  td.appendChild(picker)
+  tr.appendChild(td)
+  row.insertAdjacentElement('afterend', tr)
+  picker.querySelector(`.${PAIR_FILTER_CLASS}`)?.focus()
+  return tr
+}
+
 // A message under the row that was clicked, spanning the table. Only one at a
 // time: a column of stale errors from earlier clicks would be worse than none.
 export function showRowMessage(doc, row, text, kind = 'error') {
-  for (const old of doc.querySelectorAll(`.${ROW_MESSAGE_CLASS}`)) old.remove()
+  clearRowExtras(doc)
   if (!row?.parentElement) return null
   const tr = doc.createElement('tr')
   tr.className = ROW_MESSAGE_CLASS
@@ -306,9 +333,10 @@ export function setupRowLinks(deps) {
 
     const row = link.closest('tr')
     const original = link.textContent
+    const playerName = readPlayerName(doc)
     link.textContent = 'Fetching…'
     link.style.pointerEvents = 'none'
-    for (const el of doc.querySelectorAll(`.${ROW_MESSAGE_CLASS}`)) el.remove()
+    clearRowExtras(doc)
 
     // An event is ~50 board pages and takes tens of seconds. A label that never
     // changes over that long reads as a stall, so show the count climbing.
@@ -330,26 +358,60 @@ export function setupRowLinks(deps) {
       link.style.pointerEvents = ''
     }
 
-    sendMessage({
-      type: 'extract-session',
-      url: link.dataset.bcUrl,
-      playerName: readPlayerName(doc),
-      progressKey,
-    })
-      .then((response) => {
-        if (response?.type === 'extraction-complete') {
-          done('Opening…')
-          setTimeout(() => done(original), 2000)
-          return
-        }
-        const code = response?.error?.code
-        showRowMessage(doc, row, messageForError(code, response?.error?.message))
-        done(original)
-      })
-      .catch((err) => {
-        showRowMessage(doc, row, err?.message ?? 'message channel error')
-        done(original)
-      })
+    const extract = (url) =>
+      sendMessage({ type: 'extract-session', url, playerName, progressKey })
+        .then((response) => {
+          if (response?.type === 'extraction-complete') {
+            done('Opening…')
+            setTimeout(() => done(original), 2000)
+            return
+          }
+          showRowMessage(doc, row, messageForError(response?.error?.code, response?.error?.message))
+          done(original)
+        })
+        .catch((err) => {
+          showRowMessage(doc, row, err?.message ?? 'message channel error')
+          done(original)
+        })
+
+    // A tournament's event list names no player — its heading is the host city
+    // — so there is nobody to fetch for. Ask which pair instead of picking one,
+    // because the extractor covers a single section now and the wrong pair
+    // means the wrong section and none of the intended boards.
+    if (!playerName) {
+      link.textContent = 'Loading pairs…'
+      sendMessage({ type: 'list-event-pairs', url: link.dataset.bcUrl })
+        .then((response) => {
+          if (response?.type !== 'event-pairs' || !response.pairs?.length) {
+            showRowMessage(
+              doc,
+              row,
+              messageForError(response?.error?.code, response?.error?.message ?? 'no pairs in this event')
+            )
+            done(original)
+            return
+          }
+          // Released while the picker is open so another row can be clicked;
+          // taken again by extract() once a pair is chosen.
+          busy = false
+          link.textContent = original
+          link.style.pointerEvents = ''
+          showRowPicker(doc, row, response.pairs, (entry) => {
+            clearRowExtras(doc)
+            busy = true
+            link.textContent = 'Fetching…'
+            link.style.pointerEvents = 'none'
+            extract(entry.url)
+          })
+        })
+        .catch((err) => {
+          showRowMessage(doc, row, err?.message ?? 'message channel error')
+          done(original)
+        })
+      return
+    }
+
+    extract(link.dataset.bcUrl)
   })
 }
 
@@ -361,26 +423,42 @@ export function setupRowLinks(deps) {
 // more: a MidFlight event came back with 36 players from section C when the
 // user had played in D.
 //
-// So ask. Grouped by section and sorted by name, because the person looking is
-// scanning for a name they know — their own, or a student's — not for a pair
-// number they have no reason to remember.
+// So ask. One flat list sorted by name, because the person looking is scanning
+// for a name they know — their own, or a student's — and does not know which
+// section that name is in. Grouping by section first meant searching every
+// group in turn, which is the thing they came here to avoid. The section stays
+// on each row, as an answer rather than as a heading to hunt through.
 export const PAIR_PICKER_ID = 'bridge-classroom-pair-picker'
 
+// Case-insensitive, so a listing that upper-cases some names does not sort them
+// into a block of their own away from the rest.
 export function sortPairsForPicker(pairs) {
-  const bySection = new Map()
-  for (const p of pairs ?? []) {
-    const key = p.section ?? ''
-    if (!bySection.has(key)) bySection.set(key, [])
-    bySection.get(key).push(p)
-  }
-  return [...bySection.entries()]
-    .sort((a, b) => String(a[0]).localeCompare(String(b[0])))
-    .map(([section, entries]) => ({
-      section,
-      entries: entries
-        .slice()
-        .sort((a, b) => (a.players_text ?? '').localeCompare(b.players_text ?? '')),
-    }))
+  return [...(pairs ?? [])].sort((a, b) =>
+    (a.players_text ?? '').localeCompare(b.players_text ?? '', undefined, {
+      sensitivity: 'base',
+    })
+  )
+}
+
+export const PAIR_FILTER_CLASS = 'bridge-classroom-pair-filter'
+
+// Lowercase, punctuation removed, whitespace collapsed — so "obrien" finds
+// "O'Brien" and "smith jones" finds "Smith-Jones".
+//
+// Removed rather than replaced with a space: substituting turns "O'Brien" into
+// "o brien", which then fails to match the very query the normalisation exists
+// to support.
+function normalizeForSearch(value) {
+  return String(value ?? '')
+    .toLowerCase()
+    .replace(/[^a-z0-9 ]+/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+// "A-EW4" — where the pair sat, for checking the choice against the page behind.
+export function pairLocation(entry) {
+  return `${entry.section ?? ''}${entry.section ? '-' : ''}${entry.direction ?? ''}${entry.pair_number ?? ''}`
 }
 
 export function buildPairPicker(doc, pairs, onSelect) {
@@ -412,39 +490,93 @@ export function buildPairPicker(doc, pairs, onSelect) {
   })
   box.appendChild(heading)
 
-  for (const { section, entries } of sortPairsForPicker(pairs)) {
-    const label = doc.createElement('div')
-    label.textContent = section ? `Section ${section}` : 'Pairs'
-    Object.assign(label.style, {
-      padding: '6px 12px',
-      background: '#f3f3f3',
-      color: '#555',
-      fontWeight: '600',
-    })
-    box.appendChild(label)
+  // Sorting alone only half-solves finding someone: players_text reads
+  // "John Jones & Bob Smith", so alphabetical order files a pair under its
+  // *first* player. A student who is the second name is nowhere near where you
+  // would look for them. Matching against the whole string fixes that, and on
+  // a thirty-pair event it beats scrolling either way.
+  const filter = doc.createElement('input')
+  filter.type = 'search'
+  filter.className = PAIR_FILTER_CLASS
+  filter.placeholder = 'Type any part of a name…'
+  Object.assign(filter.style, {
+    display: 'block',
+    boxSizing: 'border-box',
+    width: '100%',
+    padding: '6px 12px',
+    border: 'none',
+    borderBottom: '1px solid #eee',
+    fontSize: '14px',
+    outline: 'none',
+  })
+  box.appendChild(filter)
 
-    for (const entry of entries) {
-      const item = doc.createElement('button')
-      item.type = 'button'
-      // Direction and number stay visible: two pairs can share a name spelling,
-      // and the number is how the user checks it against the page behind.
-      item.textContent = `${entry.direction ?? ''}${entry.pair_number ?? ''} — ${entry.players_text ?? ''}`
-      Object.assign(item.style, {
-        display: 'block',
-        width: '100%',
-        padding: '6px 12px',
-        border: 'none',
-        background: 'transparent',
-        textAlign: 'left',
-        cursor: 'pointer',
-        fontSize: '14px',
-      })
-      item.addEventListener('mouseenter', () => { item.style.background = '#eaf1fb' })
-      item.addEventListener('mouseleave', () => { item.style.background = 'transparent' })
-      item.addEventListener('click', () => onSelect(entry))
-      box.appendChild(item)
-    }
+  const rows = []
+
+  for (const entry of sortPairsForPicker(pairs)) {
+    const item = doc.createElement('button')
+    item.type = 'button'
+    Object.assign(item.style, {
+      display: 'flex',
+      justifyContent: 'space-between',
+      gap: '16px',
+      width: '100%',
+      padding: '6px 12px',
+      border: 'none',
+      background: 'transparent',
+      textAlign: 'left',
+      cursor: 'pointer',
+      fontSize: '14px',
+    })
+
+    // Name first, because that is what is being scanned. The location trails,
+    // greyed, so it is there when wanted and out of the way when not.
+    const name = doc.createElement('span')
+    name.textContent = entry.players_text ?? ''
+    item.appendChild(name)
+
+    const where = doc.createElement('span')
+    where.textContent = pairLocation(entry)
+    Object.assign(where.style, { color: '#777', whiteSpace: 'nowrap' })
+    item.appendChild(where)
+
+    item.addEventListener('mouseenter', () => { item.style.background = '#eaf1fb' })
+    item.addEventListener('mouseleave', () => { item.style.background = 'transparent' })
+    item.addEventListener('click', () => onSelect(entry))
+    box.appendChild(item)
+    // Search the location too, so "D-EW7" or even "EW7" finds a pair whose name
+    // you cannot spell.
+    rows.push({ entry, item, haystack: normalizeForSearch(`${entry.players_text ?? ''} ${pairLocation(entry)}`) })
   }
+
+  const empty = doc.createElement('div')
+  empty.textContent = 'No one by that name in this event.'
+  Object.assign(empty.style, { display: 'none', padding: '8px 12px', color: '#777' })
+  box.appendChild(empty)
+
+  const applyFilter = () => {
+    const q = normalizeForSearch(filter.value)
+    let visible = 0
+    for (const row of rows) {
+      const show = !q || row.haystack.includes(q)
+      row.item.style.display = show ? 'flex' : 'none'
+      if (show) visible += 1
+    }
+    empty.style.display = visible === 0 ? 'block' : 'none'
+  }
+  filter.addEventListener('input', applyFilter)
+
+  // Enter picks the row when the filter has narrowed to exactly one — the
+  // common case once a surname is typed, and it saves reaching for the mouse.
+  filter.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return
+    const visible = rows.filter((r) => r.item.style.display !== 'none')
+    if (visible.length === 1) {
+      e.preventDefault()
+      onSelect(visible[0].entry)
+    }
+  })
+
   return box
 }
 
@@ -1030,6 +1162,7 @@ export function setupClickDelegation(deps) {
           const anchor = btn.parentElement ?? btn
           anchor.style.position = 'relative'
           anchor.appendChild(picker)
+          picker.querySelector(`.${PAIR_FILTER_CLASS}`)?.focus()
           function closePicker(e2) {
             if (!picker.contains(e2.target) && e2.target !== btn) {
               picker.remove()
@@ -1216,9 +1349,14 @@ if (typeof globalThis.chrome !== 'undefined' || typeof globalThis.browser !== 'u
       }).catch(() => {})
     }
 
-    // ACBL Live's results listing gets a link per row rather than a page-level
-    // button. Runs independently of injectButton, which declines this page.
-    if (classifyLive(window.location.href) === 'player-history') {
+    // ACBL Live's listings get a link per row rather than a page-level button:
+    // /my-results, /player-results/<id>, and a tournament's /events/<sanction>.
+    // Same table markup in all three. Runs independently of injectButton, which
+    // declines these pages.
+    if (
+      classifyLive(window.location.href) === 'player-history' ||
+      classifyLive(window.location.href) === 'tournament-events'
+    ) {
       injectResultRowLinks({ document })
       setupRowLinks({
         document,
