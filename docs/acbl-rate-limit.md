@@ -4,10 +4,19 @@
 then 302s every further one to `https://web3.acbl.org/login`. It counts
 **requests** — not bytes, not elapsed time, not rate, not our concurrency.
 
-The extension does not try to get around this. It fits inside it: one event per
-fetch, the user's own section only, and a clear message when the allowance is
-spent. What follows is the evidence, because the symptom is misleading enough
-that four rounds of theories died on it.
+The extension does not try to get around this. It fits inside it: **one event
+per fetch** (a multi-session event is fine — its sessions come together), **the
+user's own section only**, and a clear message when the allowance is spent.
+Neither limit is configurable, and neither is a placeholder: widening either is
+what got users signed out of ACBL Live.
+
+What follows is the evidence, because the symptom is misleading enough that four
+rounds of theories died on it.
+
+Found, incidentally, while testing the extension on Safari on an iPad. The ACBL
+Live batch appears never to have been exercised before that, on any platform,
+and the iPad was blamed first — as it had been once already for team events. It
+was innocent both times.
 
 ## Why it looks like something else
 
