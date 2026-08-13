@@ -1,4 +1,9 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { dirname, resolve } from 'node:path'
+
+const here = dirname(fileURLToPath(import.meta.url))
 import {
   shouldInject,
   buildButton,
@@ -14,8 +19,10 @@ import {
   isTeamEventLabel,
   sortPairsForPicker,
   buildPairPicker,
+  PAIR_FILTER_CLASS,
   watchExtractionProgress,
   ROW_MESSAGE_CLASS,
+  resultRows,
   SESSION_EXPIRED_MESSAGE,
 } from '../../src/ui/sourceContent.js'
 
@@ -495,28 +502,42 @@ describe('event-summary pair picker', () => {
 
   beforeEach(() => { document.body.innerHTML = '' })
 
-  it('groups by section and sorts names alphabetically within each', () => {
-    const grouped = sortPairsForPicker(PAIRS)
-    expect(grouped.map((g) => g.section)).toEqual(['A', 'D'])
-    expect(grouped[0].entries.map((e) => e.players_text)).toEqual([
-      'Ann Baker & Cy Dunn',
-      'Rick Wilson & Andrew Rowberg',
+  it('sorts by name across the whole event, not section by section', () => {
+    // The point of the flat list: someone hunting for a student does not know
+    // which section that student is in, and should not have to scan each one.
+    // A-names and D-names interleave.
+    expect(sortPairsForPicker(PAIRS).map((e) => e.players_text)).toEqual([
+      'Al Young & Mia Zhu',            // D
+      'Ann Baker & Cy Dunn',           // A
+      'Rick Wilson & Andrew Rowberg',  // A
+      'Zoe Adams & Bob Carter',        // D
     ])
-    // Alphabetical by name, not by pair number: D7 sorts above D2.
-    expect(grouped[1].entries.map((e) => e.pair_number)).toEqual([7, 2])
   })
 
-  it('renders a section heading per section and a row per pair', () => {
+  it('sorts case-insensitively, so upper-cased names do not clump', () => {
+    const mixed = [
+      { players_text: 'zoe adams', section: 'A' },
+      { players_text: 'ANN BAKER', section: 'A' },
+      { players_text: 'Mia Zhu', section: 'A' },
+    ]
+    expect(sortPairsForPicker(mixed).map((e) => e.players_text)).toEqual([
+      'ANN BAKER',
+      'Mia Zhu',
+      'zoe adams',
+    ])
+  })
+
+  it('renders one flat row per pair, name first and location trailing', () => {
     const picker = buildPairPicker(document, PAIRS, () => {})
     document.body.appendChild(picker)
-    const text = picker.textContent
-    expect(text).toContain('Section A')
-    expect(text).toContain('Section D')
-    const items = picker.querySelectorAll('button')
+    const items = [...picker.querySelectorAll('button')]
     expect(items).toHaveLength(4)
-    // Direction and number stay visible so the choice can be checked against
-    // the page behind it.
-    expect(items[0].textContent).toBe('NS1 — Ann Baker & Cy Dunn')
+    // No section headings to scroll past.
+    expect(picker.textContent).not.toContain('Section A')
+    // Name leads, because that is what is being scanned.
+    expect(items[0].firstChild.textContent).toBe('Al Young & Mia Zhu')
+    // Location still shown, so the choice can be checked against the page.
+    expect(items[0].lastChild.textContent).toBe('D-EW7')
   })
 
   it('hands back the chosen pair, whose url is the ordinary scorecard entry', () => {
@@ -531,9 +552,10 @@ describe('event-summary pair picker', () => {
   })
 
   it('survives a pair with no section rather than dropping it', () => {
-    const grouped = sortPairsForPicker([{ players_text: 'Nemo', pair_number: 1 }])
-    expect(grouped).toHaveLength(1)
-    expect(grouped[0].entries).toHaveLength(1)
+    const sorted = sortPairsForPicker([{ players_text: 'Nemo', pair_number: 1 }])
+    expect(sorted).toHaveLength(1)
+    const picker = buildPairPicker(document, sorted, () => {})
+    expect(picker.querySelectorAll('button')).toHaveLength(1)
   })
 })
 
@@ -622,5 +644,170 @@ describe('handleClick progress', () => {
       setState: (s, m) => states.push([s, m]),
     })
     expect(states.map((s) => s[0])).toContain('success')
+  })
+})
+
+describe('pair picker filter', () => {
+  const PAIRS = [
+    { section: 'A', direction: 'NS', pair_number: 1, players_text: 'John Jones & Bob Smith', url: '/a1' },
+    { section: 'A', direction: 'EW', pair_number: 4, players_text: 'Rick Wilson & Andrew Rowberg', url: '/a4' },
+    { section: 'D', direction: 'NS', pair_number: 2, players_text: "Mary O'Brien & Sue Chen", url: '/d2' },
+  ]
+
+  function open(onSelect = () => {}) {
+    document.body.innerHTML = ''
+    const picker = buildPairPicker(document, PAIRS, onSelect)
+    document.body.appendChild(picker)
+    return { picker, filter: picker.querySelector(`.${PAIR_FILTER_CLASS}`) }
+  }
+
+  const visible = (picker) =>
+    [...picker.querySelectorAll('button')].filter((b) => b.style.display !== 'none')
+
+  it('finds a player listed second in their pair', () => {
+    // The gap sorting alone cannot close: alphabetical order files this pair
+    // under "John", so a search for the student is the only way to reach them.
+    const { picker, filter } = open()
+    filter.value = 'smith'
+    filter.dispatchEvent(new Event('input'))
+    expect(visible(picker)).toHaveLength(1)
+    expect(visible(picker)[0].textContent).toContain('Bob Smith')
+  })
+
+  it('ignores case and punctuation', () => {
+    // Punctuation is removed, not replaced with a space: substituting turns
+    // "O'Brien" into "o brien", which fails the exact query it exists to serve.
+    for (const q of ['obrien', "O'BRIEN", 'OBrien']) {
+      const { picker, filter } = open()
+      filter.value = q
+      filter.dispatchEvent(new Event('input'))
+      expect(visible(picker), `query ${q}`).toHaveLength(1)
+    }
+  })
+
+  it('matches the section and pair number too', () => {
+    const { picker, filter } = open()
+    filter.value = 'EW4'
+    filter.dispatchEvent(new Event('input'))
+    expect(visible(picker)).toHaveLength(1)
+    expect(visible(picker)[0].textContent).toContain('Rick Wilson')
+  })
+
+  it('restores the full list when the box is cleared', () => {
+    const { picker, filter } = open()
+    filter.value = 'smith'
+    filter.dispatchEvent(new Event('input'))
+    filter.value = ''
+    filter.dispatchEvent(new Event('input'))
+    expect(visible(picker)).toHaveLength(3)
+  })
+
+  it('says so when nothing matches, rather than showing an empty box', () => {
+    const { picker, filter } = open()
+    filter.value = 'nobody'
+    filter.dispatchEvent(new Event('input'))
+    expect(visible(picker)).toHaveLength(0)
+    expect(picker.textContent).toContain('No one by that name')
+  })
+
+  it('picks the pair on Enter once exactly one is left', () => {
+    const chosen = []
+    const { filter } = open((p) => chosen.push(p))
+    filter.value = 'wilson'
+    filter.dispatchEvent(new Event('input'))
+    filter.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }))
+    expect(chosen).toHaveLength(1)
+    expect(chosen[0].url).toBe('/a4')
+  })
+
+  it('does nothing on Enter while the choice is still ambiguous', () => {
+    const chosen = []
+    const { filter } = open((p) => chosen.push(p))
+    filter.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }))
+    expect(chosen).toEqual([])
+  })
+})
+
+describe('tournament event lists', () => {
+  // A trimmed slice of the real page — 12 of its 100 rows, chosen so the filter
+  // has something to get wrong: Swiss Teams and Bracketed Round Robin Teams to
+  // skip, Fast Pairs and Side Games to keep, and North American Pairs, which an
+  // abbreviation-based filter would have thrown away. Its h1 is the host city,
+  // so no player is knowable here.
+  const html = readFileSync(
+    resolve(here, '../../fixtures/acbl-live/tournament-events-NABC261.html'),
+    'utf8'
+  )
+
+  beforeEach(() => { document.body.innerHTML = '' })
+
+  function loadPage() {
+    document.body.innerHTML = html
+    const base = document.createElement('base')
+    base.href = 'https://live.acbl.org/events/NABC261'
+    document.body.prepend(base)
+    return document
+  }
+
+  it('finds the rows, using the same markup as the player listings', () => {
+    const doc = loadPage()
+    expect(resultRows(doc)).toHaveLength(12)
+  })
+
+  it('skips the team events and links the rest', () => {
+    const doc = loadPage()
+    const added = injectResultRowLinks({ document: doc })
+    const rows = resultRows(doc)
+    const teams = rows.filter((r) => isTeamEventLabel(r.eventText))
+    expect(teams).toHaveLength(4) // 2 Swiss Teams, 2 Bracketed Round Robin Teams
+    expect(added).toBe(8)
+    // Every linked row is one we can actually read.
+    for (const a of doc.querySelectorAll(`.${ROW_LINK_CLASS}`)) {
+      expect(isTeamEventLabel(a.closest('tr').textContent)).toBe(false)
+    }
+  })
+
+  it('keeps North American Pairs, which an abbreviation filter would have lost', () => {
+    const doc = loadPage()
+    injectResultRowLinks({ document: doc })
+    const linked = [...doc.querySelectorAll(`.${ROW_LINK_CLASS}`)].map(
+      (a) => a.closest('tr').textContent
+    )
+    expect(linked.some((t) => /NORTH AMERICAN PAIRS/i.test(t))).toBe(true)
+  })
+
+  it('knows nobody, so a click has to ask which pair', () => {
+    const doc = loadPage()
+    // The heading is the host city, not a player.
+    expect(readPlayerName(doc)).toBeNull()
+  })
+
+  it('asks for the pairs and shows the picker under the row', async () => {
+    const doc = loadPage()
+    injectResultRowLinks({ document: doc })
+    const sent = []
+    const sendMessage = vi.fn(async (msg) => {
+      sent.push(msg)
+      if (msg.type === 'list-event-pairs') {
+        return {
+          type: 'event-pairs',
+          pairs: [
+            { section: 'A', direction: 'NS', pair_number: 1, players_text: 'Ann Baker & Cy Dunn', url: '/a1' },
+          ],
+        }
+      }
+      return { type: 'extraction-complete' }
+    })
+    setupRowLinks({ document: doc, sendMessage })
+
+    const link = doc.querySelector(`.${ROW_LINK_CLASS}`)
+    link.click()
+    await vi.waitFor(() => expect(doc.querySelector(`.${ROW_MESSAGE_CLASS}`)).not.toBeNull())
+    expect(sent[0].type).toBe('list-event-pairs')
+
+    // Choosing a pair extracts that pair's scorecard, not the summary.
+    doc.querySelector(`.${ROW_MESSAGE_CLASS} button`).click()
+    await vi.waitFor(() => expect(sent.length).toBe(2))
+    expect(sent[1]).toMatchObject({ type: 'extract-session', url: '/a1' })
   })
 })
