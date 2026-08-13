@@ -28,7 +28,10 @@ const BUTTON_ID = 'bridge-classroom-analyze-btn'
 const INJECT_PAGE_TYPES = new Set([
   'pair-scorecard',
   'event-summary',
-  'player-history',
+  // 'player-history' is deliberately absent. It is a *list* of sessions, so a
+  // single page-level button has nothing to extract; each row gets its own link
+  // instead (setupRowLinks). It used to open a date-range batch picker, which
+  // could not work within live.acbl.org's ~110-request-per-sign-in allowance.
   'club-game-result',
   'club-results-list',
   'tournament-view',
@@ -149,17 +152,368 @@ export function pickInjectionStrategy(url) {
   }
 }
 
+// ── ACBL Live results listing: one link per row ────────────────────────────
+//
+// /my-results and /player-results/<id> list a player's sessions, each with a
+// Links column ("Summary | Overalls | Recaps | Hands"). We add one more entry
+// to that column rather than putting a single button at the top of the page,
+// because there is nothing sensible for a page-level button to extract here —
+// the page is a list, and the user means one row of it.
+//
+// This replaced a date-range batch. live.acbl.org allows roughly 110 requests
+// per sign-in under /event/*, which is about two events; a batch of five spent
+// the allowance mid-run and got the user signed out. See docs/acbl-rate-limit.md.
+//
+// Per-row links invite clicking one after another, so the second click has to
+// explain itself when it fails — that is what rowMessage is for.
+export const ROW_LINK_CLASS = 'bridge-classroom-row-link'
+export const ROW_MESSAGE_CLASS = 'bridge-classroom-row-message'
+
+export const SESSION_EXPIRED_MESSAGE =
+  'ACBL Live limits how much can be fetched per sign-in, and this one is spent. ' +
+  'Sign out of ACBL Live and sign back in, then fetch the next event.'
+
+export function messageForError(code, message) {
+  if (code === 'session-expired') return SESSION_EXPIRED_MESSAGE
+  return message ?? 'extraction failed'
+}
+
+// "Rick Wilson's Results" → "Rick Wilson". Both listing pages title themselves
+// this way, and it is the only place the player's name appears in full — which
+// the adapter needs in order to enter through their own scorecard rather than
+// whichever pair the summary page happens to list first.
+export function readPlayerName(doc) {
+  const heading = doc.querySelector('h1')?.textContent ?? ''
+  const m = heading.match(/^\s*(.+?)['’]s\s+Results\s*$/i)
+  return m ? m[1].trim() : null
+}
+
+// Skip team events. A team event's summary page has no pair-scorecard link —
+// there are no pairs — so the extraction fails with "could not find any
+// pair-scorecard link", which is accurate and useless. Better not to offer the
+// click. See CLAUDE.md § ACBL Live team events are not supported.
+//
+// Excluding teams rather than requiring "Pairs" is the deliberate direction.
+// The two failure modes are not symmetrical: an unrecognised label that we
+// nevertheless *could* read would be silently unfetchable, with nothing on
+// screen to explain why, whereas an unrecognised label we cannot read costs one
+// click and shows an error. Losing a fetchable event is the worse of the two.
+//
+// Matches the shape of isTeamEvent in handlers.js, plus the team events that
+// do not say "teams" anywhere in their name: knockouts, and GNT — the Grand
+// National Teams, which appear as "GNT" and nothing else.
+//
+// Deliberately not here: NAP. Same shape of abbreviation, opposite meaning —
+// North American *Pairs* — and excluding it would silently hide an event we
+// can read perfectly well.
+export function isTeamEventLabel(text) {
+  return /\bteams?\b|\bknockout\b|\bgnt\b/i.test(text ?? '')
+}
+
+// Which column holds the event name. Found by header text rather than by
+// position: this listing renders in two forms with different column orders, so
+// "column 3" is not reliable.
+function eventColumnIndex(table) {
+  const headers = [...table.querySelectorAll('thead th')].map((th) =>
+    (th.textContent ?? '').trim().toLowerCase()
+  )
+  return headers.indexOf('event')
+}
+
+// Every row that carries a Summary link, paired with the URL it points at and
+// the text of its Event cell.
+export function resultRows(doc) {
+  const rows = []
+  const eventIdxByTable = new Map()
+  for (const cell of doc.querySelectorAll('td.links')) {
+    const summary = cell.querySelector('a.summary')
+    const href = summary?.getAttribute('href')
+    if (!href) continue
+    let url
+    try {
+      url = new URL(href, doc.baseURI ?? 'https://live.acbl.org').toString()
+    } catch {
+      continue
+    }
+    const row = cell.closest ? cell.closest('tr') : cell.parentElement
+    const table = row?.closest?.('table')
+    if (table && !eventIdxByTable.has(table)) {
+      eventIdxByTable.set(table, eventColumnIndex(table))
+    }
+    const idx = table ? eventIdxByTable.get(table) : -1
+    const cells = row ? [...row.children].filter((c) => c.tagName === 'TD') : []
+    const eventText = idx >= 0 ? (cells[idx]?.textContent ?? '').trim() : ''
+    rows.push({ cell, url, row, eventText })
+  }
+  return rows
+}
+
+export function injectResultRowLinks(deps) {
+  const { document: doc } = deps
+  const rows = resultRows(doc)
+  let added = 0
+  for (const { cell, url, eventText } of rows) {
+    if (isTeamEventLabel(eventText)) continue
+    if (cell.querySelector(`.${ROW_LINK_CLASS}`)) continue // idempotent
+    cell.appendChild(doc.createTextNode(' | '))
+    const a = doc.createElement('a')
+    a.className = ROW_LINK_CLASS
+    a.href = '#'
+    a.textContent = 'Analyze in Bridge Classroom'
+    a.dataset.bcUrl = url
+    cell.appendChild(a)
+    added += 1
+  }
+  return added
+}
+
+// A message under the row that was clicked, spanning the table. Only one at a
+// time: a column of stale errors from earlier clicks would be worse than none.
+export function showRowMessage(doc, row, text, kind = 'error') {
+  for (const old of doc.querySelectorAll(`.${ROW_MESSAGE_CLASS}`)) old.remove()
+  if (!row?.parentElement) return null
+  const tr = doc.createElement('tr')
+  tr.className = ROW_MESSAGE_CLASS
+  const td = doc.createElement('td')
+  td.colSpan = Math.max(1, row.children.length)
+  td.textContent = text
+  Object.assign(td.style, {
+    padding: '10px 12px',
+    background: kind === 'error' ? '#fdecea' : '#e8f4ea',
+    color: kind === 'error' ? '#7f231c' : '#1d5b2b',
+    borderLeft: `4px solid ${kind === 'error' ? '#c0392b' : '#2e7d43'}`,
+    fontSize: '14px',
+  })
+  tr.appendChild(td)
+  row.insertAdjacentElement('afterend', tr)
+  return tr
+}
+
+// Wire the row links. Delegated for the same reason the main button is:
+// Cloudflare Rocket Loader clones nodes and drops their listeners.
+export function setupRowLinks(deps) {
+  const { document: doc, sendMessage, storage = null } = deps
+  let busy = false
+
+  doc.addEventListener('click', (e) => {
+    const link = e.target.closest?.(`.${ROW_LINK_CLASS}`)
+    if (!link) return
+    e.preventDefault()
+    // One at a time. Each fetch is ~50 requests out of an allowance of ~110,
+    // and two at once would spend it mid-flight and fail both.
+    if (busy) return
+    busy = true
+
+    const row = link.closest('tr')
+    const original = link.textContent
+    link.textContent = 'Fetching…'
+    link.style.pointerEvents = 'none'
+    for (const el of doc.querySelectorAll(`.${ROW_MESSAGE_CLASS}`)) el.remove()
+
+    // An event is ~50 board pages and takes tens of seconds. A label that never
+    // changes over that long reads as a stall, so show the count climbing.
+    const progressKey = newProgressKey()
+    const stopWatching = storage
+      ? watchExtractionProgress(
+          progressKey,
+          (pct) => {
+            link.textContent = `Fetching… ${pct}%`
+          },
+          storage
+        )
+      : () => {}
+
+    const done = (text) => {
+      busy = false
+      stopWatching()
+      link.textContent = text ?? original
+      link.style.pointerEvents = ''
+    }
+
+    sendMessage({
+      type: 'extract-session',
+      url: link.dataset.bcUrl,
+      playerName: readPlayerName(doc),
+      progressKey,
+    })
+      .then((response) => {
+        if (response?.type === 'extraction-complete') {
+          done('Opening…')
+          setTimeout(() => done(original), 2000)
+          return
+        }
+        const code = response?.error?.code
+        showRowMessage(doc, row, messageForError(code, response?.error?.message))
+        done(original)
+      })
+      .catch((err) => {
+        showRowMessage(doc, row, err?.message ?? 'message channel error')
+        done(original)
+      })
+  })
+}
+
+// ── Event summary: which pair? ─────────────────────────────────────────────
+//
+// A summary page names nobody, and the extractor fetches one section, so a
+// guess costs the user a stranger's section and none of their own boards. It
+// used to be harmless — every section was fetched anyway — and it is not any
+// more: a MidFlight event came back with 36 players from section C when the
+// user had played in D.
+//
+// So ask. Grouped by section and sorted by name, because the person looking is
+// scanning for a name they know — their own, or a student's — not for a pair
+// number they have no reason to remember.
+export const PAIR_PICKER_ID = 'bridge-classroom-pair-picker'
+
+export function sortPairsForPicker(pairs) {
+  const bySection = new Map()
+  for (const p of pairs ?? []) {
+    const key = p.section ?? ''
+    if (!bySection.has(key)) bySection.set(key, [])
+    bySection.get(key).push(p)
+  }
+  return [...bySection.entries()]
+    .sort((a, b) => String(a[0]).localeCompare(String(b[0])))
+    .map(([section, entries]) => ({
+      section,
+      entries: entries
+        .slice()
+        .sort((a, b) => (a.players_text ?? '').localeCompare(b.players_text ?? '')),
+    }))
+}
+
+export function buildPairPicker(doc, pairs, onSelect) {
+  const box = doc.createElement('div')
+  box.id = PAIR_PICKER_ID
+  Object.assign(box.style, {
+    position: 'absolute',
+    zIndex: '2147483647',
+    right: '0',
+    marginTop: '4px',
+    maxHeight: '60vh',
+    overflowY: 'auto',
+    minWidth: '260px',
+    background: '#fff',
+    border: '1px solid #ccc',
+    borderRadius: '4px',
+    boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
+    fontSize: '14px',
+    textAlign: 'left',
+  })
+
+  const heading = doc.createElement('div')
+  heading.textContent = 'Whose results?'
+  Object.assign(heading.style, {
+    padding: '8px 12px',
+    borderBottom: '1px solid #eee',
+    fontWeight: '600',
+    color: '#333',
+  })
+  box.appendChild(heading)
+
+  for (const { section, entries } of sortPairsForPicker(pairs)) {
+    const label = doc.createElement('div')
+    label.textContent = section ? `Section ${section}` : 'Pairs'
+    Object.assign(label.style, {
+      padding: '6px 12px',
+      background: '#f3f3f3',
+      color: '#555',
+      fontWeight: '600',
+    })
+    box.appendChild(label)
+
+    for (const entry of entries) {
+      const item = doc.createElement('button')
+      item.type = 'button'
+      // Direction and number stay visible: two pairs can share a name spelling,
+      // and the number is how the user checks it against the page behind.
+      item.textContent = `${entry.direction ?? ''}${entry.pair_number ?? ''} — ${entry.players_text ?? ''}`
+      Object.assign(item.style, {
+        display: 'block',
+        width: '100%',
+        padding: '6px 12px',
+        border: 'none',
+        background: 'transparent',
+        textAlign: 'left',
+        cursor: 'pointer',
+        fontSize: '14px',
+      })
+      item.addEventListener('mouseenter', () => { item.style.background = '#eaf1fb' })
+      item.addEventListener('mouseleave', () => { item.style.background = 'transparent' })
+      item.addEventListener('click', () => onSelect(entry))
+      box.appendChild(item)
+    }
+  }
+  return box
+}
+
+// Watch an extraction's progress. The message that started it does not resolve
+// until it is finished, so storage is the only channel back mid-flight.
+//
+// Returns a stop function. Poll rather than onChanged because the content
+// script may be re-injected under it, and a stray listener that outlives its
+// button is harder to reason about than a timer someone owns.
+export const EXTRACT_PROGRESS_PREFIX = 'extract-progress:'
+
+function newProgressKey() {
+  return globalThis.crypto?.randomUUID
+    ? globalThis.crypto.randomUUID()
+    : `p${Date.now()}${Math.random().toString(36).slice(2)}`
+}
+
+export function watchExtractionProgress(key, onPercent, storage, intervalMs = 300) {
+  const storageKey = `${EXTRACT_PROGRESS_PREFIX}${key}`
+  let stopped = false
+  const tick = () => {
+    if (stopped) return
+    storage
+      .get(storageKey)
+      .then((result) => {
+        const entry = result?.[storageKey]
+        if (!stopped && entry?.total > 0) {
+          onPercent(Math.round((entry.done / entry.total) * 100), entry.done, entry.total)
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!stopped) timer = setTimeout(tick, intervalMs)
+      })
+  }
+  let timer = setTimeout(tick, intervalMs)
+  return () => {
+    stopped = true
+    clearTimeout(timer)
+  }
+}
+
 export async function handleClick(deps) {
-  const { url, sendMessage, setState, buildMessage, onBatchStarted } = deps
+  const { url, sendMessage, setState, buildMessage, onBatchStarted, storage = null } = deps
   setState('extracting')
   const msg = buildMessage ? buildMessage(url) : { type: 'extract-session', url }
+
+  // Single extractions get a live percentage for the same reason the row links
+  // do: an ACBL event is ~50 board pages, and a label that never changes over
+  // tens of seconds reads as a stall.
+  let stopWatching = () => {}
+  if (storage && msg.type === 'extract-session') {
+    msg.progressKey = newProgressKey()
+    stopWatching = watchExtractionProgress(
+      msg.progressKey,
+      (pct) => setState('progress', `Fetching… ${pct}%`),
+      storage
+    )
+  }
+
   let response
   try {
     response = await sendMessage(msg)
   } catch (err) {
+    stopWatching()
     setState('error', err?.message ?? 'message channel error')
     return
   }
+  stopWatching()
   if (!response || typeof response !== 'object') {
     setState('error', 'unexpected service worker response')
     return
@@ -607,7 +961,7 @@ export function injectButton(deps) {
 // break our button. Any click anywhere is checked: if it hit our button we
 // handle it; otherwise ignored.
 export function setupClickDelegation(deps) {
-  const { document: doc, location, sendMessage } = deps
+  const { document: doc, location, sendMessage, storage = null } = deps
 
   // Cancel button: when an active batch is running, clicking the X sends
   // cancel-batch to the SW. activeBatchKey is set on batch-started and
@@ -625,8 +979,13 @@ export function setupClickDelegation(deps) {
     const btn = e.target.closest(`#${BUTTON_ID}`)
     if (!btn || btn.disabled) return
 
-    const isBatch = classifyClub(location.href) === 'club-results-list' ||
-      classifyLive(location.href) === 'player-history'
+    // Club results only. The ACBL Live listing used to offer a date-range
+    // batch too, but live.acbl.org allows about 110 requests per sign-in under
+    // /event/* — roughly two events — so a batch of five spent the allowance
+    // partway through and signed the user out. It now offers one link per row
+    // instead; see setupRowLinks and docs/acbl-rate-limit.md. my.acbl.org is a
+    // different host with public results and has shown no such ceiling.
+    const isBatch = classifyClub(location.href) === 'club-results-list'
 
     const isBboBatch = classifyBbo(location.href) === 'tournament-view'
 
@@ -637,6 +996,50 @@ export function setupClickDelegation(deps) {
     const hideCancel = () => {
       const cx = doc.getElementById(CANCEL_BUTTON_ID)
       if (cx) cx.style.display = 'none'
+    }
+
+    // An ACBL Live event summary names nobody, so ask which pair before
+    // fetching. Selecting one goes straight to that pair's scorecard — the
+    // ordinary entry point, which sets user_pair without any special casing.
+    if (classifyLive(location.href) === 'event-summary') {
+      const existing = doc.getElementById(PAIR_PICKER_ID)
+      if (existing) { existing.remove(); return }
+
+      applyState(btn, 'progress', 'Loading pairs…')
+      sendMessage({ type: 'list-event-pairs', url: location.href })
+        .then((response) => {
+          if (response?.type !== 'event-pairs' || !response.pairs?.length) {
+            applyState(btn, 'error', messageForError(
+              response?.error?.code,
+              response?.error?.message ?? 'no pairs found in this event'
+            ))
+            return
+          }
+          applyState(btn, 'idle')
+          const picker = buildPairPicker(doc, response.pairs, (entry) => {
+            picker.remove()
+            doc.removeEventListener('click', closePicker)
+            handleClick({
+              url: entry.url,
+              sendMessage,
+              storage,
+              setState: (state, msg) => applyState(btn, state, msg),
+              buildMessage: (url) => ({ type: 'extract-session', url }),
+            })
+          })
+          const anchor = btn.parentElement ?? btn
+          anchor.style.position = 'relative'
+          anchor.appendChild(picker)
+          function closePicker(e2) {
+            if (!picker.contains(e2.target) && e2.target !== btn) {
+              picker.remove()
+              doc.removeEventListener('click', closePicker)
+            }
+          }
+          setTimeout(() => doc.addEventListener('click', closePicker), 0)
+        })
+        .catch((err) => applyState(btn, 'error', err?.message ?? 'message channel error'))
+      return
     }
 
     if (isBatch || isBboBatch) {
@@ -711,6 +1114,7 @@ export function setupClickDelegation(deps) {
       handleClick({
         url: location.href,
         sendMessage,
+        storage,
         setState: (state, msg) => applyState(btn, state, msg),
         buildMessage: (url) => ({ type: 'extract-session', url }),
       })
@@ -728,6 +1132,9 @@ if (typeof globalThis.chrome !== 'undefined' || typeof globalThis.browser !== 'u
       document,
       location: window.location,
       sendMessage: (msg) => browser.runtime.sendMessage(msg),
+      // The extraction runs in the service worker and its message does not
+      // resolve until it finishes, so progress comes back through storage.
+      storage: browser.storage.local,
     }
     const start = () => injectButton(opts)
 
@@ -807,6 +1214,17 @@ if (typeof globalThis.chrome !== 'undefined' || typeof globalThis.browser !== 'u
         }
         tryParse()
       }).catch(() => {})
+    }
+
+    // ACBL Live's results listing gets a link per row rather than a page-level
+    // button. Runs independently of injectButton, which declines this page.
+    if (classifyLive(window.location.href) === 'player-history') {
+      injectResultRowLinks({ document })
+      setupRowLinks({
+        document,
+        sendMessage: (msg) => browser.runtime.sendMessage(msg),
+        storage: browser.storage.local,
+      })
     }
 
     // Auto-trigger: if the app opened this page with #bc-analyze, extract
