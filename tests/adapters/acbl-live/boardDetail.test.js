@@ -289,6 +289,36 @@ describe('parseBoardDetail — rows with no score', () => {
     expect(unscored.declarer).toBeNull()
   })
 
+  it('nulls matchpoints and percentage too, rather than passing on the page 0', () => {
+    // The fixture row renders '0' in both cells, and passing that through was
+    // a trap: a consumer reading `percentage` without checking `score` first
+    // sees a 0% board. Downstream, two unplayed boards came out rendered as
+    // passouts with a low percentage attached. An unplayed board was not
+    // awarded zero — it was not awarded anything.
+    const r = parseBoardDetail(withUnscoredRow(board6Html, 'NS'), {
+      boardNumber: 6,
+      section: 'A',
+    })
+    const unscored = r.results.find((x) => x.score === null && x.contract === null)
+    expect(unscored.matchpoints).toBeNull()
+    expect(unscored.percentage).toBeNull()
+  })
+
+  it('leaves a genuine passout scored, which is a different thing entirely', () => {
+    // PASS means the table played the board and nobody bid: score 0 is real,
+    // and so are the matchpoints it earns against the field.
+    const r = parseBoardDetail(withUnscoredRow(board6Html, 'PASS'), {
+      boardNumber: 6,
+      section: 'A',
+    })
+    const passed = r.results.find((x) => x.contract === 'PASS')
+    expect(passed).toBeDefined()
+    expect(passed.score).toBe(0)
+    // Whatever the field earned it — the point is that it is a real number,
+    // where a no-result row is null.
+    expect(passed.matchpoints).not.toBeNull()
+  })
+
   for (const token of ['NS', 'NP', 'AVE', 'AVE+', 'AVE-', 'A+', 'A-']) {
     it(`accepts '${token}' in the score column`, () => {
       expect(() =>

@@ -63,14 +63,25 @@ describe('declared coverage matches what the adapters actually produce', () => {
   it.each([
     ['acbl-live', ACBL_COVERAGE],
     ['acbl-live-club', CLUB_COVERAGE],
-  ])('%s: no card-level data, all sections, sections labelled', (_name, coverage) => {
+  ])('%s: no card-level data, sections labelled, real names', (_name, coverage) => {
     expect(coverage.cardplay).toBe('none')
     expect(coverage.auction).toBe('none')
     expect(coverage.results).toBe('all-tables')
-    expect(coverage.sections).toBe('all')
     expect(coverage.sections_labelled).toBe(true)
     // ACBL sources publish real names and national-body IDs.
     expect(coverage.player_names).toBe('real')
+  })
+
+  // The two ACBL adapters part company here, and the envelope has to say so.
+  // live.acbl.org allows about 110 requests per sign-in under /event/*, so the
+  // tournament adapter fetches the user's section alone; my.acbl.org club
+  // results are public, on another host, and have shown no such ceiling.
+  it('acbl-live declares user-only sections, matching what it fetches', () => {
+    expect(ACBL_COVERAGE.sections).toBe('user-only')
+  })
+
+  it('acbl-live-club still declares all sections', () => {
+    expect(CLUB_COVERAGE.sections).toBe('all')
   })
 
   it('every adapter declares the full coverage shape', () => {

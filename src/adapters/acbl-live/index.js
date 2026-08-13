@@ -26,9 +26,12 @@ export const COVERAGE = {
   cardplay: CARDPLAY.NONE,
   auction: AUCTION.NONE,
   results: RESULTS.ALL_TABLES,
-  // uniqueSections() collects every section in the pair directory and the fetch
-  // plan covers session x section x board.
-  sections: SECTIONS.ALL,
+  // Only the user's own section. live.acbl.org allows roughly 110 requests per
+  // sign-in under /event/*, and fetching every section multiplied the cost of an
+  // event by the number of sections — enough to cross that ceiling on a single
+  // extraction, which signs the user out mid-run. Their own section is the field
+  // they actually played against. See docs/acbl-rate-limit.md.
+  sections: SECTIONS.USER_ONLY,
   player_names: PLAYER_NAMES.REAL,
   sections_labelled: true,
 }
@@ -100,6 +103,10 @@ export async function extractSession(url, options = {}) {
     maxRetries,
     now = () => new Date().toISOString(),
     log = defaultLog,
+    // Called as board-detail pages land: (done, total). An ACBL extraction is
+    // ~50 requests and takes tens of seconds, which is long enough that a
+    // static "Extracting…" reads as a stall.
+    onProgress = null,
     // Describes the request that produced this envelope (e.g. "last 1 month
     // for kemistry"). Supplied by the caller — an adapter can't know whether it
     // was asked for one session or a year of history.
@@ -108,11 +115,12 @@ export async function extractSession(url, options = {}) {
 
   const pageType = classifyPage(url)
 
-  // The user often lands on /summary first. Resolve to a pair-scorecard URL
-  // by parsing any /scores/... link out of the summary HTML, then run the
-  // standard extraction. Since no user pair was selected, blank user_pair
-  // and user_result_index in the result so the analyzer treats this as an
-  // event-wide extraction.
+  // The user often lands on /summary first, and every per-row link on
+  // /my-results points at one. Resolve to a pair-scorecard URL by parsing a
+  // /scores/... link out of the summary HTML, then run the standard
+  // extraction. Given options.playerName we pick that player's own scorecard
+  // and the envelope keeps user_pair; without it we take the first link going
+  // and blank user_pair, since whoever that pair is, it is not the user.
   if (pageType === 'event-summary') {
     return extractFromSummary(url, options)
   }
@@ -200,14 +208,20 @@ export async function extractSession(url, options = {}) {
     (s, i) => i === 0 || userPairMatchesIdentity(s.sc.user_pair, userIdentity)
   )
 
-  // ── Phase 4: build the full board-detail fetch plan ─────────────────────
-  // For each session, derive every section from pair_directory; for each
-  // section, build a board-detail URL per board. One big list.
+  // ── Phase 4: build the board-detail fetch plan ──────────────────────────
+  // One board-detail URL per board, for the user's own section only.
+  //
+  // This used to fan out across every section in pair_directory, which
+  // multiplied an event's cost by the section count: a two-section, two-session
+  // event took 96 board fetches where it now takes 48. That mattered because
+  // live.acbl.org allows about 110 requests per sign-in and then bounces
+  // everything to the SSO login — a ceiling a single wide extraction could
+  // cross on its own. Their own section is also the field they were scored
+  // against, so what the extra sections bought was mostly cost.
   const plan = [] // { sessionIdx, section, boardNumber, url }
   for (let i = 0; i < usableSessions.length; i++) {
     const { sc, url: sUrl } = usableSessions[i]
-    const userSection = sc.user_pair.section
-    const sections = uniqueSections(sc.pair_directory, userSection)
+    const sections = [sc.user_pair.section]
     const sBase = new URL(sUrl)
     for (const section of sections) {
       for (const board of sc.boards) {
@@ -238,6 +252,7 @@ export async function extractSession(url, options = {}) {
     await fetchAll(plan.map((p) => p.url), {
       ...fetchOpts,
       onResult: (url, value) => {
+        onProgress?.(parsedByUrl.size + 1, plan.length)
         if (value instanceof Error) {
           parsedByUrl.set(url, value)
           return
@@ -343,6 +358,14 @@ async function extractFromSummary(summaryUrl, options) {
     delayMs = 0,
     maxRetries,
     log = defaultLog,
+    // Who the user is, when the caller knows. The per-row links on
+    // /my-results and /player-results/<id> do: that listing is one player's
+    // results, so the content script reads the name off the page and passes it
+    // here. With it we can enter through *their* scorecard instead of an
+    // arbitrary pair, which keeps user_pair and user_result_index populated and
+    // — since the fetch plan now covers one section — picks the right section
+    // to fetch.
+    playerName = null,
   } = options
   const fetchOpts = { fetch, signal, concurrency: 1, delayMs, maxRetries }
 
@@ -353,17 +376,66 @@ async function extractFromSummary(summaryUrl, options) {
   if (html instanceof Error) throw html
   log('summary.fetchPage', { ms: Date.now() - phaseStart })
 
-  // 2. Find any pair-scorecard link in the page. The summary lists per-pair
-  //    rankings, each linking to /scores/{section}/{direction}/{pair}. We
-  //    don't care which pair we pick — the standard extractor will fan out
-  //    across every section and session anyway.
-  const scorecardUrl = findScorecardUrlInSummary(html, summaryUrl)
+  // 2. Find a pair-scorecard link. The summary lists per-pair rankings, each
+  //    linking to /scores/{section}/{direction}/{pair}.
+  //
+  //    Which one we pick used not to matter, because the extractor fanned out
+  //    across every section anyway. It matters entirely now: the plan covers
+  //    one section, so picking the wrong pair returns a stranger's section and
+  //    none of the user's boards. That is exactly what happened on a two-session
+  //    MidFlight event — the name match missed, the first link was section C,
+  //    and the envelope came back with 36 players and no sign of the user.
+  let { url: scorecardUrl, isUser } = findScorecardUrlInSummary(
+    html,
+    summaryUrl,
+    playerName
+  )
   if (!scorecardUrl) {
     throw new Error(
       `Could not find any pair-scorecard link on summary page ${summaryUrl}`
     )
   }
-  log('summary.foundScorecard', { url: scorecardUrl })
+
+  // 2b. Second try, via the pair directory. The summary page's markup varies —
+  //     a name may be laid out somewhere rowTextFor cannot see — but every
+  //     scorecard carries a #pair-select dropdown listing every pair in every
+  //     section in one predictable format, "(A-NS) 2-Rick Wilson & Arthur
+  //     Mirin". So fetch the pair we did find, and look the user up there.
+  //     Costs one extra fetch, and only when the cheap match missed.
+  if (playerName && !isUser) {
+    const scMap = await fetchAll([scorecardUrl], fetchOpts)
+    const scHtml = scMap.get(scorecardUrl)
+    if (!(scHtml instanceof Error)) {
+      try {
+        const directory = parsePairScorecard(scHtml).pair_directory
+        const entry = findUserInPairDirectory(directory, {
+          player_names_lower: [playerName.toLowerCase()],
+          acbl_ids: [],
+        })
+        if (entry?.url) {
+          scorecardUrl = new URL(entry.url, summaryUrl).toString()
+          isUser = true
+          log('summary.foundViaPairDirectory', { url: scorecardUrl })
+        }
+      } catch {
+        /* unparseable scorecard — fall through to the check below */
+      }
+    }
+  }
+
+  // 2c. Refuse rather than mislead. A caller that named a player wants that
+  //     player's results; handing back an arbitrary pair's section instead
+  //     looks like a successful extraction and is not one.
+  if (playerName && !isUser) {
+    const err = new Error(
+      `Could not find ${playerName} in this event. If you played under a ` +
+        `different name, open your own scorecard and use the button there.`
+    )
+    err.name = 'ParseError'
+    throw err
+  }
+
+  log('summary.foundScorecard', { url: scorecardUrl, isUser })
 
   // 3. Recurse into the standard extraction with that URL. Since the second
   //    invocation sees a pair-scorecard URL, it follows the existing
@@ -373,21 +445,25 @@ async function extractFromSummary(summaryUrl, options) {
     concurrency,
   })
 
-  // 4. Null out user_pair and user_result_index across the tree — no user
-  //    was selected via this entry path. session_score / session_percentage
-  //    / carryover lived under user_pair, so they vanish too. This matches
-  //    the schema's "user_pair is present only if a pair scorecard
-  //    initiated this session's extraction".
-  // source_url should reflect the page the user was on, not the internal
-  // scorecard URL the extractor resolved to.
+  // 4. source_url should reflect the page the user was on, not the internal
+  //    scorecard URL the extractor resolved to.
   envelope.source_url = summaryUrl
 
-  for (const tournament of envelope.tournaments ?? []) {
-    for (const event of tournament.events ?? []) {
-      for (const session of event.sessions ?? []) {
-        session.user_pair = null
-        for (const board of session.boards ?? []) {
-          board.user_result_index = null
+  // 5. If we entered through an arbitrary pair rather than the user's own,
+  //    null out user_pair and user_result_index across the tree: whatever pair
+  //    happened to be first in the summary is not the user, and leaving their
+  //    details in the "user" slot would be worse than leaving it empty.
+  //    session_score / session_percentage / carryover live under user_pair, so
+  //    they go too. Matches the schema's "user_pair is present only if a pair
+  //    scorecard initiated this session's extraction".
+  if (!isUser) {
+    for (const tournament of envelope.tournaments ?? []) {
+      for (const event of tournament.events ?? []) {
+        for (const session of event.sessions ?? []) {
+          session.user_pair = null
+          for (const board of session.boards ?? []) {
+            board.user_result_index = null
+          }
         }
       }
     }
@@ -395,11 +471,17 @@ async function extractFromSummary(summaryUrl, options) {
   return envelope
 }
 
-function findScorecardUrlInSummary(html, baseUrl) {
+// Find a pair-scorecard link on the summary page, preferring the named
+// player's own. Returns { url, isUser }.
+//
+// isUser is what decides whether the envelope keeps user_pair: entering through
+// somebody else's scorecard still yields the whole field, but nothing in it is
+// "the user", and saying otherwise would put a stranger's name in that slot.
+export function findScorecardUrlInSummary(html, baseUrl, playerName = null) {
   const doc = new DOMParser().parseFromString(html, 'text/html')
-  // Iterate every anchor with an /scores/ href and pick the first one that
-  // matches the pair-scorecard URL pattern via classifyPage. Defensive
-  // because the summary page may also have unrelated /scores/ links.
+  const candidates = []
+  // Every anchor with a /scores/ href that really is a pair scorecard.
+  // Defensive because the summary page may also carry unrelated /scores/ links.
   for (const a of doc.querySelectorAll('a[href*="/scores/"]')) {
     const href = a.getAttribute('href')
     if (!href) continue
@@ -409,9 +491,37 @@ function findScorecardUrlInSummary(html, baseUrl) {
     } catch {
       continue
     }
-    if (classifyPage(abs) === 'pair-scorecard') return abs
+    if (classifyPage(abs) === 'pair-scorecard') candidates.push({ a, abs })
   }
-  return null
+  if (candidates.length === 0) return { url: null, isUser: false }
+
+  const needle = normalizeName(playerName)
+  if (needle) {
+    for (const { a, abs } of candidates) {
+      if (normalizeName(rowTextFor(a)).includes(needle)) return { url: abs, isUser: true }
+    }
+  }
+  return { url: candidates[0].abs, isUser: false }
+}
+
+// The player's name lives in the row, not in the link — the link text is a pair
+// number. Walk up to the containing row rather than using closest(), which the
+// service worker's linkedom DOM does not implement the same way as a browser.
+function rowTextFor(anchor) {
+  let el = anchor
+  for (let depth = 0; el && depth < 6; depth++) {
+    if (el.tagName === 'TR') return el.textContent ?? ''
+    el = el.parentElement
+  }
+  return anchor.parentElement?.textContent ?? anchor.textContent ?? ''
+}
+
+// ACBL Live renders names in mixed case and sometimes with extra whitespace;
+// the listing page they come from may render them upper case. Compare on
+// lowercase with runs of whitespace collapsed.
+function normalizeName(value) {
+  if (typeof value !== 'string') return ''
+  return value.toLowerCase().replace(/\s+/g, ' ').trim()
 }
 
 // --- user identification + cross-session tracking -----------------------------
@@ -443,11 +553,6 @@ function findUserInPairDirectory(directory, identity) {
 
 // --- session assembly ---------------------------------------------------------
 
-function uniqueSections(pairDirectory, fallbackSection) {
-  const set = new Set(pairDirectory.map((p) => p.section).filter(Boolean))
-  if (set.size === 0 && fallbackSection) set.add(fallbackSection)
-  return [...set].sort()
-}
 
 function buildSession(scorecard, parsedBoardsBySection) {
   // parsedBoardsBySection: Map<sectionLetter, Map<boardNumber, Board | Error>>
