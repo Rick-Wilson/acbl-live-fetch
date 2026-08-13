@@ -91,11 +91,16 @@ all four stores).
 All four browsers are QA'd against both no-account paths — see
 `docs/architecture.md` § Cross-browser builds.
 
-**The ACBL Live behaviour changed after those submissions**, and the store
-listings and screenshots have not caught up. The date-range batch on ACBL Live
-is gone, replaced by one link per row; a summary page now asks which pair. Worth
-checking the screenshots and the store descriptions before the Safari submission
-and before any 1.0.2. BBO's batches are untouched.
+**The ACBL Live behaviour changed after those submissions, but the listings did
+not need to.** Checked rather than assumed: all five submitted screenshots are
+ACBL *clubs* and BBO, and the date-range picker in shot 1 is the club one on
+`my.acbl.org`, whose batch is untouched. The listing copy says only
+"live.acbl.org — tournament results", which is still true.
+
+What is missing is not wrong, only absent: no shot has ever covered ACBL Live
+tournaments (`docs/screenshot-set.md` § Coverage has it outstanding), so the
+per-row links and the pair picker are unphotographed. Adding one is an
+opportunity, not a correction.
 
 ### Submission log
 
