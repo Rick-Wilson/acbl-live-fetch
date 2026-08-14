@@ -77,10 +77,33 @@ journal; filters compose and are *nested*, so widening a run only adds work.
   live.acbl.org, how it was measured, and the four theories it killed
 - `docs/prior-art.md` — what three other bridge extensions do
 
-### Next up: store release
+### Next up: store release — 1.1.0
 
 Packaging is done — `scripts/package-stores.sh` builds Chrome, Edge, Firefox and
-refreshes the Safari resources. Submitted to three of four; Safari remains.
+refreshes the Safari resources. All four 1.1.0 packages are built and verified.
+
+**1.1.0, not 1.0.2, and the bump was forced.** 1.0.1 went to AMO on 11 August;
+PRs #5–#9 landed on the 12th and 13th. The working tree and the build in AMO's
+queue were both calling themselves 1.0.1 while differing by a removed feature.
+Minor rather than patch because the ACBL Live date-range batch was removed and
+replaced with per-row links, the pair picker is new, section coverage narrowed
+to the user's own, and the envelope went 1.1 → 1.2.
+
+Four places carry the version; `docs/store-review.md` § 6a has the table.
+**Xcode's `MARKETING_VERSION` is edited in `project.pbxproj` directly** —
+`agvtool new-marketing-version` substitutes a key the Info.plists do not
+contain, leaves `MARKETING_VERSION` alone, and reports success anyway.
+`CURRENT_PROJECT_VERSION` stays at 1: nothing has ever reached App Store Connect.
+
+Verified for this release rather than assumed:
+
+- The Safari `.appex` bundles exactly what is on disk (`diff -rq`, no
+  differences) at 1.1.0 / build 1. The three UI modules added in 1.1.0 needed
+  no Xcode change — Vite folds them into the existing `assets/` folder
+  reference. New **entry points** are the thing that would need registering, not
+  new source files.
+- 463 unit tests, 5 e2e, `addons-linter` 0 errors / 2 warnings — the same two
+  linkedom `innerHTML` sites, now at line 2 col 8311 and line 7 col 443.
 
 Done: icons (a mortarboard — `icons/icon.svg`, rendered by
 `scripts/render-icons.mjs`; deliberately not a spade, see `docs/store-review.md`),
@@ -100,16 +123,38 @@ ACBL *clubs* and BBO, and the date-range picker in shot 1 is the club one on
 What is missing is not wrong, only absent: no shot has ever covered ACBL Live
 tournaments (`docs/screenshot-set.md` § Coverage has it outstanding), so the
 per-row links and the pair picker are unphotographed. Adding one is an
-opportunity, not a correction.
+opportunity, not a correction — and it is being taken for 1.1.0, as four shots
+rather than one. `docs/screenshot-set.md` § 7 has the recipe, ordered so the two
+shots that fetch nothing come first and the sign-in allowance is never what
+costs a shot.
+
+`demo/acbl-live-tournament.mp4` is the one asset that *is* a release behind: it
+predates the pair picker and the percentage. Being re-recorded in the same
+session as the shots.
 
 ### Submission log
 
 | Store | Submitted | Status |
 |---|---|---|
-| Chrome Web Store | 11 Aug 2026 | awaiting review |
-| Edge Add-ons | 11 Aug 2026 | **published** — first store live |
-| addons.mozilla.org | 11 Aug 2026 | awaiting review — **1.0.1** |
-| Mac App Store | — | ready, will be 1.0.1 |
+| Chrome Web Store | 11 Aug 2026 | awaiting review — 1.0.1; resubmit 1.1.0 |
+| Edge Add-ons | 11 Aug 2026 | **published** — 1.0.1; **1.1.0 next, ahead of the rest** |
+| addons.mozilla.org | 11 Aug 2026 | awaiting review — 1.0.1; resubmit 1.1.0 |
+| Mac App Store | — | 1.1.0 build 1 ready; never submitted |
+
+**Edge goes first, out of order.** It is the only store where 1.0.1 is actually
+*published*, so its users have the ACBL Live date-range batch that exhausts the
+sign-in allowance and can log them out of ACBL Live for real. It also needs no
+new screenshots — it keeps its five — so unlike Apple it is not waiting on a
+capture session. Fixing a live user-facing harm outranks listing symmetry.
+
+Then Apple (the store never submitted to, and the one with room for the ACBL
+Live shots), then Chrome and AMO.
+
+**Permission tightening is deferred to 1.2.0.** `docs/store-review.md` § 5 has
+the two candidates — dropping `tabs`, path-scoping the BBO hosts. Both were
+considered for 1.1.0 and both were declined: neither is visible to a user, both
+rewrite justification text that has been through review once, and both want a
+four-browser QA pass that this release should not be carrying.
 
 ### iPad is worth more than it looks
 
@@ -264,7 +309,18 @@ To revert to production:
 chrome.storage.local.remove('devIngestUrl')
 ```
 
-The manifest already includes `http://localhost:3001/*` in `host_permissions` and the content script `matches`, so no rebuild is needed when switching. Run the local analyzer with:
+**That override alone is not enough, and this used to say it was.** The shipped
+manifest matches `bridge-classroom.org` and `.com` only — the localhost entry
+was removed when the `/game-analysis/` hand-off was retired — so on a local page
+the ingest content script never runs and the hand-off hangs silently. A local
+target needs the test build too:
+
+```bash
+npm run build:test    # INGEST_TEST=1 → dist/test, adds localhost to matches and host_permissions
+```
+
+Load `dist/test` unpacked, not `dist/chrome`. This is the same build the
+Playwright e2e tests load, for the same reason. Run the local analyzer with:
 
 ```bash
 cd /Users/rick/Development/GitHub/Bridge-Game-Analysis

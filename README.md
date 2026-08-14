@@ -1,45 +1,95 @@
 # Bridge Classroom Fetch
 
-Browser extension that extracts bridge results from supported sites and hands them to [Bridge Game Analysis](https://game-analysis.bridge-classroom.com) for board-by-board cause analysis.
+Browser extension that extracts bridge results from the page you are already
+looking at and hands them to [Bridge Classroom](https://bridge-classroom.org)
+for board-by-board cause analysis — why a result was good or bad, in the
+bidding, the play or the defence.
+
+No downloading PBN and BWS files and uploading them again. On tournament
+results, which offer no downloadable files at all, no clicking through every
+board by hand.
 
 ## Supported sources
 
-- **ACBL Live** (`live.acbl.org`) — tournament results
-- **My ACBL** (`my.acbl.org`) — club game results
-- **BBO** (`bridgebase.com`) — hand records
+| Site | What it yields | Login |
+|---|---|---|
+| `live.acbl.org` | Tournament results — one event per click, your own section | ACBL |
+| `my.acbl.org` | Club game results, every board and section | none |
+| Bridge Base Online | A session, a whole tournament, or a single deal | BBO, except the hand viewer and `tview.php` |
+
+Three of the four are usable with no account at all.
+
+**Two ACBL Live limits are deliberate, not unfinished.** One event per click,
+and your own section only — `live.acbl.org` serves roughly 110 requests per
+sign-in and a section fan-out could spend all of it on one event. See
+[docs/acbl-rate-limit.md](docs/acbl-rate-limit.md).
+
+**ACBL Live team events are not supported yet** — the entry point is a
+pair-scorecard link, and a team event's summary has none.
+
+## Usage
+
+Open a results page on a supported site. The extension adds a button or a link
+to the page itself — there is no popup, and the toolbar icon is only a badge:
+
+- **ACBL Live results listings** — `Analyze in Bridge Classroom` in each row's
+  Links column. On a tournament's event list, which names no player, it asks
+  which pair first.
+- **`my.acbl.org`** — in the page navigation.
+- **BBO** — merged into the hands-list header, above the lobby's history list,
+  as an overlay on a tournament view, or in the hand viewer's own control row.
+
+Click it. The extension reads that game's boards, contracts, scores and
+comparisons and opens Bridge Classroom with them.
 
 ## Installation
 
-Load unpacked from `dist/chrome/` in `chrome://extensions` (Developer mode on).
+Published: **Microsoft Edge Add-ons**. Chrome, Firefox and the Mac App Store are
+in review — see [docs/store-review.md](docs/store-review.md) for the state of
+each.
 
-Build first:
+To run from source, load unpacked from `dist/chrome/` in `chrome://extensions`
+(Developer mode on), having built first:
 
 ```bash
 npm install
 npm run build:chrome
 ```
 
-## Usage
-
-Navigate to a results page on a supported site. Click the extension icon, then click **Extract**. The extension opens the analyzer in a new tab and hands off the data automatically.
-
 ## Development
 
 ### Local analyzer target
 
-By default the extension opens `https://game-analysis.bridge-classroom.org/analyze`. To target a local dev server instead, open the background service worker console in `chrome://extensions` and run:
+Results go to `https://bridge-classroom.org/ingest/?v=1`, which forwards them to
+whichever Bridge Classroom tool the user picks — see
+[docs/ingest-protocol.md](docs/ingest-protocol.md).
+
+Pointing that at a local server takes **two** steps, not one. The runtime
+override says where to send the results:
 
 ```js
-chrome.storage.local.set({ devAnalyzerUrl: 'http://localhost:3001/analyze' })
+// background service worker console, from chrome://extensions
+chrome.storage.local.set({ devIngestUrl: 'http://localhost:3001/ingest/?v=1' })
+chrome.storage.local.remove('devIngestUrl')   // back to production
 ```
 
-Revert to production:
+But the results are delivered by a content script, and the shipped manifest
+matches `bridge-classroom.org` and `.com` only — deliberately, since a localhost
+permission in a store listing invites reviewer questions for no user benefit.
+So a **local target also needs the test build**, which adds localhost,
+`127.0.0.1` and the GitHub Pages origin to both the content-script matches and
+the host permissions:
 
-```js
-chrome.storage.local.remove('devAnalyzerUrl')
+```bash
+npm run build:test          # INGEST_TEST=1 → dist/test
 ```
 
-No rebuild needed. Start the local analyzer with:
+Load `dist/test` unpacked rather than `dist/chrome`. Without it the override
+sends the payload to a page that has no content script listening, and the
+hand-off hangs with nothing in the console to say why. `scripts/package-stores.sh`
+refuses to package any build carrying those origins.
+
+Start the local analyzer with:
 
 ```bash
 cd ../Bridge-Game-Analysis
@@ -49,17 +99,37 @@ python3 -m http.server 3001
 ### Build targets
 
 ```bash
-npm run build:chrome    # Chrome / Edge
+npm run build:chrome    # Chrome
+npm run build:edge      # Edge
 npm run build:firefox   # Firefox
-npm run build:all       # All browsers
+npm run build:safari    # source for the Xcode project
+npm run build:all       # all four
 ```
 
-Output lands in `dist/<browser>/`.
+Output lands in `dist/<browser>/`. `scripts/package-stores.sh` builds all of
+them into store-ready archives, plus the source archive Firefox review requires,
+and refreshes the Safari project's resources.
 
 ### Tests
 
 ```bash
-npm test
+npm test         # 463 unit tests
+npm run test:e2e # 5 Playwright tests over the ingest hand-off
 ```
 
-210 unit tests covering adapters, parsers, and background message handling.
+Unit tests cover adapters, parsers, background message handling and the injected
+UI. Parsers are pure functions over HTML strings, so they run identically in a
+service worker and a content script.
+
+### Where to read next
+
+- [docs/architecture.md](docs/architecture.md) — the adapter pattern, and the
+  cross-browser builds
+- [docs/data-sources.md](docs/data-sources.md) — what each site yields and how
+  it has to be fetched; three of them broke a naive `fetch()` differently
+- [docs/normalized-schema.md](docs/normalized-schema.md) — the one envelope all
+  sources produce
+
+## Licence
+
+The Unlicense — public domain. See [LICENSE](LICENSE).

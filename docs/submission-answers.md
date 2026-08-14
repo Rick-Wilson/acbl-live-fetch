@@ -68,6 +68,35 @@ https://bridge-classroom.org/privacy#extension
 
 ---
 
+## Release notes — 1.1.0
+
+**Draft, needs Rick's sign-off before it goes in a console.** Edge Partner
+Center and addons.mozilla.org both ask for release notes per version. Chrome
+does not ask. Apple's field is *What's New in This Version*, which a **first**
+submission does not use — 1.1.0 is Apple's 1.0, so it gets the description
+above and nothing here.
+
+The honest framing is that a feature was removed, and why. Users of the Edge
+1.0.1 build have hit this: a five-event batch spent the sign-in allowance
+mid-run and ACBL Live signed them out.
+
+```
+ACBL Live tournaments
+
+• Each row of your results list now has its own "Analyze in Bridge Classroom" link, replacing the date-range batch. live.acbl.org allows a limited number of requests per sign-in, and fetching several events at once could spend it and sign you out. One event per click stays comfortably inside it — roughly two or three events per sign-in.
+• A tournament's event list now asks which pair you mean, with a search box, instead of guessing.
+• Progress now shows a percentage while an event is fetched.
+• If ACBL Live does sign you out mid-fetch, the extension says so under the row that was clicked, and tells you to sign in again — rather than failing with a message about the page.
+• Team events are not supported and no longer offer a link that could not work.
+
+ACBL club games (my.acbl.org) and Bridge Base Online are unchanged, including the club date-range batch.
+```
+
+Keep the first bullet first. It is the only one that explains a removal, and a
+user who liked the batch deserves the reason before the replacement.
+
+---
+
 ## Single purpose
 
 Chrome asks for one sentence. Keep it narrow — a broad answer invites the
@@ -299,10 +328,18 @@ Neither touches a live document. The parsers run in the service worker against s
 Nothing in our own source assigns to innerHTML at all: `grep -rn innerHTML src/` returns no matches. We are happy to answer any question about either site.
 ```
 
-If a reviewer follows up, the two coordinates in the 1.0.0 build were
-`assets/background.js-*.js` line 2 col 8296 and line 7 col 443. The hash in that
-filename changes with every build, so cite the line and column rather than the
-name.
+If a reviewer follows up, the two coordinates are in `assets/background.js-*.js`
+at **line 2 col 8311 and line 7 col 443** in the 1.1.0 build — they were col
+8296 and col 443 in 1.0.0. The hash in that filename changes with every build,
+so cite the line and column rather than the name; and the column on line 2 moves
+with any change to the bundle, so re-read it before quoting it:
+
+```bash
+npx web-ext lint --source-dir dist/firefox --output json | \
+  python3 -c "import json,sys; [print(w['file'], w['line'], w['column']) for w in json.load(sys.stdin)['warnings']]"
+```
+
+1.1.0 lints at **0 errors, 2 warnings** — the same two, in the same order.
 
 ---
 

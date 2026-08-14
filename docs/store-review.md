@@ -503,13 +503,24 @@ Chrome requires a written justification per permission. Current manifest:
 
 **Paste-ready wording for every field is in [submission-answers.md](submission-answers.md)**, kept in step with this table.
 
-### Tightening candidates for 1.0.1
+### Tightening candidates — deferred again, to 1.2.0
 
 Audited after submitting 1.0.0. **None of these were changed at the time**:
 Chrome had 1.0.0 in review, and editing the manifest would have meant either
 resubmitting Chrome — restarting the review clock — or shipping the other three
 stores a different 1.0.0 than Chrome was reviewing. Parity was worth more than
 a tightening that changes no user-visible behaviour.
+
+**Still not done in 1.1.0, and this time the reason is different.** The note
+below says both belong in a version bump, and 1.1.0 is one — so it was
+considered rather than overlooked. Against it: 1.1.0 is already resubmitting to
+four stores at once, both changes rewrite justification text that has been
+through review once, and both want a QA pass on all four browsers to prove
+nothing regressed. Neither is visible to a user. Adding that to a release whose
+purpose is to get the ACBL Live fix out is spending risk on tidiness.
+
+They go in **1.2.0**, on their own, where a four-browser pass is the whole job
+and a rejection costs nothing else.
 
 **`tabs` can be dropped.** Verified empirically, not inferred: built without it,
 loaded the extension, opened a `www.bridgebase.com` tab, and called
@@ -546,8 +557,12 @@ than a hurried resubmission.
 
 - ~~Remove `http://localhost:3001/game-analysis/*` from `host_permissions`.~~
   Done — removed when the `/game-analysis/` hand-off was retired. Local
-  development now uses the `devIngestUrl` override, which needs no manifest
-  entry.
+  development uses the `devIngestUrl` override **plus the `INGEST_TEST=1`
+  build**: the override only says where to send the payload, and the content
+  script that delivers it matches `bridge-classroom.{org,com}` alone. This
+  entry, README.md and CLAUDE.md all used to claim the override was sufficient
+  on its own. It is not, and the failure is silent — the hand-off hangs on a
+  page with nothing listening.
 - **Do not ship the `INGEST_TEST=1` build.** It adds `localhost`, `127.0.0.1`
   and a GitHub Pages origin for end-to-end testing.
 
