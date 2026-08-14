@@ -1,1 +1,1 @@
-import './assets/background.js-qtra-I6x.js';
+import './assets/background.js-Ct2X_t7n.js';

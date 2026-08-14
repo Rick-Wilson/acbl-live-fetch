@@ -1,6 +1,6 @@
 {
   "name": "bridge-classroom-fetch",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "Browser extension that fetches bridge game data from supported sites and hands it to bridge-classroom.com for analysis.",
   "type": "module",
   "license": "Unlicense",

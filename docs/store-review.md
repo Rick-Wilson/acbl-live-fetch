@@ -186,7 +186,7 @@ cold. It expects three files beside it:
 |---|---|
 | `demo/bbo-hands-list.mp4` | The button in BBO's hands-list header; one session extracted across the field |
 | `demo/bbo-history-batch.mp4` | The lobby date-range menu, the progress count, the batch result |
-| `demo/acbl-live-tournament.mp4` | `live.acbl.org`, the button beside the `h1`, multi-section extraction |
+| `demo/acbl-live-tournament.mp4` | `live.acbl.org`, the button beside the `h1`, one event extracted |
 
 `.github/workflows/pages.yml` publishes `demo/` to `/demo/` alongside the test
 ingester, on any push touching those paths.
@@ -241,7 +241,18 @@ finished downloading. `-an` drops audio, which these do not need.
 **Git LFS must not be used** — Pages serves the LFS pointer rather than the
 video, which looks like it works until a reviewer receives 130 bytes of text.
 
-**Not yet recorded.** This is the one submission asset still outstanding.
+**All three are recorded and committed**, and published at the URL above.
+
+**`acbl-live-tournament.mp4` is a release behind, and is being re-recorded for
+1.1.0.** It was shot on 11 August; the ACBL Live work landed on the 13th. What
+it shows — the button beside the `h1` on an event summary, then the analysis —
+still happens, so nothing in it is a lie. What it omits is now the interesting
+part: that page asks which pair before it fetches, and the label counts a
+percentage while it does. The clip exists to show a reviewer the path they
+cannot log in to, so it should show the path as built.
+
+The other two are unaffected. `bbo-history-batch.mp4` shows the *BBO* lobby
+batch, which was never touched — only ACBL Live's date-range batch was removed.
 
 ---
 
@@ -334,6 +345,18 @@ It should report no differences. A folder reference (blue in Xcode, `lastKnownFi
 tracks its contents automatically, so files *inside* `icons/` and `assets/` need
 no further action — only new top-level entries do.
 
+**New source files are not new top-level entries.** 1.1.0 added three modules —
+`src/ui/acblResultsList.js`, `pairPicker.js`, `extractProgress.js` — and needed
+no Xcode change, because Vite bundles them into the existing `assets/` chunks:
+they are imported by `sourceContent.js` rather than being fresh entry points.
+Checked rather than assumed — `ls dist/safari` before and after still reports
+exactly `assets`, `icons`, `manifest.json`, `service-worker-loader.js`.
+
+What *would* need registering is a new **entry point**: another content script
+or an HTML page in `manifest.json`, which @crxjs emits with its own loader
+beside `service-worker-loader.js`. That is the trigger to watch for, not "a file
+was added to `src/`".
+
 ### 3c. addons-linter, and what it says
 
 AMO runs Mozilla's `addons-linter` on upload. Run it first:
@@ -355,8 +378,18 @@ The linter is flagging a vendored library implementing the DOM, not this
 extension writing markup into a page.
 
 **`data_collection_permissions` is required for new Firefox extensions.** It is
-declared in `vite.config.js` as the explicit `required: ['none']` — the
-extension collects nothing, and Mozilla wants that said rather than omitted.
+declared in `vite.config.js`, and it says
+`required: ['personallyIdentifyingInfo', 'websiteContent']`.
+
+It said `none` until 1.0.1, and that was wrong. `none` means "does not collect
+or transmit any personal data", and the extension does transmit: `Player` is
+`{ name, acbl_id, … }` — a real name and a national-body number — sent
+off-device to `bridge-classroom.org` whenever the source is ACBL. There is no
+server and no telemetry here, which is what made `none` feel right; but
+"collect" in every store's sense means *leaves the device*, not *reaches us*.
+The same mistake was made on Chrome's disclosure and corrected there too — see
+[submission-answers.md](submission-answers.md) § Data use, which is the longer
+version of this note. Keep the three in step.
 
 That key set the version floors. It landed in Firefox 140 and Firefox for
 Android 142, so the previous `strict_min_version: 121.0` (chosen only for MV3
@@ -636,17 +669,34 @@ anyone reads, and colour alone won't separate them.
 (see *Where the policy lives* above). Needs the `Bridge-Classroom` repo deployed
 before it resolves.
 
-**~~Version number~~ — 1.0.0.** The first public release. Four places carry it,
-and they are not all the same string by default:
+**~~Version number~~ — 1.1.0.** Four places carry it, and they are not all the
+same string by default:
 
 | Where | Note |
 |---|---|
 | `manifest.json` | canonical; `PROVIDER.version` reads it, so the payload follows |
-| `package.json` + lock | `npm version 1.0.0 --no-git-tag-version` |
-| Xcode `MARKETING_VERSION` | was the template's `1.0`, which is *not* `1.0.0` |
+| `package.json` + lock | `npm version 1.1.0 --no-git-tag-version` |
+| Xcode `MARKETING_VERSION` | eight occurrences in `project.pbxproj` — four targets × two configurations |
 | Xcode `CURRENT_PROJECT_VERSION` | build number, at 1; bump per Safari **upload**, not per release |
 
-Bump it with one command, from the folder holding the `.xcodeproj`:
+**A minor, not a patch, and the number had to move.** 1.0.0 was the first public
+release; 1.0.1 corrected the Firefox data declaration and went to AMO on 11
+August. Everything in PRs #5–#9 landed on the 12th and 13th — *after* that
+upload — so the working tree and the build in AMO's queue were both calling
+themselves 1.0.1 while differing by a removed feature. That alone forces a bump.
+1.1.0 rather than 1.0.2 because the ACBL Live date-range batch was removed and
+replaced with per-row links, the pair picker is new, section coverage narrowed
+to the user's own, and the envelope went 1.1 → 1.2.
+
+**Bump `MARKETING_VERSION` in `project.pbxproj`, not with agvtool.** There is an
+`agvtool new-marketing-version`, and on this project it does nothing useful: it
+substitutes `CFBundleShortVersionString` in the four `Info.plist`s, which do not
+contain that key — Xcode generates it from the build setting — and it leaves
+`MARKETING_VERSION` alone. It reports "Updated …" for each plist regardless, so
+it looks like it worked. `sed -i '' 's/MARKETING_VERSION = 1.0.1;/MARKETING_VERSION = 1.1.0;/g'`
+over `project.pbxproj` is what actually moves it; expect eight hits.
+
+The **build** number is agvtool's, and that command does work:
 
 ```bash
 cd "safari/Bridge Classroom Fetch"
@@ -654,12 +704,12 @@ xcrun agvtool new-version -all 2      # what-version -terse to check
 ```
 
 That updates all four targets across both configurations and leaves
-`MARKETING_VERSION` alone. Only `project.pbxproj` changes — the Info.plists
-agvtool names are generated.
+`MARKETING_VERSION` alone — which is exactly why it cannot be used for the
+marketing version. Only `project.pbxproj` changes.
 
-The first upload can go as build 1. App Store Connect refuses a second upload
-reusing a build number, so this is for re-uploading against the same 1.0.0
-after a rejection.
+**1.1.0 goes up as build 1**, since nothing has ever been uploaded to App Store
+Connect. Connect refuses a second upload reusing a build number, so bump to 2
+only when re-uploading against 1.1.0 after a rejection.
 
 `safari/…/Shared (Extension)/Resources/manifest.json` also carries it, but that
 is packaging output — re-run `package-stores.sh` rather than editing it.

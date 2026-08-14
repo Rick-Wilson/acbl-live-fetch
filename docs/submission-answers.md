@@ -310,7 +310,7 @@ name.
 
 | Field | File |
 |---|---|
-| Package (Chrome) | `dist/packages/bridge-classroom-fetch-1.0.0-chrome.zip` |
+| Package (Chrome) | `dist/packages/bridge-classroom-fetch-1.1.0-chrome.zip` |
 | Package (Edge) | `…-edge.zip` |
 | Package (Firefox) | `…-firefox.zip` **and** `…-source.zip` |
 | Store icon 128×128 | `icons/icon-128.png` |
@@ -336,3 +336,10 @@ what each is and what is still to be captured.
 `bbo-hands-list-before`. That is the whole arc — button, choose a range, fetch,
 result — plus a second source. Edge takes six and Apple ten, so
 `acbl-club-game-before`/`-after` can be added there.
+
+**What went up, and what goes up to Apple.** `screenshots/listing/` is the five
+actually submitted in August 2026, numbered in reviewer order. They stand for
+1.1.0 unchanged — all five are ACBL clubs or BBO, and the ACBL Live work touched
+neither. The Mac App Store listing adds the four ACBL Live shots on top, for
+nine of its ten slots; see [screenshot-set.md](screenshot-set.md) § The Apple
+set.
