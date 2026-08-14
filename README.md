@@ -15,7 +15,7 @@ board by hand.
 |---|---|---|
 | `live.acbl.org` | Tournament results — one event per click, your own section | ACBL |
 | `my.acbl.org` | Club game results, every board and section | none |
-| Bridge Base Online | A session, a whole tournament, or a single deal | BBO, except the hand viewer and `tview.php` |
+| Bridge Base Online | A session, a whole tournament, a single deal, or a date range of your history — up to all of it | BBO, except the hand viewer and `tview.php` |
 
 Three of the four are usable with no account at all.
 

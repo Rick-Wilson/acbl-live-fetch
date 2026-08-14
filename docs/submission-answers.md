@@ -89,11 +89,20 @@ ACBL Live tournaments
 • If ACBL Live does sign you out mid-fetch, the extension says so under the row that was clicked, and tells you to sign in again — rather than failing with a message about the page.
 • Team events are not supported and no longer offer a link that could not work.
 
-ACBL club games (my.acbl.org) and Bridge Base Online are unchanged, including the club date-range batch.
+ACBL club games (my.acbl.org) and Bridge Base Online are unchanged, and both keep their date-range batches — including your Bridge Base Online history from the lobby, a month, six months, a year, or all of it at once.
 ```
 
 Keep the first bullet first. It is the only one that explains a removal, and a
 user who liked the batch deserves the reason before the replacement.
+
+**Name both surviving batches, and do not let the sentence imply otherwise.**
+An earlier draft ended "including the club date-range batch", which reads as
+though the club one is the only batch left. BBO's is not only intact, it is the
+larger of the two — the lobby offers up to *All time*, against a date range on
+`my.acbl.org` — and it is the one users have most of their sessions in. Only
+ACBL Live's batch was removed, and only because `live.acbl.org` counts requests
+per sign-in. A release note that quietly retires a working feature costs more
+trust than the one it was written to explain.
 
 ---
 
