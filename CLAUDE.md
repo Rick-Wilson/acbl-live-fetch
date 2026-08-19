@@ -34,7 +34,7 @@ Read `docs/architecture.md` for full detail. Key points:
 
 ## Current state (August 2026)
 
-Working and merged to `main`. 463 unit tests, 5 Playwright e2e tests, all passing.
+Working and merged to `main`. 470 unit tests, 5 Playwright e2e tests, all passing.
 
 **Four entry points**, each with an injected button. Five injection points, since
 BBO takes three:
@@ -102,7 +102,7 @@ Verified for this release rather than assumed:
   no Xcode change — Vite folds them into the existing `assets/` folder
   reference. New **entry points** are the thing that would need registering, not
   new source files.
-- 463 unit tests, 5 e2e, `addons-linter` 0 errors / 2 warnings — the same two
+- 470 unit tests, 5 e2e, `addons-linter` 0 errors / 2 warnings — the same two
   linkedom `innerHTML` sites, now at line 2 col 8311 and line 7 col 443.
 
 Done: icons (a mortarboard — `icons/icon.svg`, rendered by

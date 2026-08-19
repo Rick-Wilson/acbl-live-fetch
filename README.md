@@ -123,7 +123,7 @@ and refreshes the Safari project's resources.
 ### Tests
 
 ```bash
-npm test         # 463 unit tests
+npm test         # 470 unit tests
 npm run test:e2e # 5 Playwright tests over the ingest hand-off
 ```
 

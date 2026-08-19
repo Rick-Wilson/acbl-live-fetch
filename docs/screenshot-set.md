@@ -180,35 +180,37 @@ about narrow viewports. There is no extension-side responsive CSS to maintain,
 and there should not be: the moment we position anything ourselves we own the
 phone layout of four third-party sites forever.
 
-### Anonymise the club page before it becomes a listing asset
+### Redact before shooting — `tools/redact-page.js`
 
 A club-results page carries **a real person's name and email address** — the
-first raw capture showed `Manager: Don Garka, dgarka@comcast.net` — plus the
-club's name and street address. Those cannot go in a store listing.
+first iPhone capture showed `Manager: Don Garka, dgarka@comcast.net` — plus the
+club's name and street address. None of that can go in a store listing.
 
-Replace rather than blur, per *Anonymising* below. Run this in the Web Inspector
-console attached to the phone, then take the screenshot (it does not survive a
-reload, so re-run it each time). Tested against a mock of this page: no leaks,
-and both our button and the game rows survive.
+Paste **[`tools/redact-page.js`](../tools/redact-page.js)** into the console on
+the page you are about to shoot. One file for all three treatments; it picks
+from the URL, so there is nothing to choose:
 
-```js
-const CLUB = 'Livermore Bridge Club'            // ← the club actually on screen
-const ADDRESS = /\d+\s+[^,]+,\s*[^,]+,\s*[A-Z]{2},\s*\d{5}(,\s*US)?/g
-const EMAIL = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g
-const MANAGER = /Manager:\s*[^,<]+/g
-const walk = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT)
-const nodes = []
-for (let n = walk.nextNode(); n; n = walk.nextNode()) nodes.push(n)
-for (const n of nodes) {
-  if (!n.nodeValue.trim()) continue
-  const t = n.nodeValue
-    .split(CLUB).join('Your Bridge Club')
-    .replace(ADDRESS, '123 Main St, Anytown, CA, 00000')
-    .replace(MANAGER, 'Manager: Chris')
-    .replace(EMAIL, 'manager@example.com')
-  if (t !== n.nodeValue) n.nodeValue = t
-}
+| Page | What it does |
+|---|---|
+| `my.acbl.org` | Replaces club name (taken from `document.title`), street address, `Manager:` line and any email |
+| `live.acbl.org` | Blurs the Player columns — those cells carry hometowns as well as names |
+| `tview.php` | Blurs Username / Player Names, and avatars under 80px |
+
+It returns a count of what it changed, so you can confirm it fired before
+spending the capture:
+
 ```
+redacted: { host: "my.acbl.org", club: 2, address: 1, manager: 1, email: 1, … }
+```
+
+**Club identity is replaced, not blurred.** A blurred block reads as something
+hidden; `Your Bridge Club` reads as an example. `example.com` and ZIP `00000`
+are reserved, so neither can land on a real address.
+
+Nothing it does survives a reload, so re-run it before each shot — deliberately,
+since a redaction that persisted is one you could forget you were relying on.
+Covered by `tests/tools/redactPage.test.js`, which asserts the specific strings
+from that first capture are gone and that our button and the game rows are not.
 
 Also worth tidying before the shot: the status bar. A charging-battery icon and
 an arbitrary clock read as a snapshot of someone's phone rather than a product
