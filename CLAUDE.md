@@ -168,11 +168,21 @@ considered for 1.1.0 and both were declined: neither is visible to a user, both
 rewrite justification text that has been through review once, and both want a
 four-browser QA pass that this release should not be carrying.
 
-### iPad is worth more than it looks
+### iOS is worth more than it looks, and iPhone is in
 
-Safari is the only browser engine on iPad, so a Safari extension is the *only*
-way to reach those users — there is no Chrome or Firefox to fall back on. That
-raises iPadOS above its apparent share.
+Safari is the only browser engine on iOS, so a Safari extension is the *only*
+way to reach iPad and iPhone users — there is no Chrome or Firefox to fall back
+on. That raises iOS above its apparent share.
+
+**iPhone is supported.** `TARGETED_DEVICE_FAMILY` is `1,2` and stays that way.
+Confirmed working on a real iPhone, iOS 26.6, 18 Aug 2026, against a club
+results page: the button injects into `my.acbl.org`'s own navbar and the
+hand-off runs. The injected UI is one button in the page's existing chrome, so
+there was nothing to redesign for a 440px viewport.
+
+That decision has a cost worth knowing: claiming iPhone obliges a **6.9-inch
+iPhone screenshot set** (1320 × 2868) on top of the iPad and Mac sets. See
+`docs/screenshot-set.md`.
 
 Tested on a real iPad, 11 Aug 2026. **It behaves the same as Chrome does** —
 and that is the point worth remembering: *both* failures found during iPad
@@ -188,17 +198,30 @@ The lesson is not about the iPad. It is that testing on an unfamiliar platform
 exercises paths nobody had exercised before, and the platform gets the blame for
 what those paths turn up.
 
-| Path | iPad |
-|---|---|
-| BBO hand viewer | ✅ works |
-| ACBL Live for Clubs | ✅ works |
-| ACBL Live tournaments | ✅ for pair events; team events fail everywhere, not just here |
-| ACBL Live batch | removed — exceeded the per-sign-in allowance on every platform, not just here |
-| BBO hands list / lobby | n/a — iPad users are in the BBO app, and its web page has a different DOM entirely |
+| Path | iPad | iPhone |
+|---|---|---|
+| ACBL Live for Clubs | ✅ works | ✅ works — the path confirmed on 18 Aug |
+| BBO hand viewer | ✅ works | ⬜ untested |
+| ACBL Live tournaments | ✅ for pair events; team events fail everywhere, not just here | ⬜ untested |
+| ACBL Live batch | removed — exceeded the per-sign-in allowance on every platform, not just here | — |
+| BBO hands list / lobby | n/a — those users are in the BBO app, whose web page has a different DOM entirely | n/a, same reason |
 
-`openTempTab`'s off-screen window never runs on iPad: `fetchViaTab` prefers an
+**Untested is not the same as broken**, and nothing suggests the untested rows
+differ — the injection is the same code and the anchors are the same elements.
+But say which is which rather than claiming a platform sweep that did not happen.
+
+`openTempTab`'s off-screen window never runs on iOS: `fetchViaTab` prefers an
 already-open same-origin tab, and there the user is standing on it. The
 desktop-only path is only the fallback, which is why everything works.
+
+**Enabling the extension in Settings does not make it run.** Safari grants page
+access per site, separately, and until that is granted no content script
+injects — no button, no error, no prompt, indistinguishable from a broken build.
+It cost an hour on a device we own. iPad shows a puzzle-piece in the toolbar;
+iPhone has no room for one and folds the same controls into the page menu, which
+on iPhone sits at the *bottom* of the screen. `docs/store-review.md` § 7 has the
+table, and the Apple reviewer notes walk through it — a reviewer who misses this
+sees an app that does nothing.
 
 ### ACBL Live team events are not supported
 

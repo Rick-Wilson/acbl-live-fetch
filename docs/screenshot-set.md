@@ -110,28 +110,39 @@ for f in screenshots/listing/*.png; do
 done
 ```
 
-### The iPhone set is required, and that is a decision not an errand
+### The iPhone set — decided, and iPhone is in
 
-`TARGETED_DEVICE_FAMILY = "1,2"` — the converter set the iOS app to iPhone
-**and** iPad. Apple requires a 6.9-inch iPhone set for any app that claims
-iPhone support, so as the project stands, an iPad submission drags an iPhone
-submission along with it.
+`TARGETED_DEVICE_FAMILY = "1,2"`: the app claims iPhone as well as iPad, so
+Apple requires a 6.9-inch iPhone set. **That was briefly an open question and is
+now closed — iPhone is supported.**
 
-That matters beyond the screenshots: **the extension has never been run on an
-iPhone.** The 11 August testing was on a real iPad. Shipping an untested phone
-layout for two supported sites whose pages are wide tables is how a listing
-earns its first one-star review.
+It was worth asking, because the extension had never been run on a phone: the
+11 August testing was on an iPad, and two of the four supported sites are wide
+results tables. Shipping an untested phone layout is how a listing earns its
+first one-star review. So it was tested rather than assumed.
 
-The alternative is `TARGETED_DEVICE_FAMILY = "2"` — iPad only. One set of
-screenshots, one tested device, and iPhone becomes a later release rather than
-an assumption. Whichever way it goes, decide it before archiving: the device
-family is baked into the build.
+**Confirmed on a real iPhone, iOS 26.6, 18 August 2026.** On a `my.acbl.org`
+club results page the button injects into the site's own navbar and the hand-off
+runs, at a 440 px viewport. Nothing needed redesigning, and the reason is
+structural rather than lucky: the extension adds one button to chrome the site
+already lays out responsively, so it inherits whatever the site does about
+narrow screens.
 
-## iPad — what to actually shoot
+The other paths are **untested on iPhone** — the BBO hand viewer and ACBL Live
+tournaments. Nothing suggests they differ; it is the same injection code against
+the same anchors. Say untested rather than claiming a sweep that did not happen.
+
+## iOS — what to actually shoot, on both devices
 
 Safari ships to the App Store as **two platforms on one record**, macOS and iOS,
-and iPad is why the iOS half matters: Safari is the only browser engine there,
-so this is the only route to those users at all.
+and the iOS half covers iPad *and* iPhone. Safari is the only browser engine on
+either, so this is the only route to those users at all.
+
+**Two sets, not one** — 2064 × 2752 for the 13-inch iPad, 1320 × 2868 for the
+6.9-inch iPhone. Apple scales within a device class but not across one, so an
+iPad set cannot stand in for iPhone.
+
+Shoot the same story on both, so the listing reads consistently.
 
 - Capture on the **real iPad** or in the Simulator, at 2064 × 2752 (or the
   landscape transpose). The 2560×1600 Mac masters do not qualify — wrong
