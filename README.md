@@ -44,9 +44,10 @@ comparisons and opens Bridge Classroom with them.
 
 ## Installation
 
-Published: **Microsoft Edge Add-ons**. Chrome, Firefox and the Mac App Store are
-in review — see [docs/store-review.md](docs/store-review.md) for the state of
-each.
+Published on the **Chrome Web Store**, **Microsoft Edge Add-ons** and
+**addons.mozilla.org**. The Mac App Store version — which is also the only way
+to reach iPad, where Safari is the sole browser engine — is not submitted yet.
+See [docs/store-review.md](docs/store-review.md) for the state of each.
 
 To run from source, load unpacked from `dist/chrome/` in `chrome://extensions`
 (Developer mode on), having built first:

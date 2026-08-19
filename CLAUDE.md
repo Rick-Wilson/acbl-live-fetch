@@ -136,19 +136,31 @@ session as the shots.
 
 | Store | Submitted | Status |
 |---|---|---|
-| Chrome Web Store | 11 Aug 2026 | awaiting review — 1.0.1; resubmit 1.1.0 |
-| Edge Add-ons | 11 Aug 2026 | **published** — 1.0.1; **1.1.0 next, ahead of the rest** |
-| addons.mozilla.org | 11 Aug 2026 | awaiting review — 1.0.1; resubmit 1.1.0 |
+| Chrome Web Store | 11 Aug 2026 | **published** — 1.0.1, ~14 Aug. No approval email arrived; the dashboard said so first |
+| Edge Add-ons | 11 Aug 2026 | **published** — 1.0.1 |
+| addons.mozilla.org | 11 Aug 2026 | **published** — 1.0.1, approved 14 Aug |
 | Mac App Store | — | 1.1.0 build 1 ready; never submitted |
 
-**Edge goes first, out of order.** It is the only store where 1.0.1 is actually
-*published*, so its users have the ACBL Live date-range batch that exhausts the
-sign-in allowance and can log them out of ACBL Live for real. It also needs no
-new screenshots — it keeps its five — so unlike Apple it is not waiting on a
-capture session. Fixing a live user-facing harm outranks listing symmetry.
+**All three browser stores now ship 1.0.1, and that changes the order.** As of
+18 August, Chrome and AMO have both published — so every Chrome, Edge and
+Firefox user has the ACBL Live date-range batch that exhausts the sign-in
+allowance and can sign them out of ACBL Live for real. It is no longer one
+store's problem.
 
-Then Apple (the store never submitted to, and the one with room for the ACBL
-Live shots), then Chrome and AMO.
+It also removes the reason to stagger them. While 1.0.1 was *pending*,
+resubmitting Chrome and AMO meant replacing a submission mid-review and
+restarting its clock, which was a real cost. Published versions stay live while
+an update is reviewed, so 1.1.0 now costs nothing to submit anywhere and none of
+the three waits on the others.
+
+**So: Chrome, Edge and AMO together, as soon as the branch is pushed.** None of
+them needs a new screenshot — all five are ACBL clubs and BBO, both untouched.
+Apple still follows the capture session, and Apple is the only store whose users
+are unaffected, because nothing has ever shipped there.
+
+Watch the Chrome dashboard rather than the inbox. Chrome published without
+sending an approval email; the status was only visible in the developer
+dashboard.
 
 **Permission tightening is deferred to 1.2.0.** `docs/store-review.md` § 5 has
 the two candidates — dropping `tabs`, path-scoping the BBO hosts. Both were
