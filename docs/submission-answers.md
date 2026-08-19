@@ -318,6 +318,26 @@ https://bridge-craftwork.github.io/bridge-classroom-fetch/demo/
 Other players' names are obscured in those recordings, for the same reason the extension does not collect them.
 ```
 
+**For Apple, add this to the reviewer notes.** It is not optional politeness —
+an iOS reviewer who skips it sees an extension that does nothing, which is a
+rejection:
+
+```
+On iPhone and iPad, enabling the extension in Settings is not sufficient on its own — Safari also requires website permission to be granted before any extension can run on a page. Without it the extension is installed and enabled but correctly does nothing, because it has not been allowed to read the page.
+
+To grant it:
+
+1. Open one of the test URLs below in Safari.
+2. Tap the page settings button in the address bar (the "Aa" / puzzle-piece icon).
+3. Tap "Bridge Classroom Fetch", then "Always Allow", then "Always Allow on Every Website".
+4. Reload the page.
+
+The "Analyze in Bridge Classroom" button then appears in the page. Safari on iOS only injects content scripts after permission is granted, so a page loaded before step 3 needs the reload in step 4.
+
+The best test on iPhone or iPad needs no account:
+https://my.acbl.org/club-results/details/1455416
+```
+
 **For addons.mozilla.org, add** — paste this into the reviewer-notes field at
 submission, rather than waiting to be asked. It is the difference between a
 note and a round-trip:
