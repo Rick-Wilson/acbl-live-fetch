@@ -15,7 +15,10 @@ beforeAll(() => {
 
 const clubPage = () =>
   parseHTML(`<!doctype html><html><head><title>Livermore Bridge Club</title></head><body>
-    <nav><a>Login</a><button id="bridge-classroom-analyze-btn">Analyze in Bridge Classroom</button></nav>
+    <nav class="navbar"><img class="live_image" id="acbl-banner" width="600">
+      <a>Login</a><button id="bridge-classroom-analyze-btn">Analyze in Bridge Classroom</button></nav>
+    <img id="club-logo" width="650">
+    <img id="ui-glyph" width="16">
     <h1>Livermore Bridge Club</h1>
     <p>2160 First St, Livermore, CA, 94550, US <a href="#">(Club Website)</a></p>
     <h3>Message from Club:</h3>
@@ -43,6 +46,18 @@ describe('redactPage — my.acbl.org', () => {
     expect(doc.getElementById('bridge-classroom-analyze-btn')).toBeTruthy()
     expect(doc.body.textContent).toContain('Tuesday Open Pairs')
     expect(doc.body.textContent).toContain('2026-04-25')
+  })
+
+  it('hides the club logo but keeps the ACBL banner', () => {
+    const doc = clubPage()
+    const r = redactPage({ document: doc, href: 'https://my.acbl.org/club-results/233437' })
+    // The club's own artwork identifies it as surely as its name does.
+    expect(doc.getElementById('club-logo').style.display).toBe('none')
+    // The site banner is the point of the shot, and lives in the navbar.
+    expect(doc.getElementById('acbl-banner').style.display).toBeFalsy()
+    // Small glyphs are UI, not artwork.
+    expect(doc.getElementById('ui-glyph').style.display).toBeFalsy()
+    expect(r.logos).toBe(1)
   })
 
   it('replaces the document title too', () => {

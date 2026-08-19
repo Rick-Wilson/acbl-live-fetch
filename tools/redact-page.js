@@ -4,7 +4,7 @@
 // shoot, then take the shot. Returns a summary of what it changed, so you can
 // see it worked before spending the capture.
 //
-//   • my.acbl.org           club name, street address, manager name and email
+//   • my.acbl.org           club name, street address, manager name, email, logo
 //   • live.acbl.org         the Player columns (names AND hometowns)
 //   • tview.php (BBO)       Username / Player Names columns, and avatars
 //
@@ -28,7 +28,7 @@ function redactPage(opts = {}) {
   const doc = opts.document ?? document
   const href = opts.href ?? doc.defaultView?.location?.href ?? location.href
   const host = new URL(href).hostname
-  const changed = { club: 0, address: 0, manager: 0, email: 0, cells: 0, avatars: 0 }
+  const changed = { club: 0, address: 0, manager: 0, email: 0, logos: 0, cells: 0, avatars: 0 }
 
   const textNodes = (root) => {
     // NodeFilter.SHOW_TEXT is 4; spelled numerically so this runs anywhere.
@@ -66,6 +66,23 @@ function redactPage(opts = {}) {
     }
     // The title itself shows in some captures (and in the tab strip on desktop).
     if (club) doc.title = 'Your Bridge Club'
+
+    // The club's own logo identifies it as surely as its name, and it is the
+    // club's artwork rather than ours — not something to put in our listing.
+    // Hidden rather than blurred: a blurred photograph reads as censorship,
+    // and removing it lets the page reflow so the results table rises into
+    // frame, which is what the screenshot is actually for.
+    //
+    // Keep the ACBL banner. It lives in the navbar, it identifies the *site*
+    // rather than a club, and showing which site we integrate with is the
+    // whole point of the image.
+    for (const im of doc.querySelectorAll('img')) {
+      if (im.closest?.('nav, .navbar, header')) continue
+      const w = im.width || im.naturalWidth || 0
+      if (w && w < 100) continue // small UI glyphs, not artwork
+      im.style.display = 'none'
+      changed.logos++
+    }
   }
 
   // ── Column blurring, by header name ─────────────────────────────────────
