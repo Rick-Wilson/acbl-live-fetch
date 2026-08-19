@@ -4,12 +4,15 @@
 // shoot, then take the shot. Returns a summary of what it changed, so you can
 // see it worked before spending the capture.
 //
-//   • my.acbl.org           club name, street address, manager name, email, logo
+//   • my.acbl.org           club name, street address, manager name and email
 //   • live.acbl.org         the Player columns (names AND hometowns)
 //   • tview.php (BBO)       Username / Player Names columns, and avatars
 //
 // It picks the right treatment from the URL, so there is one thing to paste
 // rather than three to choose between.
+//
+// redactPage({ hideLogo: true }) additionally hides the club's logo. That is a
+// framing option, not a redaction — see the note beside it.
 //
 // Nothing here survives a reload — re-run it before every shot. That is
 // deliberate: a redaction that persisted would be one you could forget you were
@@ -67,21 +70,26 @@ function redactPage(opts = {}) {
     // The title itself shows in some captures (and in the tab strip on desktop).
     if (club) doc.title = 'Your Bridge Club'
 
-    // The club's own logo identifies it as surely as its name, and it is the
-    // club's artwork rather than ours — not something to put in our listing.
-    // Hidden rather than blurred: a blurred photograph reads as censorship,
-    // and removing it lets the page reflow so the results table rises into
-    // frame, which is what the screenshot is actually for.
+    // Opt-in, and NOT a redaction — the club logo stays by default.
     //
-    // Keep the ACBL banner. It lives in the navbar, it identifies the *site*
-    // rather than a club, and showing which site we integrate with is the
-    // whole point of the image.
-    for (const im of doc.querySelectorAll('img')) {
-      if (im.closest?.('nav, .navbar, header')) continue
-      const w = im.width || im.naturalWidth || 0
-      if (w && w < 100) continue // small UI glyphs, not artwork
-      im.style.display = 'none'
-      changed.logos++
+    // It was briefly hidden as identity. That was wrong: it is a photograph
+    // with no searchable text, and nothing about a generic one ties it to a
+    // particular club. Text is what identifies a club, and the text is handled
+    // above. We show ACBL's and BBO's pages throughout this listing; a club's
+    // picture is not a different kind of thing.
+    //
+    // What it is good for is framing. On a phone the logo can occupy a third
+    // of the screen and push the results table below the fold, so the shot
+    // ends up showing a club page rather than the extension doing anything.
+    // Pass { hideLogo: true } when that is the problem.
+    if (opts.hideLogo) {
+      for (const im of doc.querySelectorAll('img')) {
+        if (im.closest?.('nav, .navbar, header')) continue
+        const w = im.width || im.naturalWidth || 0
+        if (w && w < 100) continue // small UI glyphs, not artwork
+        im.style.display = 'none'
+        changed.logos++
+      }
     }
   }
 

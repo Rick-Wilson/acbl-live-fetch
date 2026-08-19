@@ -48,10 +48,21 @@ describe('redactPage — my.acbl.org', () => {
     expect(doc.body.textContent).toContain('2026-04-25')
   })
 
-  it('hides the club logo but keeps the ACBL banner', () => {
+  it('leaves the club logo alone by default', () => {
     const doc = clubPage()
     const r = redactPage({ document: doc, href: 'https://my.acbl.org/club-results/233437' })
-    // The club's own artwork identifies it as surely as its name does.
+    // A photograph carries no searchable text and does not identify a club.
+    expect(doc.getElementById('club-logo').style.display).toBeFalsy()
+    expect(r.logos).toBe(0)
+  })
+
+  it('hides it when asked, for framing, but keeps the ACBL banner', () => {
+    const doc = clubPage()
+    const r = redactPage({
+      document: doc,
+      href: 'https://my.acbl.org/club-results/233437',
+      hideLogo: true,
+    })
     expect(doc.getElementById('club-logo').style.display).toBe('none')
     // The site banner is the point of the shot, and lives in the navbar.
     expect(doc.getElementById('acbl-banner').style.display).toBeFalsy()

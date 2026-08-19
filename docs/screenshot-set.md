@@ -192,7 +192,7 @@ from the URL, so there is nothing to choose:
 
 | Page | What it does |
 |---|---|
-| `my.acbl.org` | Replaces club name (taken from `document.title`), street address, `Manager:` line and any email; **hides the club's logo** |
+| `my.acbl.org` | Replaces club name (taken from `document.title`), street address, `Manager:` line and any email |
 | `live.acbl.org` | Blurs the Player columns — those cells carry hometowns as well as names |
 | `tview.php` | Blurs Username / Player Names, and avatars under 80px |
 
@@ -203,20 +203,17 @@ spending the capture:
 redacted: { host: "my.acbl.org", club: 2, address: 1, manager: 1, email: 1, … }
 ```
 
-**The club's logo counts as identity.** It was missed on the first pass — name,
-address, manager and email were all replaced and the club's own leaf photograph
-was still sitting in the middle of the frame, identifying them just as well. It
-is also their artwork rather than ours, which is its own reason not to put it in
-our listing.
+**The club's logo is not identity, and stays.** It was briefly hidden as though
+it were — that was wrong. It is a photograph with no searchable text, and
+nothing about a generic one ties it to a particular club; the text is what
+identifies a club, and the text is replaced. This listing shows ACBL's and BBO's
+pages throughout, so a club's picture is not a different kind of thing.
 
-It is *hidden* rather than blurred, and that is worth two sentences. A blurred
-photograph reads as censorship in a way replaced text does not. And removing it
-lets the page reflow, which lifts the results table into frame — on the first
-capture the logo occupied a third of the screen and the games were below the
-fold, so the shot showed a club page rather than the extension doing anything.
-
-The ACBL banner in the navbar stays. It identifies the *site*, not a club, and
-showing which site we integrate with is the point of the image.
+`redactPage({ hideLogo: true })` hides it anyway, as a **framing** option rather
+than a redaction. On a phone the logo can take a third of the screen and push the
+results table below the fold, leaving a shot that shows a club page rather than
+the extension doing anything. That is a composition problem, and worth naming as
+one.
 
 **Club identity is replaced, not blurred.** A blurred block reads as something
 hidden; `Your Bridge Club` reads as an example. `example.com` and ZIP `00000`
