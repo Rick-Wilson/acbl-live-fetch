@@ -144,6 +144,76 @@ iPad set cannot stand in for iPhone.
 
 Shoot the same story on both, so the listing reads consistently.
 
+### Capturing from a real iPhone
+
+Two routes, both confirmed to emit the native device resolution — **1320 × 2868
+on a 6.9-inch iPhone, which is exactly Apple's required size**. No scaling, no
+cropping, no aspect maths:
+
+- **Xcode ▸ Window ▸ Devices and Simulators ▸ Take Screenshot** (saves to the
+  Desktop).
+- **xtools**, which writes to a file rather than the clipboard.
+
+Take the shot *before* worrying about the frame: the device screenshot is
+already the deliverable size, and anything that resamples it can only make it
+worse.
+
+**Check the alpha channel on whatever the tool produces.** Apple rejects
+screenshots carrying one, and four of the five Mac masters had an opaque alpha
+channel that nothing else in the pipeline minded:
+
+```bash
+sips -g pixelWidth -g pixelHeight -g hasAlpha shot.png
+magick shot.png -alpha off -strip PNG24:shot-flat.png   # if hasAlpha: yes
+```
+
+### The iPhone layout works, and here is why
+
+Confirmed 18 August 2026 on `my.acbl.org/club-results/<id>` at 440 pt. ACBL's
+own navbar **wraps to two rows** — logo above, `Login` and
+`Analyze in Bridge Classroom` below — and our button renders full-width and
+legible with nothing clipped or pushed off-screen.
+
+That is structural rather than lucky. The extension appends one `<li>` to the
+site's existing `ul.navbar-nav`, so it inherits whatever the site already does
+about narrow viewports. There is no extension-side responsive CSS to maintain,
+and there should not be: the moment we position anything ourselves we own the
+phone layout of four third-party sites forever.
+
+### Anonymise the club page before it becomes a listing asset
+
+A club-results page carries **a real person's name and email address** — the
+first raw capture showed `Manager: Don Garka, dgarka@comcast.net` — plus the
+club's name and street address. Those cannot go in a store listing.
+
+Replace rather than blur, per *Anonymising* below. Run this in the Web Inspector
+console attached to the phone, then take the screenshot (it does not survive a
+reload, so re-run it each time). Tested against a mock of this page: no leaks,
+and both our button and the game rows survive.
+
+```js
+const CLUB = 'Livermore Bridge Club'            // ← the club actually on screen
+const ADDRESS = /\d+\s+[^,]+,\s*[^,]+,\s*[A-Z]{2},\s*\d{5}(,\s*US)?/g
+const EMAIL = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g
+const MANAGER = /Manager:\s*[^,<]+/g
+const walk = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT)
+const nodes = []
+for (let n = walk.nextNode(); n; n = walk.nextNode()) nodes.push(n)
+for (const n of nodes) {
+  if (!n.nodeValue.trim()) continue
+  const t = n.nodeValue
+    .split(CLUB).join('Your Bridge Club')
+    .replace(ADDRESS, '123 Main St, Anytown, CA, 00000')
+    .replace(MANAGER, 'Manager: Chris')
+    .replace(EMAIL, 'manager@example.com')
+  if (t !== n.nodeValue) n.nodeValue = t
+}
+```
+
+Also worth tidying before the shot: the status bar. A charging-battery icon and
+an arbitrary clock read as a snapshot of someone's phone rather than a product
+image.
+
 - Capture on the **real iPad** or in the Simulator, at 2064 × 2752 (or the
   landscape transpose). The 2560×1600 Mac masters do not qualify — wrong
   aspect, wrong class.
