@@ -79,34 +79,73 @@ That leaves Chrome, Edge and AMO on the five they already have. Edge's sixth
 slot and a later Chrome update can take 7a, the per-row links, which is the
 single most representative of the four.
 
-## iPad — a set the Mac masters cannot cover
+## Apple's screenshot specifications
+
+Read off [Apple's own screenshot specifications][spec] in August 2026, not from
+memory — two earlier guesses in this project about Apple's version matrices were
+wrong, and the same care applies here.
+
+[spec]: https://developer.apple.com/help/app-store-connect/reference/screenshot-specifications/
+
+### The three sets Apple wants
+
+| Platform | Size to supply | Pixels | Why this one |
+|---|---|---|---|
+| **Mac** | any 16:10 | **2560 × 1600** | One of four accepted 16:10 sizes; our masters already are this |
+| **iPad** | 13-inch | **2064 × 2752** portrait, **2752 × 2064** landscape | The single required iPad set; Apple scales it to the smaller iPad classes |
+| **iPhone** | 6.9-inch | **1320 × 2868** portrait (or 1290 × 2796, or 1260 × 2736) | Required *because the app claims iPhone support* — see below |
+
+**1–10 images per set**, `.png` / `.jpg` / `.jpeg`.
+
+**No alpha channel.** Apple rejects screenshots carrying one, and four of our
+five Mac masters had an opaque alpha channel — harmless everywhere else, fatal
+at App Store Connect. They were stripped with `magick -alpha off`, verified at
+zero pixel difference first, so the images are unchanged and now upload-safe.
+Anything captured from Chrome DevTools is likely to carry one; check before
+uploading:
+
+```bash
+for f in screenshots/listing/*.png; do
+  printf "%-46s " "$(basename "$f")"; sips -g hasAlpha "$f" | tail -1
+done
+```
+
+### The iPhone set is required, and that is a decision not an errand
+
+`TARGETED_DEVICE_FAMILY = "1,2"` — the converter set the iOS app to iPhone
+**and** iPad. Apple requires a 6.9-inch iPhone set for any app that claims
+iPhone support, so as the project stands, an iPad submission drags an iPhone
+submission along with it.
+
+That matters beyond the screenshots: **the extension has never been run on an
+iPhone.** The 11 August testing was on a real iPad. Shipping an untested phone
+layout for two supported sites whose pages are wide tables is how a listing
+earns its first one-star review.
+
+The alternative is `TARGETED_DEVICE_FAMILY = "2"` — iPad only. One set of
+screenshots, one tested device, and iPhone becomes a later release rather than
+an assumption. Whichever way it goes, decide it before archiving: the device
+family is baked into the build.
+
+## iPad — what to actually shoot
 
 Safari ships to the App Store as **two platforms on one record**, macOS and iOS,
-and iPad is the reason the iOS half matters: Safari is the only browser engine
-there, so this is the only route to those users at all.
+and iPad is why the iOS half matters: Safari is the only browser engine there,
+so this is the only route to those users at all.
 
-Apple validates screenshot dimensions per platform, and **the 2560×1600 masters
-are a Mac size**. They will not satisfy the iPad slots. This is the one asset the
-iOS submission needs that nothing else in this project has ever produced.
-
-What that means in practice:
-
-- Capture on a **real iPad**, or in the Simulator, at an accepted iPad size.
-  Apple takes 13-inch iPad screenshots and scales them to the smaller classes,
-  so one set is enough.
-- The extension behaves the same there as it does in Chrome — that is the
-  finding from the 11 August iPad testing, and it is why nothing new needs
-  designing, only photographing.
+- Capture on the **real iPad** or in the Simulator, at 2064 × 2752 (or the
+  landscape transpose). The 2560×1600 Mac masters do not qualify — wrong
+  aspect, wrong class.
+- **Shoot the club game first.** No account, most representative, and the one an
+  Apple reviewer can reproduce.
+- The extension behaves the same there as in Chrome — that was the 11 August
+  finding — so nothing needs designing, only photographing.
 - **`openTempTab`'s off-screen window never runs on iPad**, so do not go looking
   for it. `fetchViaTab` prefers an already-open same-origin tab, and on iPad the
   user is standing on it.
-- The paths that work there are the BBO hand viewer, ACBL Live for Clubs, and
-  ACBL Live tournaments for pair events. The BBO hands list and lobby are not
-  worth shooting on iPad — those users are in the BBO app, whose web page has a
-  different DOM entirely.
-
-Shoot the club-game path first: it needs no account, it is the most
-representative use, and it is the one an Apple reviewer could reproduce.
+- Worth shooting: BBO hand viewer, ACBL Live for Clubs, ACBL Live tournaments
+  (pair events). Not worth shooting: the BBO hands list and lobby — those users
+  are in the BBO app, whose web page has a different DOM entirely.
 
 ## What to capture, and how
 
