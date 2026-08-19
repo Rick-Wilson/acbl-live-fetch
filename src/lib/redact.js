@@ -27,11 +27,28 @@
 // photograph with no searchable text. { hideLogo: true } hides it anyway, as a
 // framing option: on a phone it can push the results table below the fold.
 
+// The club name is remembered across calls, and that is load-bearing rather
+// than an optimisation.
+//
+// Its only source is document.title, and the first pass *replaces* the title —
+// so a second pass has nothing left to look up. That is not hypothetical: under
+// SHOT_MODE this runs from document_start and again on every mutation, and
+// my.acbl.org is a Vue SPA whose <h1> renders after the first pass. The result
+// was a screenshot with the address, manager and email correctly replaced and
+// the club's name still in 48pt type, because those are found by regex and the
+// name is not.
+let rememberedClub = null
+
+// Tests only — each case needs a clean slate.
+export function resetClubMemo() {
+  rememberedClub = null
+}
+
 export function redactPage(opts = {}) {
   const doc = opts.document ?? document
   const href = opts.href ?? doc.defaultView?.location?.href ?? location.href
   const host = new URL(href).hostname
-  const changed = { club: 0, address: 0, manager: 0, email: 0, logos: 0, cells: 0, avatars: 0 }
+  const changed = { club: 0, town: 0, address: 0, manager: 0, email: 0, logos: 0, cells: 0, avatars: 0 }
 
   const textNodes = (root) => {
     // NodeFilter.SHOW_TEXT is 4; spelled numerically so this runs anywhere.
@@ -43,9 +60,36 @@ export function redactPage(opts = {}) {
 
   // ── my.acbl.org — replace identity outright ─────────────────────────────
   if (host === 'my.acbl.org') {
-    // The club name is the page title on both the club list and a game page,
-    // which saves hand-editing a name into this script per club.
-    const club = (opts.club ?? doc.title ?? '').trim()
+    // Two sources, because neither covers both pages. The club-results LIST
+    // page titles itself with the club name; a GAME page titles itself with the
+    // game, and carries the club name only as a link back to the list.
+    const titleNow = (doc.title ?? '').trim()
+
+    // The back-link, and only the one carrying a club id. "Back to main page"
+    // points at /club-results with no id, and using its text as the club name
+    // would replace the wrong thing everywhere.
+    const linkNow = [...doc.querySelectorAll('a[href]')]
+      .filter((a) => /\/club-results\/\d+/.test(a.getAttribute('href') ?? ''))
+      .map((a) => (a.textContent ?? '').trim())
+      .find((t) => t && !/back to|main page/i.test(t)) ?? ''
+
+    // Link first. A game page titles itself with the GAME — preferring the
+    // title there renamed the event to "Your Bridge Club" and left the actual
+    // club name untouched in the link beside it. The list page has no such
+    // link, so it falls through to the title, which is the club name there.
+    for (const candidate of [linkNow, titleNow]) {
+      if (candidate && candidate !== 'Your Bridge Club') {
+        rememberedClub = candidate
+        break
+      }
+    }
+    const club = (opts.club ?? rememberedClub ?? '').trim()
+
+    // The town leaks separately from the club name. "Livermore Bridge Club"
+    // became "Your Bridge Club", and the event beside it was still called
+    // "Livermore Monday Club Champion". Replace the distinctive leading word
+    // too — it is the half that identifies anybody.
+    const town = club.replace(/\s+(duplicate\s+)?bridge\s+club\s*$/i, '').trim()
     const ADDRESS = /\d+\s+[^,]+,\s*[^,]+,\s*[A-Z]{2},\s*\d{5}(,\s*US)?/g
     const EMAIL = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g
     const MANAGER = /Manager:\s*[^,<]+/g
@@ -58,6 +102,13 @@ export function redactPage(opts = {}) {
         const split = t.split(club)
         if (split.length > 1) changed.club += split.length - 1
         t = split.join('Your Bridge Club')
+      }
+      // After the full name, so "Livermore Bridge Club" is not turned into
+      // "Anytown Bridge Club" before it can match.
+      if (town && town !== club) {
+        const split = t.split(town)
+        if (split.length > 1) changed.town += split.length - 1
+        t = split.join('Anytown')
       }
       if (ADDRESS.test(t)) changed.address++
       t = t.replace(ADDRESS, '123 Main St, Anytown, CA, 00000')
@@ -96,11 +147,17 @@ export function redactPage(opts = {}) {
   // ── Column blurring, by header name ─────────────────────────────────────
   // live.acbl.org's Player cells carry hometowns as well as names; BBO's
   // tview.php carries usernames, full names and states.
+  // A club game page is a full field of real players. Its column is headed
+  // "Names"; live.acbl.org says "Player 1"/"Player 2"; BBO says "Username" and
+  // "Player Names". Missing my.acbl.org here put four real pairs into a
+  // capture — the redactor had replaced the club around them and left the
+  // people alone.
   const columnPattern =
-    host === 'live.acbl.org' ? /^player\b/i
+    host === 'my.acbl.org' ? /^names?$|^players?$/i
+    : host === 'live.acbl.org' ? /^player\b/i
     : /username|player names/i
 
-  if (host === 'live.acbl.org' || /bridgebase\.com$/.test(host)) {
+  if (host === 'my.acbl.org' || host === 'live.acbl.org' || /bridgebase\.com$/.test(host)) {
     for (const table of doc.querySelectorAll('table')) {
       const headRow = table.querySelector('thead tr') ?? table.querySelector('tr')
       if (!headRow) continue
@@ -121,7 +178,8 @@ export function redactPage(opts = {}) {
       }
     }
     // Avatars: small images only, so club logos and the site header survive.
-    for (const im of doc.querySelectorAll('img')) {
+    // Not on my.acbl.org, whose small images are UI chrome rather than faces.
+    for (const im of host === 'my.acbl.org' ? [] : doc.querySelectorAll('img')) {
       if (im.width && im.width <= 80) {
         im.style.filter = 'blur(10px)'
         changed.avatars++

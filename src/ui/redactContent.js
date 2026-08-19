@@ -1,5 +1,5 @@
-// SHOT_MODE only. Redacts the page as soon as it loads, so a screenshot can
-// never be taken of un-redacted personal data.
+// SHOT_MODE only. Redacts the page before a screenshot is taken, so a capture
+// can never contain un-redacted personal data.
 //
 // This exists because the manual route failed exactly once and that was
 // enough: the first iPhone capture was taken with a real club manager's name
@@ -12,44 +12,49 @@
 import { redactPage } from '../lib/redact.js'
 
 // Set at build time by SHOT_HIDE_LOGO=1. Off by default — the club logo is a
-// photograph, not identity. It is worth hiding only for framing, when it pushes
-// the results table below the fold on a phone.
+// photograph, not identity. Worth hiding only for framing, when it pushes the
+// results table below the fold on a phone.
 const HIDE_LOGO = __SHOT_HIDE_LOGO__
 
-let running = false
-let queued = false
+// Debounced, and that is the whole design.
+//
+// The first version ran on every mutation batch. redactPage walks every text
+// node and every table, so on a club game page — a full field, hundreds of
+// rows, rendered incrementally by Vue — each batch triggered another whole-
+// document pass, and the page never finished loading. Seventy-five seconds in
+// it was still blank. Nothing on that page justifies a wait like that; we were
+// starving it.
+//
+// So: wait for the DOM to go quiet, then run once. A screenshot only needs the
+// finished page to be clean, not every intermediate frame.
+const QUIET_MS = 300
 
-// The observer must not react to our own edits — redactPage rewrites text nodes
-// and sets styles, which would retrigger it forever. Disconnect around the run
-// and coalesce anything that arrives while we are busy.
+let timer = null
+let running = false
+
 const observer = new MutationObserver(() => schedule())
 
 function schedule() {
-  if (running) {
-    queued = true
-    return
-  }
+  if (running) return
+  clearTimeout(timer)
+  timer = setTimeout(run, QUIET_MS)
+}
+
+function run() {
   running = true
+  // Our own edits must not retrigger us.
   observer.disconnect()
   try {
-    const changed = redactPage({ hideLogo: HIDE_LOGO })
-    console.log('[shot-mode] redacted:', changed)
+    console.log('[shot-mode] redacted:', redactPage({ hideLogo: HIDE_LOGO }))
   } catch (err) {
     // Loud, because a silent failure here is the failure mode that matters.
     console.error('[shot-mode] REDACTION FAILED — do not screenshot this page', err)
   } finally {
     running = false
     observer.observe(document.documentElement, { childList: true, subtree: true })
-    if (queued) {
-      queued = false
-      setTimeout(schedule, 50)
-    }
   }
 }
 
+// document_idle, so there is something to redact when the first pass runs.
 schedule()
-
-// my.acbl.org is a Vue SPA and live.acbl.org rewrites its tables, so rows can
-// arrive after document_idle — and a row that arrives late is a real name in a
-// screenshot. The observer catches most of it; these catch the rest.
-for (const ms of [500, 1500, 3000]) setTimeout(schedule, ms)
+observer.observe(document.documentElement, { childList: true, subtree: true })

@@ -110,7 +110,10 @@ if (SHOT_MODE) {
         'https://www.bridgebase.com/*',
       ],
       js: ['src/ui/redactContent.js'],
-      run_at: 'document_start',
+      // document_idle, not document_start. There is nothing to redact before
+      // the content exists, and running early bought nothing while making the
+      // first pass fire against an empty page.
+      run_at: 'document_idle',
     },
   ]
 }

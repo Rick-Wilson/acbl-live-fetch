@@ -1,6 +1,8 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { parseHTML } from 'linkedom'
-import { redactPage } from '../../src/lib/redact.js'
+import { redactPage, resetClubMemo } from '../../src/lib/redact.js'
+
+beforeEach(() => resetClubMemo())
 
 const clubPage = () =>
   parseHTML(`<!doctype html><html><head><title>Livermore Bridge Club</title></head><body>
@@ -72,6 +74,110 @@ describe('redactPage — my.acbl.org', () => {
     expect(r.host).toBe('my.acbl.org')
     expect(r.club).toBeGreaterThan(0)
     expect(r.email).toBeGreaterThan(0)
+  })
+})
+
+describe('redactPage — a club GAME page', () => {
+  // Regression, from a capture that could not be used: four real pairs were
+  // listed under a "Names" column the redactor did not know about, the club
+  // name came through as a link because the page titles itself with the game,
+  // and the event name carried the town.
+  const href = 'https://my.acbl.org/club-results/details/1455416'
+  const gamePage = () =>
+    parseHTML(`<!doctype html><html><head><title>Livermore Monday Club Champion</title></head><body>
+      <a href="/club-results/233437">Livermore Bridge Club</a>
+      <h2>Livermore Monday Club Champion</h2>
+      <p>06/01/2026 - Monday Morning</p>
+      <table>
+        <thead><tr><th>Pair</th><th>Names</th><th>Strat</th></tr></thead>
+        <tbody>
+          <tr><td>6-NS</td><td>Padmini Sokkappa - Dr Arthur A Mirin</td><td>A</td></tr>
+          <tr><td>4-NS</td><td>Frank L Codd - Mr George Y Yeh</td><td>B</td></tr>
+        </tbody>
+      </table>
+    </body></html>`).document
+
+  it('takes the club name from the back-link when the title is the game', () => {
+    const doc = gamePage()
+    redactPage({ document: doc, href })
+    expect(doc.body.textContent).not.toContain('Livermore Bridge Club')
+    expect(doc.body.textContent).toContain('Your Bridge Club')
+  })
+
+  it('replaces the town, which the event name carries separately', () => {
+    const doc = gamePage()
+    redactPage({ document: doc, href })
+    // "Livermore Monday Club Champion" would otherwise survive intact.
+    expect(doc.body.textContent).not.toContain('Livermore')
+    expect(doc.body.textContent).toContain('Anytown Monday Club Champion')
+  })
+
+  it('blurs the Names column — a club game is a full field of real people', () => {
+    const doc = gamePage()
+    const r = redactPage({ document: doc, href })
+    const rows = [...doc.querySelectorAll('tbody tr')]
+    expect(rows[0].children[1].style.filter).toBe('blur(6px)')
+    expect(rows[1].children[1].style.filter).toBe('blur(6px)')
+    // Pair number and strat are not identifying and stay sharp.
+    expect(rows[0].children[0].style.filter).toBeFalsy()
+    expect(rows[0].children[2].style.filter).toBeFalsy()
+    expect(r.cells).toBe(2)
+  })
+
+  it('does not blur the club logo as if it were an avatar', () => {
+    const doc = gamePage()
+    const img = doc.createElement('img')
+    img.id = 'logo'
+    img.width = 60
+    doc.body.appendChild(img)
+    redactPage({ document: doc, href })
+    expect(doc.getElementById('logo').style.filter).toBeFalsy()
+  })
+})
+
+describe('redactPage — repeated passes on an SPA', () => {
+  // Regression. Under SHOT_MODE this runs from document_start and again on
+  // every mutation. The first pass replaces document.title, which is the only
+  // source of the club's name — so without a memo the second pass, the one that
+  // finally sees the Vue-rendered <h1>, has nothing to look up. The captured
+  // screenshot had the address, manager and email replaced and the club name
+  // still in the heading.
+  const href = 'https://my.acbl.org/club-results/233437'
+
+  it('still replaces the club name when the heading arrives after the first pass', () => {
+    const { document: doc } = parseHTML(
+      `<!doctype html><html><head><title>Livermore Bridge Club</title></head><body></body></html>`
+    )
+    redactPage({ document: doc, href })
+    expect(doc.title).toBe('Your Bridge Club')
+
+    doc.body.innerHTML = `<h1>Livermore Bridge Club</h1><p>Manager: Don Garka, x@y.com</p>`
+    redactPage({ document: doc, href })
+
+    expect(doc.body.textContent).not.toContain('Livermore')
+    expect(doc.body.textContent).toContain('Your Bridge Club')
+  })
+
+  it('does not remember the replacement as if it were a club name', () => {
+    const { document: doc } = parseHTML(
+      `<!doctype html><html><head><title>Your Bridge Club</title></head><body><h1>Real Club</h1></body></html>`
+    )
+    const r = redactPage({ document: doc, href })
+    // Nothing to match, and crucially it must not blank out unrelated text.
+    expect(doc.body.textContent).toContain('Real Club')
+    expect(r.club).toBe(0)
+  })
+
+  it('is idempotent across many passes', () => {
+    const { document: doc } = parseHTML(
+      `<!doctype html><html><head><title>Livermore Bridge Club</title></head>
+       <body><h1>Livermore Bridge Club</h1><p>Manager: Don Garka, x@y.com</p></body></html>`
+    )
+    for (let i = 0; i < 5; i++) redactPage({ document: doc, href })
+    const text = doc.body.textContent
+    expect(text).toContain('Your Bridge Club')
+    expect(text).toContain('Manager: Chris')
+    expect(text).not.toContain('Your Your')
   })
 })
 
