@@ -357,6 +357,62 @@ or an HTML page in `manifest.json`, which @crxjs emits with its own loader
 beside `service-worker-loader.js`. That is the trigger to watch for, not "a file
 was added to `src/`".
 
+### 3bc. Safari: what the archive actually needs
+
+Checked by archiving rather than by reading, August 2026. `xcodebuild -scheme
+"Bridge Classroom Fetch (macOS)" -configuration Release archive` **succeeds**,
+and the archived app carries 1.1.0 / build 1 with the extension's resources
+byte-identical to `dist/safari`.
+
+**Sandboxing is already correct, and there is no `.entitlements` file to look
+for.** Current Xcode synthesises entitlements from build settings, so the
+absence of a file is not the absence of a sandbox. Verified against the signed
+archive with `codesign -d --entitlements`:
+
+| | App | Extension |
+|---|:--:|:--:|
+| `com.apple.security.app-sandbox` | ✅ | ✅ |
+| `com.apple.security.files.user-selected.read-only` | ✅ | ✅ |
+| `com.apple.security.network.client` | ✅ | — |
+
+That is an exact match for Xcode's own `macOS Safari Extension App` and
+`macOS Safari Extension` templates, which set `ENABLE_APP_SANDBOX`,
+`ENABLE_HARDENED_RUNTIME`, `ENABLE_USER_SELECTED_FILES = readonly`, and
+`ENABLE_OUTGOING_NETWORK_CONNECTIONS` **on the app only**. The extension needs
+no network entitlement: its fetches are made by Safari's own networking on
+behalf of the web extension, not by the `.appex`, which exists only to host the
+native-messaging handler. That was read off Apple's templates rather than
+reasoned about — the templates are at
+`/Applications/Xcode.app/Contents/Developer/Library/Xcode/Templates/Project Templates/MultiPlatform/Application/`.
+
+**`LSApplicationCategoryType` was missing, and the archive said so.** The build
+emitted `warning: No App Category is set for target`, and the archived
+`Info.plist` had no category key. App Store Connect requires one. Fixed by
+adding `INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities"`
+to both macOS App configurations — the idiomatic route here, since
+`GENERATE_INFOPLIST_FILE = YES` and the plists on disk hold almost nothing. It
+agrees with the *Utilities* category in § 3a. The warning is gone and the key is
+in the archive.
+
+**Signing for the store is not yet possible from this machine, and that is
+normal.** The two identities present are `Developer ID Application` — which is
+for distributing *outside* the store — and `Apple Development`. Neither is an
+App Store distribution identity, and there are no provisioning profiles. The
+local archive signs with `Apple Development`; Xcode's **Distribute App ▸ App
+Store Connect** flow creates the distribution certificate and profile on
+demand. Do not pass `-allowProvisioningUpdates` to a scripted build to force
+this: it mints certificates in the developer account as a side effect.
+
+**Two version floors are inherited from the converter and are probably wrong.**
+`LSMinimumSystemVersion` is **10.14** and `IPHONEOS_DEPLOYMENT_TARGET` is
+**15.0**. Xcode itself reports `RECOMMENDED_MACOSX_DEPLOYMENT_TARGET = 11.0`.
+More to the point, this is a **Manifest V3** extension with a service worker,
+and Safari only gained MV3 support in Safari 16.4 — so as it stands the app
+installs on systems whose Safari cannot run the extension at all. Reviewers test
+on current OSes and would not catch it; the cost lands on users. Confirm the
+exact Safari 16.4 floor per platform before changing these, and treat it as a
+product decision: raising them narrows the audience.
+
 ### 3c. addons-linter, and what it says
 
 AMO runs Mozilla's `addons-linter` on upload. Run it first:
