@@ -319,24 +319,35 @@ Other players' names are obscured in those recordings, for the same reason the e
 ```
 
 **For Apple, add this to the reviewer notes.** It is not optional politeness —
-an iOS reviewer who skips it sees an extension that does nothing, which is a
-rejection:
+a reviewer who skips it sees an extension that does nothing, which is a
+rejection. Confirmed on a real iPhone (iOS 26.6) in August 2026: the extension
+was installed and enabled, and the content script was never injected. Safari's
+Web Inspector showed the page's own scripts under *Extra Scripts* and none of
+ours; the console was clean, because nothing of ours had run to fail.
 
 ```
-On iPhone and iPad, enabling the extension in Settings is not sufficient on its own — Safari also requires website permission to be granted before any extension can run on a page. Without it the extension is installed and enabled but correctly does nothing, because it has not been allowed to read the page.
+On iPhone and iPad, enabling the extension in Settings is not sufficient on its own. Safari also requires per-website permission before any extension can run on a page, and until it is granted the extension is installed, enabled, and correctly does nothing — it has not been allowed to read the page. No error appears, because nothing has run.
 
 To grant it:
 
-1. Open one of the test URLs below in Safari.
-2. Tap the page settings button in the address bar (the "Aa" / puzzle-piece icon).
-3. Tap "Bridge Classroom Fetch", then "Always Allow", then "Always Allow on Every Website".
+1. Open the test URL below in Safari.
+2. Open the page menu — the button at the left end of the address bar. On iPhone the address bar is usually at the BOTTOM of the screen.
+3. In that menu, "Bridge Classroom Fetch" appears with a warning indicator beside it. Tap it and choose to allow it on every page.
 4. Reload the page.
 
-The "Analyze in Bridge Classroom" button then appears in the page. Safari on iOS only injects content scripts after permission is granted, so a page loaded before step 3 needs the reload in step 4.
+The "Analyze in Bridge Classroom" button then appears in the page's own navigation bar. Safari only injects content scripts into pages loaded after permission is granted, so the page open at step 3 needs the reload at step 4.
 
-The best test on iPhone or iPad needs no account:
+Note that iPad and iPhone differ here. On iPad, Safari shows a puzzle-piece extensions button directly in the toolbar. On iPhone there is no room for one, and the same controls live inside the page menu described above.
+
+The best test needs no account:
 https://my.acbl.org/club-results/details/1455416
 ```
+
+**Why this is worth the space.** The failure is silent and total, and it looks
+exactly like a broken app: no button, no error, no prompt. It cost an hour to
+diagnose on a device we own, with the source in front of us and a Web Inspector
+attached. A reviewer has none of those and no reason to suspect a permission
+model — they have a build that does nothing.
 
 **For addons.mozilla.org, add** — paste this into the reviewer-notes field at
 submission, rather than waiting to be asked. It is the difference between a

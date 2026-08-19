@@ -838,6 +838,26 @@ interstitial before the page loads — on `live.acbl.org` a login prompt follows
 on `my.acbl.org` the results do. Worth mentioning in reviewer notes so the
 interstitial isn't mistaken for the extension misbehaving.
 
+**On iPhone and iPad the extension does nothing until website permission is
+granted, and nothing says so.** Enabling it in Settings is only half the job;
+Safari grants page access per site, separately, and until then no content script
+runs. There is no prompt unless the user opens the page menu, no console error,
+and no visible difference from a broken build.
+
+Confirmed on a real iPhone, iOS 26.6, August 2026 — and it is not the same
+journey on the two devices, which is what made it confusing:
+
+| | iPad | iPhone |
+|---|---|---|
+| Extensions button | puzzle-piece, directly in the toolbar | none — folded into the page menu |
+| Address bar | top | usually **bottom** |
+| How the extension surfaces | visible immediately | a warning indicator inside the page menu |
+
+Someone who has granted it on an iPad will look for a puzzle-piece on the phone
+and not find one, and reasonably conclude the extension did not install. The
+Apple reviewer notes in [submission-answers.md](submission-answers.md) walk
+through the iPhone route explicitly for exactly this reason.
+
 **The extension appears to do nothing on unsupported pages.** By design: the
 button only injects on recognised result pages. A reviewer opening
 `bridgebase.com` generally will see no UI. Say so explicitly in the notes.
