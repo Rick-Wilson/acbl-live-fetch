@@ -79,6 +79,35 @@ That leaves Chrome, Edge and AMO on the five they already have. Edge's sixth
 slot and a later Chrome update can take 7a, the per-row links, which is the
 single most representative of the four.
 
+## iPad — a set the Mac masters cannot cover
+
+Safari ships to the App Store as **two platforms on one record**, macOS and iOS,
+and iPad is the reason the iOS half matters: Safari is the only browser engine
+there, so this is the only route to those users at all.
+
+Apple validates screenshot dimensions per platform, and **the 2560×1600 masters
+are a Mac size**. They will not satisfy the iPad slots. This is the one asset the
+iOS submission needs that nothing else in this project has ever produced.
+
+What that means in practice:
+
+- Capture on a **real iPad**, or in the Simulator, at an accepted iPad size.
+  Apple takes 13-inch iPad screenshots and scales them to the smaller classes,
+  so one set is enough.
+- The extension behaves the same there as it does in Chrome — that is the
+  finding from the 11 August iPad testing, and it is why nothing new needs
+  designing, only photographing.
+- **`openTempTab`'s off-screen window never runs on iPad**, so do not go looking
+  for it. `fetchViaTab` prefers an already-open same-origin tab, and on iPad the
+  user is standing on it.
+- The paths that work there are the BBO hand viewer, ACBL Live for Clubs, and
+  ACBL Live tournaments for pair events. The BBO hands list and lobby are not
+  worth shooting on iPad — those users are in the BBO app, whose web page has a
+  different DOM entirely.
+
+Shoot the club-game path first: it needs no account, it is the most
+representative use, and it is the one an Apple reviewer could reproduce.
+
 ## What to capture, and how
 
 Common to all: 1280×800 content area, other bridge extensions disabled (BBO

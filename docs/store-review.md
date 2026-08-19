@@ -403,15 +403,55 @@ Store Connect** flow creates the distribution certificate and profile on
 demand. Do not pass `-allowProvisioningUpdates` to a scripted build to force
 this: it mints certificates in the developer account as a side effect.
 
-**Two version floors are inherited from the converter and are probably wrong.**
-`LSMinimumSystemVersion` is **10.14** and `IPHONEOS_DEPLOYMENT_TARGET` is
-**15.0**. Xcode itself reports `RECOMMENDED_MACOSX_DEPLOYMENT_TARGET = 11.0`.
-More to the point, this is a **Manifest V3** extension with a service worker,
-and Safari only gained MV3 support in Safari 16.4 — so as it stands the app
-installs on systems whose Safari cannot run the extension at all. Reviewers test
-on current OSes and would not catch it; the cost lands on users. Confirm the
-exact Safari 16.4 floor per platform before changing these, and treat it as a
-product decision: raising them narrows the audience.
+**The version floors were the converter's, and they were wrong.** Raised to
+**macOS 11.0** and **iOS 16.4**, from 10.14 and 15.0. The reasoning is specific
+to this extension, so it is worth keeping:
+
+- **MV3 alone is not the constraint.** Safari has supported `manifest_version: 3`
+  since **Safari 15.4**, not 16.4 — an easy thing to misremember, and it was
+  misremembered here first.
+- **The constraint is the service worker's `import`.** `dist/safari/service-worker-loader.js`
+  is one line — `import './assets/background.js-*.js';` — and Safari had a bug
+  where a **background service worker failed to import scripts**, fixed in
+  **Safari 16.4**. Below that the background worker plausibly never starts, which
+  is the whole extension, not a degraded corner of it.
+- **Safari 16.4 shipped for macOS Big Sur, Monterey and Ventura**, and as
+  iOS/iPadOS 16.4. So macOS 11 is the oldest macOS that can reach a fixed Safari,
+  and iOS 16.4 is exactly where the fix landed. Xcode independently recommends
+  11.0 for macOS.
+
+A deployment target cannot enforce a Safari version, so a Big Sur user who has
+never updated Safari can still install and find it broken. The floor removes the
+systems that *cannot* work; it cannot remove the ones that merely have not
+updated.
+
+### Both platforms, one record
+
+`safari-web-extension-converter` produced iOS **and** macOS targets, and they
+share the bundle identifier `org.bridge-classroom.bridge-classroom-fetch`, so
+App Store Connect holds them as two platforms on one app record.
+
+**Submitting only macOS misses the point of Safari.** Safari is the only browser
+engine on iPad — there is no Chrome or Firefox to fall back on — which is the
+argument in CLAUDE.md for why iPadOS punches above its share. Both are archived
+for 1.1.0:
+
+```bash
+xcodebuild -scheme "Bridge Classroom Fetch (macOS)" -configuration Release \
+  -archivePath /tmp/BCF.xcarchive archive
+xcodebuild -scheme "Bridge Classroom Fetch (iOS)" -configuration Release \
+  -destination "generic/platform=iOS" -archivePath /tmp/BCF-ios.xcarchive archive
+```
+
+Both succeed, both carry 1.1.0 build 1, and both bundle the extension's
+`assets`, `icons`, `manifest.json` and `service-worker-loader.js`. The iOS
+archive reports `MinimumOSVersion 16.4`; the macOS one `LSMinimumSystemVersion
+11.0` and the Utilities category.
+
+**iPad needs its own screenshots.** Apple requires iPad-sized images, and the
+2560×1600 masters do not qualify — they are the Mac size. That is the one piece
+of genuinely new work the iOS platform adds; see
+[screenshot-set.md](screenshot-set.md) § iPad.
 
 ### 3c. addons-linter, and what it says
 
