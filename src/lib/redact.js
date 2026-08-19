@@ -152,27 +152,63 @@ export function redactPage(opts = {}) {
   // "Player Names". Missing my.acbl.org here put four real pairs into a
   // capture — the redactor had replaced the club around them and left the
   // people alone.
+  // Blur text without touching layout.
+  //
+  // `filter: blur()` on a table cell changes the row's height — it creates a
+  // stacking context and the cell stops laying out as a table cell — so short
+  // rows grew tall and the table looked broken in a screenshot. Transparent
+  // text with a shadow blurs the glyphs while keeping their metrics exactly,
+  // so the row is the height it always was.
+  //
+  // Applied to descendants too: a name in the cell is often a link, and a link
+  // carries its own colour that a rule on the cell will not override.
+  const blurText = (el) => {
+    for (const node of [el, ...el.querySelectorAll('*')]) {
+      node.style.color = 'transparent'
+      node.style.textShadow = '0 0 9px rgba(0,0,0,0.55)'
+      // Safari honours this over `color` for text fill.
+      node.style.webkitTextFillColor = 'transparent'
+    }
+  }
+
+  // Matched loosely, and anchored patterns were a mistake. These headers are
+  // rendered by the site's own table widget: they carry sort arrows, nbsp,
+  // screen-reader spans and stray whitespace, so `^names?$` matched the mock in
+  // the tests and nothing on the real page. The fixture could not have warned
+  // us — my.acbl.org is a Vue SPA and the fixture is the server shell, with no
+  // <table> in it at all.
+  //
+  // Over-blurring a column is a wasted screenshot. Under-blurring one publishes
+  // a field of real names, so this errs loose deliberately.
   const columnPattern =
-    host === 'my.acbl.org' ? /^names?$|^players?$/i
-    : host === 'live.acbl.org' ? /^player\b/i
-    : /username|player names/i
+    host === 'my.acbl.org' ? /\bnames?\b|\bplayers?\b/i
+    : host === 'live.acbl.org' ? /\bplayer\b/i
+    : /\busername\b|\bplayer names\b|\bnames\b/i
 
   if (host === 'my.acbl.org' || host === 'live.acbl.org' || /bridgebase\.com$/.test(host)) {
     for (const table of doc.querySelectorAll('table')) {
       const headRow = table.querySelector('thead tr') ?? table.querySelector('tr')
       if (!headRow) continue
-      const heads = [...headRow.children].map((c) => (c.textContent ?? '').trim())
+      const heads = [...headRow.children].map((c) =>
+        (c.textContent ?? '')
+          .replace(/[\u2191\u2193\u21c5\u25b2\u25bc\u00a0]/g, ' ') // sort arrows, nbsp
+          .replace(/\s+/g, ' ')
+          .trim()
+      )
       const cols = heads.flatMap((h, i) => (columnPattern.test(h) ? [i] : []))
       if (!cols.length) continue
       for (const tr of table.querySelectorAll('tr')) {
         if (tr === headRow) continue
         const cells = [...tr.children]
-        // Skip rows that don't line up with the header — colspan'd separators
-        // would otherwise blur the wrong column.
-        if (cells.length !== heads.length) continue
+        // Separator rows span the table and would put the blur on the wrong
+        // column, so skip those. Requiring an exact cell count instead was too
+        // strict: a responsive table with one extra action cell silently
+        // skipped every row, which fails in the direction that publishes names.
+        if (cells.length < heads.length) continue
+        if (cells.some((c) => Number(c.getAttribute?.('colspan') ?? 1) > 1)) continue
         for (const i of cols) {
           if (!cells[i]) continue
-          cells[i].style.filter = 'blur(6px)'
+          blurText(cells[i])
           changed.cells++
         }
       }

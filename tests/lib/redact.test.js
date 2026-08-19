@@ -116,11 +116,11 @@ describe('redactPage — a club GAME page', () => {
     const doc = gamePage()
     const r = redactPage({ document: doc, href })
     const rows = [...doc.querySelectorAll('tbody tr')]
-    expect(rows[0].children[1].style.filter).toBe('blur(6px)')
-    expect(rows[1].children[1].style.filter).toBe('blur(6px)')
+    expect(rows[0].children[1].style.textShadow).toMatch(/rgba\(0,\s*0,\s*0/)
+    expect(rows[1].children[1].style.textShadow).toMatch(/rgba\(0,\s*0,\s*0/)
     // Pair number and strat are not identifying and stay sharp.
-    expect(rows[0].children[0].style.filter).toBeFalsy()
-    expect(rows[0].children[2].style.filter).toBeFalsy()
+    expect(rows[0].children[0].style.textShadow).toBeFalsy()
+    expect(rows[0].children[2].style.textShadow).toBeFalsy()
     expect(r.cells).toBe(2)
   })
 
@@ -132,6 +132,87 @@ describe('redactPage — a club GAME page', () => {
     doc.body.appendChild(img)
     redactPage({ document: doc, href })
     expect(doc.getElementById('logo').style.filter).toBeFalsy()
+  })
+})
+
+describe('redactPage — headers as real table widgets render them', () => {
+  // The mock in the test above had tidy <th>Names</th>. The live page does not:
+  // my.acbl.org builds its table in Vue, its headers carry sort arrows and
+  // non-breaking spaces, and rows can have an extra action cell. An anchored
+  // /^names?$/ matched the mock and nothing real, so a capture went out with a
+  // full field of players unblurred.
+  const href = 'https://my.acbl.org/club-results/details/1'
+  const build = (headerHtml, rowHtml) =>
+    parseHTML(`<!doctype html><html><head><title>X</title></head><body><table>
+      <thead><tr>${headerHtml}</tr></thead><tbody>${rowHtml}</tbody></table></body></html>`).document
+
+  const NAMES = 'Ann Example - Bob Example'
+
+  it('matches a header carrying a sort arrow', () => {
+    const doc = build('<td>Pair</td><td>Names \u21c5</td><td>Strat</td>',
+                      `<tr><td>6-NS</td><td>${NAMES}</td><td>A</td></tr>`)
+    redactPage({ document: doc, href })
+    expect(doc.querySelector('tbody td:nth-child(2)').style.textShadow).toMatch(/rgba\(0,\s*0,\s*0/)
+  })
+
+  it('matches a header carrying a non-breaking space', () => {
+    const doc = build('<td>Pair</td><td>\u00a0Names\u00a0</td><td>Strat</td>',
+                      `<tr><td>6-NS</td><td>${NAMES}</td><td>A</td></tr>`)
+    redactPage({ document: doc, href })
+    expect(doc.querySelector('tbody td:nth-child(2)').style.textShadow).toMatch(/rgba\(0,\s*0,\s*0/)
+  })
+
+  it('matches "Player Names" as well as "Names"', () => {
+    const doc = build('<td>Rank</td><td>Player Names</td>',
+                      `<tr><td>1</td><td>${NAMES}</td></tr>`)
+    redactPage({ document: doc, href })
+    expect(doc.querySelector('tbody td:nth-child(2)').style.textShadow).toMatch(/rgba\(0,\s*0,\s*0/)
+  })
+
+  it('still blurs when a row has an extra action cell', () => {
+    const doc = build('<td>Pair</td><td>Names</td>',
+                      `<tr><td>6-NS</td><td>${NAMES}</td><td><a>Scores</a></td></tr>`)
+    redactPage({ document: doc, href })
+    expect(doc.querySelector('tbody td:nth-child(2)').style.textShadow).toMatch(/rgba\(0,\s*0,\s*0/)
+  })
+
+  it('still skips a colspanned separator row', () => {
+    const doc = build('<td>Pair</td><td>Names</td>',
+                      '<tr><td colspan="2">Section A</td></tr>')
+    const r = redactPage({ document: doc, href })
+    expect(doc.querySelector('tbody td').style.textShadow).toBeFalsy()
+    expect(r.cells).toBe(0)
+  })
+})
+
+describe('redactPage — blurring must not change layout', () => {
+  // filter: blur() on a table cell creates a stacking context and the cell
+  // stops laying out as a table cell, which made short rows grow tall and the
+  // table look broken in a capture. Transparent text plus a shadow blurs the
+  // glyphs while keeping their metrics.
+  const href = 'https://my.acbl.org/club-results/details/1'
+
+  it('never sets filter on a table cell', () => {
+    const doc = parseHTML(`<!doctype html><html><head><title>X</title></head><body><table>
+      <thead><tr><td>Pair</td><td>Names</td></tr></thead>
+      <tbody><tr><td>6-NS</td><td>Ann Example - Bob Example</td></tr></tbody>
+    </table></body></html>`).document
+    redactPage({ document: doc, href })
+    const cell = doc.querySelector('tbody td:nth-child(2)')
+    expect(cell.style.filter).toBeFalsy()
+    expect(cell.style.color).toBe('transparent')
+    expect(cell.style.textShadow).toMatch(/rgba\(0,\s*0,\s*0/)
+  })
+
+  it('blurs a link inside the cell, which carries its own colour', () => {
+    const doc = parseHTML(`<!doctype html><html><head><title>X</title></head><body><table>
+      <thead><tr><td>Pair</td><td>Names</td></tr></thead>
+      <tbody><tr><td>6-NS</td><td><a href="/p/1">Ann Example</a></td></tr></tbody>
+    </table></body></html>`).document
+    redactPage({ document: doc, href })
+    const link = doc.querySelector('tbody a')
+    expect(link.style.color).toBe('transparent')
+    expect(link.style.textShadow).toMatch(/rgba\(0,\s*0,\s*0/)
   })
 })
 
@@ -194,10 +275,10 @@ describe('redactPage — live.acbl.org', () => {
     const doc = livePage()
     const r = redactPage({ document: doc, href: 'https://live.acbl.org/event/x/1/summary' })
     const cells = [...doc.querySelectorAll('tbody tr')][0].children
-    expect(cells[1].style.filter).toBe('blur(6px)')
-    expect(cells[2].style.filter).toBe('blur(6px)')
-    expect(cells[0].style.filter).toBeFalsy()
-    expect(cells[3].style.filter).toBeFalsy()
+    expect(cells[1].style.textShadow).toMatch(/rgba\(0,\s*0,\s*0/)
+    expect(cells[2].style.textShadow).toMatch(/rgba\(0,\s*0,\s*0/)
+    expect(cells[0].style.textShadow).toBeFalsy()
+    expect(cells[3].style.textShadow).toBeFalsy()
     expect(r.cells).toBe(2)
   })
 
@@ -205,7 +286,7 @@ describe('redactPage — live.acbl.org', () => {
     const doc = livePage()
     redactPage({ document: doc, href: 'https://live.acbl.org/event/x/1/summary' })
     const spanRow = [...doc.querySelectorAll('tbody tr')][1]
-    expect(spanRow.children[0].style.filter).toBeFalsy()
+    expect(spanRow.children[0].style.textShadow).toBeFalsy()
   })
 })
 
@@ -221,9 +302,9 @@ describe('redactPage — BBO tview', () => {
     </body></html>`).document
     const r = redactPage({ document: doc, href: 'https://webutil.bridgebase.com/v2/tview.php?t=1' })
     const row = [...doc.querySelectorAll('tr')][1]
-    expect(row.children[1].style.filter).toBe('blur(6px)')
-    expect(row.children[2].style.filter).toBe('blur(6px)')
-    expect(row.children[0].style.filter).toBeFalsy()
+    expect(row.children[1].style.textShadow).toMatch(/rgba\(0,\s*0,\s*0/)
+    expect(row.children[2].style.textShadow).toMatch(/rgba\(0,\s*0,\s*0/)
+    expect(row.children[0].style.textShadow).toBeFalsy()
     expect(doc.getElementById('face').style.filter).toBe('blur(10px)')
     expect(doc.getElementById('logo').style.filter).toBeFalsy()
     expect(r.avatars).toBe(1)
