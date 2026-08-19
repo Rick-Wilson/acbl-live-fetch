@@ -364,6 +364,23 @@ python3 -m http.server 3001
 
 The local server serves the static SPA; extension-path analysis is fully client-side. BWS+PBN file upload still calls the production backend (`game-parser.bridge-craftwork.com`).
 
+## Capturing store screenshots
+
+`npm run build:shots` (`SHOT_MODE=1` → `dist/shots`) is an ordinary build plus a
+content script that redacts personal data on every page load —
+`src/ui/redactContent.js` running `src/lib/redact.js`. **It never ships**;
+`package-stores.sh` refuses any build containing it, the same way it refuses
+test origins.
+
+It is a build rather than a console snippet because the snippet worked and was
+forgotten once: the first iPhone capture went out carrying a real club manager's
+name and email. A build cannot forget.
+
+`tools/capture-ios.sh iphone|ipad` drives the Simulator end to end — clean
+status bar, right pixel size, alpha stripped. Two setup steps per simulator
+cannot be scripted (enable the extension in Settings; grant website permission
+in Safari) and both persist per device. See `docs/screenshot-set.md`.
+
 ## When unsure
 
 - Prefer asking before making architecture changes that span multiple files.

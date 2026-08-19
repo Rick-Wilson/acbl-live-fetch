@@ -1,22 +1,18 @@
 // Redact a results page before screenshotting it.
 //
-// Paste the whole file into the browser console on the page you are about to
-// shoot, then take the shot. Returns a summary of what it changed, so you can
-// see it worked before spending the capture.
+// Loaded as a content script by the SHOT_MODE build only — see vite.config.js
+// and `npm run build:shots`. It never ships: package-stores.sh refuses any
+// build carrying it.
 //
 //   • my.acbl.org           club name, street address, manager name and email
 //   • live.acbl.org         the Player columns (names AND hometowns)
 //   • tview.php (BBO)       Username / Player Names columns, and avatars
 //
-// It picks the right treatment from the URL, so there is one thing to paste
-// rather than three to choose between.
+// It picks the right treatment from the URL, so one build covers every page.
 //
-// redactPage({ hideLogo: true }) additionally hides the club's logo. That is a
-// framing option, not a redaction — see the note beside it.
-//
-// Nothing here survives a reload — re-run it before every shot. That is
-// deliberate: a redaction that persisted would be one you could forget you were
-// relying on.
+// This runs on every load rather than being pasted before each shot, which is
+// the point: the first iPhone capture went out carrying a real club manager's
+// name and email because the redaction was a thing a human had to remember.
 //
 // Two rules this encodes, from docs/screenshot-set.md § Anonymising:
 //
@@ -26,8 +22,12 @@
 //
 //   People are blurred. Rick's own handle and agreed partners stay visible;
 //   everyone else does not.
+//
+// The club LOGO is not identity and is left alone by default — it is a
+// photograph with no searchable text. { hideLogo: true } hides it anyway, as a
+// framing option: on a phone it can push the results table below the fold.
 
-function redactPage(opts = {}) {
+export function redactPage(opts = {}) {
   const doc = opts.document ?? document
   const href = opts.href ?? doc.defaultView?.location?.href ?? location.href
   const host = new URL(href).hostname
@@ -130,8 +130,4 @@ function redactPage(opts = {}) {
   }
 
   return { host, ...changed }
-}
-
-if (typeof window !== 'undefined' && !globalThis.__BC_REDACT_TEST) {
-  console.log('redacted:', redactPage())
 }

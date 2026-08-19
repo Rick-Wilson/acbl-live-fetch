@@ -28,6 +28,17 @@ guard_test_origins() {
   fi
 }
 
+# Guard: the SHOT_MODE build injects a content script that rewrites pages to
+# redact personal data for screenshots. Useful for captures, catastrophic in a
+# store: it edits what the user is reading.
+guard_shot_mode() {
+  local dir="$1"
+  if grep -qr "shot-mode" "$dir" 2>/dev/null || grep -q "redactContent" "$dir/manifest.json"; then
+    echo "REFUSING: $dir looks like a SHOT_MODE build" >&2
+    exit 1
+  fi
+}
+
 # Guard: the Chrome Web Store rejects the upload outright if manifest
 # description exceeds 132 characters. It cost a round-trip at 133, and the
 # message only arrives after the file has uploaded — so check before packaging.
@@ -47,6 +58,7 @@ for target in chrome edge firefox; do
   echo "==> building $target"
   BROWSER="$target" npx vite build --outDir "dist/$target" >/dev/null
   guard_test_origins "dist/$target/manifest.json"
+  guard_shot_mode "dist/$target"
   guard_description_length "dist/$target/manifest.json"
   (cd "dist/$target" && zip -qr "../../$OUT/$NAME-$VERSION-$target.zip" .)
 done
@@ -59,6 +71,7 @@ git archive --format=zip --prefix="$NAME-$VERSION/" HEAD \
 echo "==> refreshing Safari resources"
 BROWSER=safari npx vite build --outDir dist/safari >/dev/null
 guard_test_origins dist/safari/manifest.json
+guard_shot_mode dist/safari
 SAFARI_RES="safari/Bridge Classroom Fetch/Shared (Extension)/Resources"
 if [ -d "$SAFARI_RES" ]; then
   rm -rf "${SAFARI_RES:?}/"*

@@ -144,7 +144,45 @@ iPad set cannot stand in for iPhone.
 
 Shoot the same story on both, so the listing reads consistently.
 
-### Capturing from a real iPhone
+### Capturing — `tools/capture-ios.sh`
+
+```bash
+tools/capture-ios.sh iphone     # 1320x2868
+tools/capture-ios.sh ipad       # 2064x2752
+```
+
+Boots the simulator, sets a clean status bar, opens each page, waits for the
+redactor, captures, strips the alpha, and checks the dimensions. Output lands in
+`screenshots/ios/<device>/`.
+
+**Two setup steps per simulator cannot be scripted** — there is no `simctl` verb
+for either, and both persist in that device's data, so it is once per simulator
+rather than once per run:
+
+1. Settings ▸ Apps ▸ Safari ▸ Extensions → enable Bridge Classroom Fetch
+2. In Safari, open the page menu → allow it on every website
+
+Skip them and every shot is a page with no button on it.
+
+**The status bar is set, not masked.** Masking would mean either cropping —
+which breaks the exact pixel size Apple requires — or painting over it, which
+looks worse than what it hides. `simctl status_bar override` just makes it
+right at capture time:
+
+```
+--time "9:41" --dataNetwork wifi --wifiMode active --wifiBars 3
+--cellularMode active --cellularBars 4 --operatorName ""
+--batteryState discharging --batteryLevel 100
+```
+
+`--batteryState` must be **`discharging`**. `charged` still draws the charging
+bolt, which is what makes a shot read as someone's phone rather than a product
+image.
+
+**Simulator captures carry an alpha channel** and Apple rejects those, so the
+script strips it. Same trap as the Mac masters, different source.
+
+### Capturing from a real device instead
 
 Two routes, both confirmed to emit the native device resolution — **1320 × 2868
 on a 6.9-inch iPhone, which is exactly Apple's required size**. No scaling, no
@@ -180,40 +218,44 @@ about narrow viewports. There is no extension-side responsive CSS to maintain,
 and there should not be: the moment we position anything ourselves we own the
 phone layout of four third-party sites forever.
 
-### Redact before shooting — `tools/redact-page.js`
+### Redaction is a build, not a habit — `SHOT_MODE=1`
 
 A club-results page carries **a real person's name and email address** — the
 first iPhone capture showed `Manager: Don Garka, dgarka@comcast.net` — plus the
 club's name and street address. None of that can go in a store listing.
 
-Paste **[`tools/redact-page.js`](../tools/redact-page.js)** into the console on
-the page you are about to shoot. One file for all three treatments; it picks
-from the URL, so there is nothing to choose:
+That capture is exactly why this is now a build flag rather than a snippet. The
+redaction existed and was correct; it simply had to be remembered before every
+shot, and once it wasn't.
 
-| Page | What it does |
+```bash
+npm run build:shots      # SHOT_MODE=1 → dist/shots
+```
+
+`dist/shots` is an ordinary extension build **plus** a content script
+(`src/ui/redactContent.js`) that runs [`src/lib/redact.js`](../src/lib/redact.js)
+on every load, and again on DOM changes — `my.acbl.org` is a Vue SPA and
+`live.acbl.org` rewrites its tables, so rows can arrive after the first pass, and
+a late row is a real name in a screenshot. It logs what it changed:
+
+```
+[shot-mode] redacted: { host: "my.acbl.org", club: 2, address: 1, manager: 1, email: 1, … }
+```
+
+| Page | Treatment |
 |---|---|
-| `my.acbl.org` | Replaces club name (taken from `document.title`), street address, `Manager:` line and any email |
+| `my.acbl.org` | Replaces club name (from `document.title`), street address, `Manager:` line, any email |
 | `live.acbl.org` | Blurs the Player columns — those cells carry hometowns as well as names |
 | `tview.php` | Blurs Username / Player Names, and avatars under 80px |
 
-It returns a count of what it changed, so you can confirm it fired before
-spending the capture:
+**It never ships.** `scripts/package-stores.sh` refuses to package any build
+containing it, the same way it refuses one carrying test origins — a redactor
+rewrites what the user is reading, which is catastrophic outside a capture
+session. Load `dist/shots` unpacked, or install it to a simulator; never
+`dist/chrome`.
 
-```
-redacted: { host: "my.acbl.org", club: 2, address: 1, manager: 1, email: 1, … }
-```
-
-**The club's logo is not identity, and stays.** It was briefly hidden as though
-it were — that was wrong. It is a photograph with no searchable text, and
-nothing about a generic one ties it to a particular club; the text is what
-identifies a club, and the text is replaced. This listing shows ACBL's and BBO's
-pages throughout, so a club's picture is not a different kind of thing.
-
-`redactPage({ hideLogo: true })` hides it anyway, as a **framing** option rather
-than a redaction. On a phone the logo can take a third of the screen and push the
-results table below the fold, leaving a shot that shows a club page rather than
-the extension doing anything. That is a composition problem, and worth naming as
-one.
+`SHOT_HIDE_LOGO=1` additionally hides the club logo. Framing, not redaction —
+see below.
 
 **Club identity is replaced, not blurred.** A blurred block reads as something
 hidden; `Your Bridge Club` reads as an example. `example.com` and ZIP `00000`

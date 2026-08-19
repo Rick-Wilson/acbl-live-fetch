@@ -1,17 +1,6 @@
-import { describe, it, expect, beforeAll } from 'vitest'
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { describe, it, expect } from 'vitest'
 import { parseHTML } from 'linkedom'
-
-// The script is meant to be pasted into a console, so it is a plain script
-// rather than a module. Load it the way a console would, with the auto-run
-// suppressed.
-let redactPage
-beforeAll(() => {
-  globalThis.__BC_REDACT_TEST = true
-  const src = readFileSync(resolve(process.cwd(), 'tools/redact-page.js'), 'utf8')
-  redactPage = new Function(`${src}; return redactPage`)()
-})
+import { redactPage } from '../../src/lib/redact.js'
 
 const clubPage = () =>
   parseHTML(`<!doctype html><html><head><title>Livermore Bridge Club</title></head><body>

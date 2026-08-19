@@ -114,6 +114,7 @@ npm run build:edge      # Edge
 npm run build:firefox   # Firefox
 npm run build:safari    # source for the Xcode project
 npm run build:all       # all four
+npm run build:shots     # SHOT_MODE=1 → dist/shots, redacts pages for screenshots
 ```
 
 Output lands in `dist/<browser>/`. `scripts/package-stores.sh` builds all of

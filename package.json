@@ -23,7 +23,8 @@
     "test:e2e": "npm run build:test && playwright test",
     "shots": "node tools/screenshot-session.js",
     "shot": "node tools/screenshot-capture.js",
-    "serve:ingest": "python3 -m http.server 4173 --directory test-ingest"
+    "serve:ingest": "python3 -m http.server 4173 --directory test-ingest",
+    "build:shots": "SHOT_MODE=1 vite build --outDir dist/shots"
   },
   "devDependencies": {
     "@crxjs/vite-plugin": "^2.4.0",

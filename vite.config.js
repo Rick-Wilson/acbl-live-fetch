@@ -88,8 +88,40 @@ if (process.env.INGEST_TEST === '1') {
   manifest.host_permissions = [...manifest.host_permissions, ...TEST_ORIGINS]
 }
 
+// SHOT_MODE=1 adds a content script that redacts personal data on every load,
+// for capturing store screenshots. It is NOT a shipping build: the redactor
+// rewrites the page, which is the last thing a real user wants. package-stores.sh
+// refuses any build containing it.
+//
+// It exists because the manual route failed once and once was enough — the
+// first iPhone capture went out with a real club manager's name and email on
+// screen, because redacting was a step a human had to remember before each
+// shot. See docs/screenshot-set.md.
+const SHOT_MODE = process.env.SHOT_MODE === '1'
+
+if (SHOT_MODE) {
+  manifest.content_scripts = [
+    ...manifest.content_scripts,
+    {
+      matches: [
+        'https://live.acbl.org/*',
+        'https://my.acbl.org/*',
+        'https://webutil.bridgebase.com/*',
+        'https://www.bridgebase.com/*',
+      ],
+      js: ['src/ui/redactContent.js'],
+      run_at: 'document_start',
+    },
+  ]
+}
+
 export default defineConfig({
   plugins: [crx({ manifest, browser: BROWSER === 'firefox' ? 'firefox' : 'chrome' })],
+  define: {
+    // Off unless SHOT_HIDE_LOGO=1. The club logo is a photograph rather than
+    // identity; hiding it is a framing choice, not a redaction.
+    __SHOT_HIDE_LOGO__: JSON.stringify(process.env.SHOT_HIDE_LOGO === '1'),
+  },
   build: {
     outDir: `dist/${BROWSER}`,
     emptyOutDir: true,
