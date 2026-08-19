@@ -45,9 +45,18 @@ comparisons and opens Bridge Classroom with them.
 ## Installation
 
 Published on the **Chrome Web Store**, **Microsoft Edge Add-ons** and
-**addons.mozilla.org**. The Mac App Store version — which is also the only way
-to reach iPad, where Safari is the sole browser engine — is not submitted yet.
-See [docs/store-review.md](docs/store-review.md) for the state of each.
+**addons.mozilla.org**.
+
+The Safari version is built and not submitted yet. It covers **macOS, iPad and
+iPhone** — and Safari is the only browser engine on iPad and iPhone, so it is
+the only way to reach those users at all. See
+[docs/store-review.md](docs/store-review.md) for the state of each store.
+
+On iPhone and iPad, enabling the extension in Settings is not enough on its own:
+Safari also grants page access per site. Until that is granted the extension is
+installed, enabled, and does nothing at all — no button and no error. Open the
+page menu (on iPhone the address bar is usually at the *bottom*), allow
+Bridge Classroom Fetch, and reload.
 
 To run from source, load unpacked from `dist/chrome/` in `chrome://extensions`
 (Developer mode on), having built first:
