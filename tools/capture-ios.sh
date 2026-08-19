@@ -64,7 +64,11 @@ wait_stable() { # wait_stable <min-wait> <max-wait>
     cur="$(mktemp -t bcshot).png"
     xcrun simctl io "$UDID" screenshot --type=png "$cur" >/dev/null 2>&1
     local d
-    d=$(magick compare -metric AE "$prev" "$cur" null: 2>&1 | awk '{print $1}' | cut -d. -f1)
+    # `|| true` is load-bearing. `magick compare` exits non-zero whenever the
+    # images differ — which is exactly the case we are looking for — and with
+    # `set -o pipefail` that killed the script mid-wait, silently, after
+    # announcing the shot it was about to take.
+    d=$(magick compare -metric AE "$prev" "$cur" null: 2>&1 | awk '{print $1}' | cut -d. -f1 || true)
     rm -f "$prev"; prev="$cur"
     case "$d" in (*[!0-9]*|'') d=999999 ;; esac
     if [ "$d" -lt 3000 ]; then
