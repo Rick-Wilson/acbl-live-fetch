@@ -55,6 +55,33 @@ function run() {
   }
 }
 
+// Open the batch menu for a screenshot, when asked via #bc-shot-menu.
+//
+// The button is the entirety of our work on these pages, so a shot must not
+// scroll it out of frame — and a shot of the button alone says only that it
+// exists. The menu it opens says what it *does*: a date range, up to all time.
+//
+// Deliberately not "bc-analyze", which the extension already uses to trigger a
+// real extraction. This only opens the menu; nothing is fetched until an option
+// is chosen, and nothing chooses one.
+function openMenuIfAsked() {
+  if (!location.hash.includes('bc-shot-menu')) return
+  let tries = 0
+  const click = () => {
+    const btn = document.getElementById('bridge-classroom-analyze-btn')
+    if (btn) {
+      btn.click()
+      console.log('[shot-mode] opened the batch menu')
+      return
+    }
+    // The button arrives with the Vue mount, so poll rather than assume.
+    if (tries++ < 60) setTimeout(click, 100)
+    else console.error('[shot-mode] no button to open a menu on')
+  }
+  click()
+}
+
 // document_idle, so there is something to redact when the first pass runs.
 schedule()
 observer.observe(document.documentElement, { childList: true, subtree: true })
+openMenuIfAsked()

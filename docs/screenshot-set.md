@@ -275,6 +275,17 @@ image.
   aspect, wrong class.
 - **Shoot the club game first.** No account, most representative, and the one an
   Apple reviewer can reproduce.
+- **Never scroll to improve the framing.** On these pages the injected button
+  *is* the work, and it lives in the site's header — scrolling to bring the
+  results table into frame takes our own contribution out of it. A shot of a
+  results table with no button in it is a screenshot of somebody else's website.
+- **Prefer the menu open to the button idle.** A button only proves something
+  was injected. The date-range menu — most recent, a month, three, six, a year,
+  all time — shows what it *does*, in one frame, without a second shot. Capture
+  it by appending `#bc-shot-menu` to the URL: the SHOT_MODE build clicks the
+  button for you once the SPA has mounted. It opens the menu only; nothing is
+  fetched until an option is chosen and nothing chooses one. Deliberately not
+  `#bc-analyze`, which the extension already uses to trigger a real extraction.
 - The extension behaves the same there as in Chrome — that was the 11 August
   finding — so nothing needs designing, only photographing.
 - **`openTempTab`'s off-screen window never runs on iPad**, so do not go looking
