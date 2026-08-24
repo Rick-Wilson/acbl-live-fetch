@@ -5,3 +5,7 @@ dist/
 test-results/
 playwright-report/
 .screenshot-profile/
+
+# Xcode per-user state: window layout, breakpoints, scheme ordering.
+# Machine-local, binary, and rewritten every time the project is opened.
+xcuserdata/
