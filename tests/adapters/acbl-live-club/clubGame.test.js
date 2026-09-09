@@ -96,11 +96,13 @@ describe('parseClubGame (Livermore Bridge Club, 2026-04-20)', () => {
       // to "Firstname Lastname" to match the tournament adapter and the
       // analyzer's downstream UI.
       expect(r.ns_pair.players.map((p) => p.name)).toEqual(['Wayne Vondera', 'Lynn Gast'])
-      // The source emits the EW pair's players in [W, E], which is the schema's
-      // order too — passed through, not reversed.
+      // The source lists an E-W pair East-first; the schema wants [W, E], so
+      // the adapter reverses. Mirin sat East — confirmed from the deals in the
+      // 24 Aug 2026 game, where he opened 1NT on a 15-count and 1S on a
+      // seven-bagger, both East hands.
       expect(r.ew_pair.players.map((p) => p.name)).toEqual([
-        'Arthur Mirin',
         'Dan Bergmann',
+        'Arthur Mirin',
       ])
     })
 
@@ -139,6 +141,42 @@ describe('parseClubGame (Livermore Bridge Club, 2026-04-20)', () => {
       const r = board.results.find((r) => r.matchpoints === 6.5)
       expect(r).toBeDefined()
       expect(r.percentage).toBeCloseTo(59.1, 1)
+    })
+  })
+
+  describe('board 4 (the EW slash form, where East and West differ)', () => {
+    const board = tournament.events[0].sessions[0].boards.find((b) => b.number === 4)
+
+    it('gives the first value of an EW slash to East, not West', () => {
+      // Board 1 above cannot catch a seat flip: every EW strain there is a
+      // single value, so E and W hold the same number either way. This board
+      // can. Source EW: '5C 3/4H 5S D6 NT6' — hearts alone splits, 3/4.
+      //
+      // The deal settles which seat gets which, per seat-order-contract.md's
+      // "verified against a deal, never against a document":
+      //   N K732 J963 KJT 85 / E Q965 AK54 86 AK2
+      //   S T    T72  AQ75432 63 / W AJ84 Q8 9 QJT974
+      // Double-dummy, East makes 9 tricks in hearts and West makes 10 — so
+      // '3/4H' is [East, West], the same order the 'EW' label itself reads.
+      expect(board.double_dummy.E).toEqual({ C: 11, D: 6, H: 9, S: 11, NT: 6 })
+      expect(board.double_dummy.W).toEqual({ C: 11, D: 6, H: 10, S: 11, NT: 6 })
+    })
+
+    it('gives the first value of an NS slash to North', () => {
+      // No slash on this board's NS line ('1D C1 H3 S1 NT3'), but the values
+      // are worth pinning, and they exercise both token forms in one line:
+      // '1D' is digit-first (1-level, so 7 tricks) while 'C1', 'H3', 'S1' and
+      // 'NT3' are strain-first raw counts. The solved deal agrees on all five.
+      expect(board.double_dummy.N).toEqual({ C: 1, D: 7, H: 3, S: 1, NT: 3 })
+      expect(board.double_dummy.S).toEqual({ C: 1, D: 7, H: 3, S: 1, NT: 3 })
+    })
+
+    it("reads par '4S' at -650, the score kept NS-relative", () => {
+      // Source: 'Par: -650 4S-EW+1'. The solver agrees: EW 4S+1 for 650, which
+      // the schema carries from NS's side of the table as -650.
+      expect(board.par).toHaveLength(1)
+      expect(board.par[0].score).toBe(-650)
+      expect(board.par[0].contract).toBe('4S')
     })
   })
 
@@ -401,10 +439,10 @@ describe('parseClubGame (Livermore Bridge Club, 2026-04-20)', () => {
 
     it('leaves a title-only name as just the cleaned name (no middle to strip)', () => {
       // "Mrs Barbara Meola" → "Barbara Meola"; "Mr Louis J Meola" → "Louis
-      // Meola". Source [W, E] order is preserved.
+      // Meola". Source order is East-first, so [W, E] puts Louis first.
       expect(result.ew_pair.players.map((p) => p.name)).toEqual([
-        'Barbara Meola',
         'Louis Meola',
+        'Barbara Meola',
       ])
     })
 

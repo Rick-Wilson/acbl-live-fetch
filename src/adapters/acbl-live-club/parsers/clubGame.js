@@ -88,6 +88,11 @@ function buildSession(session, data) {
   }
 }
 
+function reverseEwPlayers(pair) {
+  if (!pair || !Array.isArray(pair.players) || pair.players.length !== 2) return pair
+  return { ...pair, players: [pair.players[1], pair.players[0]] }
+}
+
 function synthesizePair(number, sectionName) {
   // Used when the pair index doesn't carry an entry for a pair_number that
   // appears on a result row. Players aren't recoverable in this case, but
@@ -302,15 +307,28 @@ function parseDoubleDummy(hr, warnings, boardNumber) {
 
   const ns = parseLine(hr.double_dummy_ns, warnings, boardNumber, 'NS')
   const ew = parseLine(hr.double_dummy_ew, warnings, boardNumber, 'EW')
-  // Slash form ("3/4H" or "C5/6") gives per-seat values: first listed → N,
-  // second listed → S (and W, E for the EW line — matches the analyzer's
-  // seat-display ordering elsewhere). Single-value tokens populate both
-  // seats with the same number via parseDoubleDummyLine.
+  // Slash form ("3/4H" or "C5/6") gives per-seat values, in the order the
+  // line's own direction label reads: NS is [North, South] and EW is
+  // [East, West] — the same convention docs/seat-order-contract.md pins down
+  // for pair players. Single-value tokens populate both seats with the same
+  // number via parseDoubleDummyLine.
+  //
+  // Deal-proved, and at scale: solving all 88 distinct deals in fixtures/
+  // my-acbl gives 22 EW tokens whose two seats differ, and every one of them
+  // matches E-first (0 match W-first); the 14 discriminating NS tokens all
+  // match N-first. Board 4 of sample-club-game.html is the readable case —
+  // 'EW: 5C 3/4H 5S D6 NT6' against a deal where East makes 9 hearts and West
+  // makes 10.
+  //
+  // This used to read first → W, second → E, "matching the analyzer's
+  // seat-display ordering elsewhere" — which is a consumer's convention, one
+  // of the four things that section says never counts as evidence. It put a
+  // visibly backwards E/W row in the analyzer's double-dummy table.
   return {
     N: { ...ns.first },
     S: { ...ns.second },
-    W: { ...ew.first },
-    E: { ...ew.second },
+    E: { ...ew.first },
+    W: { ...ew.second },
   }
 }
 
@@ -379,15 +397,22 @@ function buildResult(br, sectionName, pairIndex, top, bboGameLinks, boardNumber)
   // is missing entries — synthesize a minimal Pair with empty players.
   const ns = pairIndex.get(`${sectionName}|NS|${nsNum}`) ?? synthesizePair(nsNum, sectionName)
   const ewRaw = pairIndex.get(`${sectionName}|EW|${ewNum}`) ?? synthesizePair(ewNum, sectionName)
-  // my.acbl.org's pair_summaries[].players is [N, S] for NS pairs and [W, E]
-  // for EW pairs — which is already the schema's order, so nothing to do here.
+  // ACBL lists a pair in the order its direction label reads: an `N-S` pair is
+  // [North, South], an `E-W` pair is [East, West]. NS therefore matches the
+  // schema and EW does not — the schema wants [W, E], so EW is reversed here.
   //
-  // This used to reverse EW to [E, W], on the belief that the analyzer wanted
-  // PBN's [East]/[West] tag order. It does not: builder.rs and every seat
-  // lookup in the analyzer read ew_pair.players as [W, E], so the reversal is
-  // what made West and East swap places for club games — the flip players
-  // reported. See docs/normalized-schema.md, which now pins the order down.
-  const ew = ewRaw
+  // Measured, not reasoned: Livermore 24 Aug 2026, EW pair 7 was
+  // pair_summaries order [Arthur Mirin, Dan Bergmann], and Mirin held the East
+  // hand on both boards he wrote in about — 15 balanced opening 1NT on board
+  // 26, seven spades opening 1S on board 22. Bergmann declared from West both
+  // times. The deal itself settles it; nothing in the payload does, since no
+  // ACBL field records a player's seat (checked across three real games, two
+  // ACBLScore uploads and one RSVP Bridge).
+  //
+  // August 2026 briefly removed this reversal on the belief that the source
+  // published [W, E]. That half was never verified, and this is the report
+  // that falsifies it. See docs/seat-order-contract.md.
+  const ew = reverseEwPlayers(ewRaw)
 
   const contract = parseContract(br.contract)
 

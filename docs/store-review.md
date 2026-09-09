@@ -797,7 +797,12 @@ upload — so the working tree and the build in AMO's queue were both calling
 themselves 1.0.1 while differing by a removed feature. That alone forces a bump.
 1.1.0 rather than 1.0.2 because the ACBL Live date-range batch was removed and
 replaced with per-row links, the pair picker is new, section coverage narrowed
-to the user's own, and the envelope went 1.1 → 1.2.
+to the user's own, and the envelope went 1.1 → 1.4 — 1.2 for those
+changes, then 1.4 for the two ACBL E-W seat-order fixes, which a consumer must
+branch on to read anything a released build already produced. 1.3 is skipped
+deliberately: Bridge Classroom's ingest door already stamps it on envelopes
+whose players it corrected and whose double-dummy table it did not, so a
+producer must never publish it (seat-order-contract.md § Consumer rule).
 
 **Bump `MARKETING_VERSION` in `project.pbxproj`, not with agvtool.** There is an
 `agvtool new-marketing-version`, and on this project it does nothing useful: it

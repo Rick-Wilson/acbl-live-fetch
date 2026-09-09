@@ -15,6 +15,11 @@
 // second-listed seat. Single-value tokens populate both seats with the
 // same number.
 //
+// This parser is deliberately seat-agnostic — it hands back `first` and
+// `second`, and each caller names them. Which seat is which is one of the
+// answers docs/seat-order-contract.md exists to hold: the row's own label
+// reads in source order, so NS is [North, South] and EW is [East, West].
+//
 // Live.acbl.org wraps raw-tricks tokens in `<div class="reverse">` for
 // styling but the wrapping is redundant — the token order alone is
 // sufficient to disambiguate. Both adapters can therefore feed a flat

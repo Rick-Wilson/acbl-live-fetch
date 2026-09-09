@@ -12,8 +12,15 @@ import { COVERAGE as CLUB_COVERAGE } from '../../src/adapters/acbl-live-club/ind
 
 describe('provenance', () => {
   it('is an additive minor bump, so existing consumers keep working', () => {
-    expect(SCHEMA_VERSION).toBe('1.2')
+    expect(SCHEMA_VERSION).toBe('1.4')
     expect(SCHEMA_VERSION.split('.')[0]).toBe('1')
+  })
+
+  it('never publishes 1.3, which is reserved for the consumer-side restamp', () => {
+    // Bridge Classroom stamps 1.3 on an envelope whose players it corrected and
+    // whose double-dummy table it did not, and reads that number back as "the
+    // table is still transposed". A producer emitting 1.3 would be believed.
+    expect(SCHEMA_VERSION).not.toBe('1.3')
   })
 
   it('takes its version from the manifest so the two cannot drift', () => {

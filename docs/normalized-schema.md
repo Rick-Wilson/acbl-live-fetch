@@ -6,7 +6,7 @@ Every adapter emits this JSON schema regardless of source. The downstream analyz
 
 ```jsonc
 {
-  "schema_version": "1.2",
+  "schema_version": "1.4",
   "source": "acbl-live",          // "acbl-live" | "club-game-bws" | "bbo" | ...
 
   // Who produced this envelope. Present so a consumer can tell extension
@@ -262,11 +262,13 @@ every consumer silently attributes each result to the wrong opponent.
 consumer reads: `builder.rs` in the parser service, and `findPlayerSeat`,
 `partnerOf` and the seat tags in the Game Analysis app.
 
-Both ACBL sources publish EW as `[W, E]` already, so adapters pass them through.
-Until August 2026 both ACBL adapters reversed them to `[E, W]`, each carrying a
-confident comment saying the analyzer wanted it that way. It didn't, and players
-reported West and East swapped in club games. If a source's order ever needs
-changing, verify against a consumer rather than against PBN.
+**[seat-order-contract.md](seat-order-contract.md) is normative** for everything
+else about this field: what each source publishes and how we know, the legal
+shapes of `players`, how to verify a change, and — required reading for any
+consumer — the swaps that older envelopes need, because `acbl-live` and
+`acbl-live-club` emitted E-W East-first up to and including extension 1.0.1 in
+two separate places: `ew_pair.players` below `schema_version` 1.3, and the
+board's `double_dummy` table below 1.4.
 
 ## Player
 
@@ -350,6 +352,18 @@ played, so it is deliberately not extracted.
 
 `schema_version` follows semver-ish:
 
+**1.4** did not change any field. It marks the point where `acbl-live` and
+`acbl-live-club` started emitting the board's `double_dummy` table with its E
+and W rows on the right seats. Together with 1.3 — which marks the same
+correction for `ew_pair.players` — these are the only bumps here that a consumer
+must branch on to read *older* data correctly, and they are gated separately:
+see [seat-order-contract.md](seat-order-contract.md) § Consumer rule.
+
+**1.3 is never published by this extension.** Bridge Classroom stamps it on
+envelopes it has half-corrected at its ingest door, and reads it back as "the
+table is still transposed". A build emitting 1.3 would have a correct table
+swapped into a wrong one.
+
 **1.2** added `capture.players`, `capture.pair` and per-provider id arrays in
 `capture.subject`. Additive and optional: a 1.1 consumer reads a 1.2 envelope
 unchanged.
@@ -364,7 +378,7 @@ The analyzer should validate `schema_version` and refuse data from unknown major
 
 ```json
 {
-  "schema_version": "1.2",
+  "schema_version": "1.4",
   "source": "acbl-live",
   "provider": { "id": "bridge-classroom-fetch", "version": "1.0.0", "kind": "browser-extension" },
   "coverage": {

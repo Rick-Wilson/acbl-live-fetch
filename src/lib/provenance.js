@@ -8,7 +8,23 @@
 
 import manifest from '../../manifest.json' with { type: 'json' }
 
-export const SCHEMA_VERSION = '1.2'
+// 1.4 marks the EW seat-order fixes — both of them. A consumer must, on any
+// acbl-live / acbl-live-club envelope:
+//
+//   below 1.3  swap `ew_pair.players`   (every released build — 1.0.0, 1.0.1,
+//                                        1.1.0 — emits them East-first while
+//                                        claiming [W, E])
+//   below 1.4  swap `double_dummy.E` with `double_dummy.W` on every board
+//
+// BBO envelopes are unaffected at every version: their seats come from LIN
+// `pn|`, and their boards carry no double-dummy table.
+//
+// **1.3 is reserved and must never be published.** No producer has ever emitted
+// it; every 1.3 envelope in the wild was stamped by Bridge Classroom's own
+// consumer-side correction, which fixed players and not the table. A build that
+// shipped 1.3 would be read as "table already correct" and keep the transposed
+// one. Hence 1.2 → 1.4 here, with nothing in between.
+export const SCHEMA_VERSION = '1.4'
 
 // Single source of truth for the version: read from the manifest so the two
 // can't drift.

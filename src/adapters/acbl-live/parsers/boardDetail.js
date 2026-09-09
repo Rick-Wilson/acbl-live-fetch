@@ -160,8 +160,11 @@ function parseDoubleDummyAndPar(doc) {
   // (raw-tricks form), tokens outside are digit-then-strain (level form).
   // Since the order alone is sufficient to disambiguate, we just decorate
   // suit symbols to letters and feed the flat text through the shared
-  // parser. Per-seat values from slash form ("4/5C" or "C5/6") populate
-  // first → N/W, second → S/E.
+  // parser. Per-seat values from slash form ("4/5C" or "C5/6") are listed in
+  // the order the row's own direction label reads — NS is [North, South], EW
+  // is [East, West], the convention docs/seat-order-contract.md pins down for
+  // pair players and the club adapter's DD line proves on 22 discriminating
+  // tokens. So first → N/E, second → S/W.
   const ns = parseDoubleDummyLine(nsLine)
   const ew = parseDoubleDummyLine(ewLine)
   if (ns.warnings.length || ew.warnings.length) {
@@ -173,8 +176,8 @@ function parseDoubleDummyAndPar(doc) {
   const doubleDummy = {
     N: ns.first,
     S: ns.second,
-    W: ew.first,
-    E: ew.second,
+    E: ew.first,
+    W: ew.second,
   }
 
   const parEl = doc.querySelector('div.par-score')
@@ -403,14 +406,15 @@ function parsePairsCell(cell, section) {
       section,
       strat: null,
       strat_ranks: [],
-      // ACBL Live's board-detail HTML lists EW players in [W, E] order, which
-      // is the schema's order too — take them as they come.
+      // The cell reads `1-NS A, B vs. 2-EW C, D` — ACBL lists each pair in the
+      // order its direction label reads, so the EW half is [East, West] and
+      // needs reversing into the schema's [W, E].
       //
-      // This used to reverse to [E, W] on the belief that the analyzer wanted
-      // PBN's tag order. It does not (builder.rs and every analyzer seat lookup
-      // read [W, E]), and the reversal is what swapped West and East in the
-      // analyzer. See docs/normalized-schema.md.
-      players: [parsePlayerSpan(nameEls[2]), parsePlayerSpan(nameEls[3])],
+      // Confirmed on a real tournament board rather than inherited from the
+      // club adapter: the fixture cell reads `Rick Wilson, Andrew Rowberg`, and
+      // Rowberg only ever sits North or West — so the cell's first name is the
+      // East player. See docs/seat-order-contract.md.
+      players: [parsePlayerSpan(nameEls[3]), parsePlayerSpan(nameEls[2])],
     },
   }
 }

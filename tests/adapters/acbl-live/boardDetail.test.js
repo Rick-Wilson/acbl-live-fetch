@@ -111,9 +111,11 @@ describe('parseBoardDetail (acbl-live, event 2604321 / board 1)', () => {
     expect(userRow.score).toBe(420)
     expect(userRow.ew_pair.number).toBe(4)
     expect(userRow.ew_pair.section).toBe('A')
-    // The source HTML lists EW players in [W, E], which is the schema's order
-    // too — passed through, not reversed. Rick sat West.
-    expect(userRow.ew_pair.players.map((p) => p.name)).toEqual(['Rick Wilson', 'Andrew Rowberg'])
+    // The source HTML lists an E-W pair East-first, so [W, E] puts Rowberg
+    // first. Confirmed for this event: Andrew Rowberg only ever sits North or
+    // West, and the source cell reads `Rick Wilson, Andrew Rowberg` — so the
+    // first name in the cell is East.
+    expect(userRow.ew_pair.players.map((p) => p.name)).toEqual(['Andrew Rowberg', 'Rick Wilson'])
   })
 
   it('result rows include matchpoints, percentage, and pair player names', () => {
@@ -126,8 +128,11 @@ describe('parseBoardDetail (acbl-live, event 2604321 / board 1)', () => {
     expect(first.ns_pair.number).toBe(10)
     expect(first.ns_pair.players.map((p) => p.name)).toEqual(['Weilong Shen', 'Vasisht Ganesh'])
     expect(first.ew_pair.number).toBe(6)
-    // [W, E], straight from the source HTML.
-    expect(first.ew_pair.players.map((p) => p.name)).toEqual(['Arthur Mirin', 'Padmini Sokkappa'])
+    // [W, E] — the source HTML's East-first order, reversed. Independent
+    // corroboration of the same convention: Mirin sits East or South, and the
+    // source cell lists him first among the E-W pair, exactly as my.acbl.org
+    // did for the game where the deals proved he sat East.
+    expect(first.ew_pair.players.map((p) => p.name)).toEqual(['Padmini Sokkappa', 'Arthur Mirin'])
   })
 
   it('includes a non-empty handviewer URL pointing at bridgebase.com', () => {

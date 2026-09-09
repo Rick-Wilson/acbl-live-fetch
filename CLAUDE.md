@@ -71,6 +71,9 @@ journal; filters compose and are *nested*, so widening a run only adds work.
   *how* matters: three sites each broke a naive `fetch()` differently
 - `docs/normalized-schema.md` — the envelope, including `coverage` and the
   deliberate decision not to collect BBO opponents' real names
+- `docs/seat-order-contract.md` — which player sat where. Array order is the
+  only carrier, it has been wrong twice, and both times the reasoning looked
+  sound. Read it before touching a `players` array in either direction
 - `docs/adr/0001-*.md` — why the ingest route exists
 - `docs/store-review.md` — store submission, test procedures, blockers
 - `docs/acbl-rate-limit.md` — the ~110-request-per-sign-in allowance on
@@ -87,7 +90,12 @@ PRs #5–#9 landed on the 12th and 13th. The working tree and the build in AMO's
 queue were both calling themselves 1.0.1 while differing by a removed feature.
 Minor rather than patch because the ACBL Live date-range batch was removed and
 replaced with per-row links, the pair picker is new, section coverage narrowed
-to the user's own, and the envelope went 1.1 → 1.2.
+to the user's own, and the envelope went 1.1 → 1.4 — 1.2 for those
+changes, then 1.4 for the two ACBL E-W seat-order fixes, which a consumer must
+branch on to read anything a released build already produced. 1.3 is skipped
+deliberately: Bridge Classroom's ingest door already stamps it on envelopes
+whose players it corrected and whose double-dummy table it did not, so a
+producer must never publish it (seat-order-contract.md § Consumer rule).
 
 Four places carry the version; `docs/store-review.md` § 6a has the table.
 **Xcode's `MARKETING_VERSION` is edited in `project.pbxproj` directly** —

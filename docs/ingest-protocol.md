@@ -3,6 +3,9 @@
 The contract between the extension and any Bridge Classroom ingest page.
 Implements [ADR 0001](adr/0001-ingest-endpoint-and-postmessage-handoff.md);
 supersedes [handoff-protocol.md](handoff-protocol.md) once shipped.
+Governs how a payload travels — for what one field of it *means*, and the fix an
+ingester owes older envelopes, see
+[seat-order-contract.md](seat-order-contract.md).
 
 Three pieces of code:
 
